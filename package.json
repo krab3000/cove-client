@@ -1,118 +1,34 @@
 {
-  "name": "react-native-libav",
-  "version": "0.1.0",
-  "description": "Hardware-accelerated libav (FFmpeg) video player for React Native Windows",
-  "main": "./lib/module/index.js",
-  "types": "./lib/typescript/src/index.d.ts",
-  "exports": {
-    ".": {
-      "react-native-libav-source": "./src/index.tsx",
-      "types": "./lib/typescript/src/index.d.ts",
-      "default": "./lib/module/index.js"
-    },
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "src",
-    "lib",
-    "windows",
-    "!windows/**/x64",
-    "!windows/**/Debug",
-    "!windows/**/Release",
-    "!windows/packages",
-    "react-native.config.js",
-    "scripts",
-    "!**/__tests__",
-    "!**/.*"
+  "name": "react-native-libav-monorepo",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
   ],
+  "packageManager": "yarn@4.11.0",
   "scripts": {
-    "example": "yarn workspace react-native-libav-example",
-    "clean": "del-cli lib example/windows/x64 windows/x64",
-    "prepare": "bob build",
-    "typecheck": "tsc",
-    "lint": "eslint \"**/*.{js,ts,tsx}\"",
-    "fetch-ffmpeg": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-ffmpeg.ps1"
-  },
-  "keywords": [
-    "react-native",
-    "react-native-windows",
-    "ffmpeg",
-    "libav",
-    "video",
-    "d3d11"
-  ],
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/krab3000/react-native-libav.git"
-  },
-  "author": "krab3000 <echekanskiy@gmail.com> (https://github.com/krab3000)",
-  "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/krab3000/react-native-libav/issues"
-  },
-  "homepage": "https://github.com/krab3000/react-native-libav#readme",
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/"
+    "windows": "yarn workspace react-native-libav-example-windows windows",
+    "android": "yarn workspace react-native-libav-example-android android",
+    "start:windows": "yarn workspace react-native-libav-example-windows start",
+    "start:android": "yarn workspace react-native-libav-example-android start",
+    "fetch-ffmpeg": "yarn workspace react-native-libav fetch-ffmpeg",
+    "build-ffmpeg-android": "yarn workspace react-native-libav build-ffmpeg-android",
+    "setup-android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-android-toolchain.ps1",
+    "make-test-media": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-test-media.ps1",
+    "typecheck": "yarn workspace react-native-libav typecheck && yarn workspace react-native-libav-example-ui typecheck",
+    "lint": "eslint \"**/*.{js,ts,tsx}\""
   },
   "devDependencies": {
     "@eslint/compat": "^2.1.0",
     "@eslint/eslintrc": "^3.3.6",
     "@eslint/js": "^9.39.5",
-    "@react-native/babel-preset": "0.84.1",
     "@react-native/eslint-config": "0.86.2",
-    "@types/react": "^19.2.0",
-    "del-cli": "^7.0.0",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-ft-flow": "^3.0.11",
     "eslint-plugin-prettier": "^5.5.6",
     "prettier": "^3.9.6",
-    "react": "19.2.3",
-    "react-native": "0.84.1",
-    "react-native-builder-bob": "^0.43.1",
-    "react-native-windows": "0.84.0",
-    "turbo": "^2.10.8",
     "typescript": "^6.0.3"
-  },
-  "peerDependencies": {
-    "react": "*",
-    "react-native": "*",
-    "react-native-windows": "*"
-  },
-  "workspaces": [
-    "example"
-  ],
-  "packageManager": "yarn@4.11.0",
-  "react-native-builder-bob": {
-    "source": "src",
-    "output": "lib",
-    "targets": [
-      [
-        "module",
-        {
-          "esm": true
-        }
-      ],
-      [
-        "typescript",
-        {
-          "project": "tsconfig.build.json"
-        }
-      ]
-    ]
-  },
-  "codegenConfig": {
-    "name": "LibavSpec",
-    "type": "all",
-    "jsSrcsDir": "src",
-    "windows": {
-      "namespace": "ReactNativeLibavCodegen",
-      "generators": [
-        "componentsWindows"
-      ],
-      "outputDirectory": "windows/ReactNativeLibav/codegen",
-      "separateDataTypes": true
-    }
   },
   "prettier": {
     "quoteProps": "consistent",
@@ -120,20 +36,5 @@
     "tabWidth": 2,
     "trailingComma": "es5",
     "useTabs": false
-  },
-  "create-react-native-library": {
-    "type": "fabric-view",
-    "languages": "kotlin-objc",
-    "tools": [
-      "eslint"
-    ],
-    "version": "0.63.1"
-  },
-  "react-native-windows": {
-    "init-windows": {
-      "name": "ReactNativeLibav",
-      "namespace": "ReactNativeLibav",
-      "template": "cpp-lib"
-    }
   }
 }

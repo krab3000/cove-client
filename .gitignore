@@ -41,13 +41,6 @@ project.xcworkspace
 local.properties
 android.iml
 
-# Cocoapods
-#
-example/ios/Pods
-
-# Ruby
-example/vendor/
-
 # node.js
 #
 node_modules/
@@ -88,14 +81,14 @@ nitrogen/
 # FFmpeg SDK (scripts/fetch-ffmpeg.ps1)
 third_party/
 
-# Test media (example)
-example/assets/media/
+# Test media (scripts/make-test-media.ps1)
+/media/
 
 # Native build outputs
-example/windows/x64/
-example/windows/ARM64/
-windows/x64/
-windows/ARM64/
+**/windows/x64/
+**/windows/ARM64/
+# FFmpeg Android build log (scripts/ffmpeg-android/build.ps1)
+ffmpeg-android-build.log
 *.binlog
 msbuild_*.err
 msbuild_*.wrn

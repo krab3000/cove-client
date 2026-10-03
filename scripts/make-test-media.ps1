@@ -1,8 +1,8 @@
 # Generates test clips (timecoded test pattern + 1 kHz beep every second, for checking A/V sync) into
-# example/assets/media with the ffmpeg.exe of the FFmpeg build the app ships with.
+# media/ (repo root) with the ffmpeg.exe of the FFmpeg build the app ships with.
 param([string]$FFmpeg = 'D:\dev\cove\remote-heavylifter\artifacts\ffmpeg\win-x64\ffmpeg\ffmpeg.exe')
 $ErrorActionPreference = 'Stop'
-$out = Join-Path $PSScriptRoot '..\assets\media'
+$out = Join-Path $PSScriptRoot '..\media'
 New-Item -ItemType Directory -Force $out | Out-Null
 
 function Make($name, $size, $rate, $codecArgs) {

@@ -3,7 +3,8 @@ const path = require('path');
 const { getDefaultConfig } = require('@react-native/metro-config');
 const { withMetroConfig } = require('react-native-monorepo-config');
 
-const root = path.resolve(__dirname, '..');
+const root = path.resolve(__dirname, '../..');
+const library = path.join(root, 'packages', 'react-native-libav');
 const rnwPath = fs.realpathSync(
   path.dirname(require.resolve('react-native-windows/package.json'))
 );
@@ -34,7 +35,10 @@ const existing = config.resolver.blockList;
 config.resolver.blockList = [
   ...(Array.isArray(existing) ? existing : existing ? [existing] : []),
   under(path.resolve(__dirname, 'windows')),
-  under(path.resolve(root, 'windows')),
+  under(path.join(library, 'windows')),
+  under(path.join(library, 'android')),
+  under(path.join(library, 'third_party')),
+  under(path.join(root, 'apps', 'example-android')),
   under(path.join(rnwPath, 'build')),
   under(path.join(rnwPath, 'target')),
   /.*\.ProjectImports\.zip/,

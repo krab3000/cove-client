@@ -2890,48 +2890,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@turbo/darwin-64@npm:2.11.7":
-  version: 2.11.7
-  resolution: "@turbo/darwin-64@npm:2.11.7"
-  conditions: os=darwin & cpu=x64
-  languageName: node
-  linkType: hard
-
-"@turbo/darwin-arm64@npm:2.11.7":
-  version: 2.11.7
-  resolution: "@turbo/darwin-arm64@npm:2.11.7"
-  conditions: os=darwin & cpu=arm64
-  languageName: node
-  linkType: hard
-
-"@turbo/linux-64@npm:2.11.7":
-  version: 2.11.7
-  resolution: "@turbo/linux-64@npm:2.11.7"
-  conditions: (os=android | os=linux) & cpu=x64
-  languageName: node
-  linkType: hard
-
-"@turbo/linux-arm64@npm:2.11.7":
-  version: 2.11.7
-  resolution: "@turbo/linux-arm64@npm:2.11.7"
-  conditions: (os=android | os=linux) & cpu=arm64
-  languageName: node
-  linkType: hard
-
-"@turbo/windows-64@npm:2.11.7":
-  version: 2.11.7
-  resolution: "@turbo/windows-64@npm:2.11.7"
-  conditions: os=win32 & cpu=x64
-  languageName: node
-  linkType: hard
-
-"@turbo/windows-arm64@npm:2.11.7":
-  version: 2.11.7
-  resolution: "@turbo/windows-arm64@npm:2.11.7"
-  conditions: os=win32 & cpu=arm64
-  languageName: node
-  linkType: hard
-
 "@types/babel__core@npm:^7.1.14":
   version: 7.20.5
   resolution: "@types/babel__core@npm:7.20.5"
@@ -7983,9 +7941,25 @@ __metadata:
   languageName: node
   linkType: hard
 
-"react-native-libav-example@workspace:example":
+"react-native-libav-example-ui@workspace:*, react-native-libav-example-ui@workspace:apps/example-ui":
   version: 0.0.0-use.local
-  resolution: "react-native-libav-example@workspace:example"
+  resolution: "react-native-libav-example-ui@workspace:apps/example-ui"
+  dependencies:
+    "@types/react": "npm:^19.2.0"
+    react: "npm:19.2.3"
+    react-native: "npm:0.84.1"
+    react-native-libav: "workspace:*"
+    typescript: "npm:^6.0.3"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-libav: "*"
+  languageName: unknown
+  linkType: soft
+
+"react-native-libav-example-windows@workspace:apps/example-windows":
+  version: 0.0.0-use.local
+  resolution: "react-native-libav-example-windows@workspace:apps/example-windows"
   dependencies:
     "@babel/core": "npm:^7.25.2"
     "@babel/preset-env": "npm:^7.25.3"
@@ -7999,37 +7973,49 @@ __metadata:
     react: "npm:19.2.3"
     react-native: "npm:0.84.1"
     react-native-builder-bob: "npm:^0.43.1"
+    react-native-libav: "workspace:*"
+    react-native-libav-example-ui: "workspace:*"
     react-native-monorepo-config: "npm:^0.4.0"
     react-native-windows: "npm:0.84.0"
   languageName: unknown
   linkType: soft
 
-"react-native-libav@workspace:.":
+"react-native-libav-monorepo@workspace:.":
   version: 0.0.0-use.local
-  resolution: "react-native-libav@workspace:."
+  resolution: "react-native-libav-monorepo@workspace:."
   dependencies:
     "@eslint/compat": "npm:^2.1.0"
     "@eslint/eslintrc": "npm:^3.3.6"
     "@eslint/js": "npm:^9.39.5"
-    "@react-native/babel-preset": "npm:0.84.1"
     "@react-native/eslint-config": "npm:0.86.2"
-    "@types/react": "npm:^19.2.0"
-    del-cli: "npm:^7.0.0"
     eslint: "npm:^9.39.5"
     eslint-config-prettier: "npm:^10.1.8"
     eslint-plugin-ft-flow: "npm:^3.0.11"
     eslint-plugin-prettier: "npm:^5.5.6"
     prettier: "npm:^3.9.6"
+    typescript: "npm:^6.0.3"
+  languageName: unknown
+  linkType: soft
+
+"react-native-libav@workspace:*, react-native-libav@workspace:packages/react-native-libav":
+  version: 0.0.0-use.local
+  resolution: "react-native-libav@workspace:packages/react-native-libav"
+  dependencies:
+    "@react-native/babel-preset": "npm:0.84.1"
+    "@types/react": "npm:^19.2.0"
+    del-cli: "npm:^7.0.0"
     react: "npm:19.2.3"
     react-native: "npm:0.84.1"
     react-native-builder-bob: "npm:^0.43.1"
     react-native-windows: "npm:0.84.0"
-    turbo: "npm:^2.10.8"
     typescript: "npm:^6.0.3"
   peerDependencies:
     react: "*"
     react-native: "*"
     react-native-windows: "*"
+  peerDependenciesMeta:
+    react-native-windows:
+      optional: true
   languageName: unknown
   linkType: soft
 
@@ -9113,35 +9099,6 @@ __metadata:
   peerDependencies:
     typescript: ">=4.8.4"
   checksum: 10c0/767849383c114e7f1971fa976b20e73ac28fd0c70d8d65c0004790bf4d8f89888c7e4cf6d5949f9c1beae9bc3c64835bef77bbe27fddf45a3c7b60cebcf85c8c
-  languageName: node
-  linkType: hard
-
-"turbo@npm:^2.10.8":
-  version: 2.11.7
-  resolution: "turbo@npm:2.11.7"
-  dependencies:
-    "@turbo/darwin-64": "npm:2.11.7"
-    "@turbo/darwin-arm64": "npm:2.11.7"
-    "@turbo/linux-64": "npm:2.11.7"
-    "@turbo/linux-arm64": "npm:2.11.7"
-    "@turbo/windows-64": "npm:2.11.7"
-    "@turbo/windows-arm64": "npm:2.11.7"
-  dependenciesMeta:
-    "@turbo/darwin-64":
-      optional: true
-    "@turbo/darwin-arm64":
-      optional: true
-    "@turbo/linux-64":
-      optional: true
-    "@turbo/linux-arm64":
-      optional: true
-    "@turbo/windows-64":
-      optional: true
-    "@turbo/windows-arm64":
-      optional: true
-  bin:
-    turbo: bin/turbo
-  checksum: 10c0/42ad4f562a10b5f18be19dd13d24dec9276696818258ce5f31acbd507a8dfbdfab7bcee275b8b9c7f5446fde6549b90200950d7456f32042d604774338e6168a
   languageName: node
   linkType: hard
 

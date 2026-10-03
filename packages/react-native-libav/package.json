@@ -1,0 +1,125 @@
+{
+  "name": "react-native-libav",
+  "version": "0.1.0",
+  "description": "Hardware-accelerated libav (FFmpeg) video player component for React Native Windows and Android",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "react-native-libav-source": "./src/index.tsx",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "cpp",
+    "windows",
+    "!windows/**/x64",
+    "!windows/**/ARM64",
+    "!windows/**/Debug",
+    "!windows/**/Release",
+    "!windows/packages",
+    "android",
+    "!android/build",
+    "!android/.cxx",
+    "!android/.gradle",
+    "react-native.config.js",
+    "scripts",
+    "!**/__tests__",
+    "!**/.*"
+  ],
+  "scripts": {
+    "prepare": "bob build",
+    "typecheck": "tsc -p .",
+    "clean": "del-cli lib android/build android/.cxx windows/x64",
+    "fetch-ffmpeg": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-ffmpeg.ps1",
+    "build-ffmpeg-android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/ffmpeg-android/build.ps1"
+  },
+  "keywords": [
+    "react-native",
+    "react-native-windows",
+    "android",
+    "ffmpeg",
+    "libav",
+    "video",
+    "d3d11va",
+    "mediacodec"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krab3000/react-native-libav.git"
+  },
+  "author": "krab3000 <echekanskiy@gmail.com> (https://github.com/krab3000)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/krab3000/react-native-libav/issues"
+  },
+  "homepage": "https://github.com/krab3000/react-native-libav#readme",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "devDependencies": {
+    "@react-native/babel-preset": "0.84.1",
+    "@types/react": "^19.2.0",
+    "del-cli": "^7.0.0",
+    "react": "19.2.3",
+    "react-native": "0.84.1",
+    "react-native-builder-bob": "^0.43.1",
+    "react-native-windows": "0.84.0",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "react-native-windows": "*"
+  },
+  "peerDependenciesMeta": {
+    "react-native-windows": {
+      "optional": true
+    }
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "codegenConfig": {
+    "name": "LibavSpec",
+    "type": "all",
+    "jsSrcsDir": "src",
+    "windows": {
+      "namespace": "ReactNativeLibavCodegen",
+      "generators": [
+        "componentsWindows"
+      ],
+      "outputDirectory": "windows/ReactNativeLibav/codegen",
+      "separateDataTypes": true
+    },
+    "android": {
+      "javaPackageName": "com.libav"
+    }
+  },
+  "react-native-windows": {
+    "init-windows": {
+      "name": "ReactNativeLibav",
+      "namespace": "ReactNativeLibav",
+      "template": "cpp-lib"
+    }
+  }
+}

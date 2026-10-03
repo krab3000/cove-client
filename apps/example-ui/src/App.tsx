@@ -13,14 +13,7 @@ import {
   type LoadEvent,
 } from 'react-native-libav';
 
-// Test clips made by example/scripts/make-test-media.ps1.
-const MEDIA = 'D:/dev/cove/react-native-libav/example/assets/media';
-const SAMPLES = [
-  `${MEDIA}/h264-1080p.mp4`,
-  `${MEDIA}/hevc10-2160p.mp4`,
-  `${MEDIA}/av1-1080p.mkv`,
-  `${MEDIA}/multi-audio.mkv`,
-];
+import { SAMPLES } from './samples';
 
 function Button({
   title,
