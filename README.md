@@ -11,6 +11,14 @@ libavformat demux ─► libavcodec + D3D11VA ─► ID3D11Texture2D (NV12/P010)
 libavcodec audio ─► libswresample (float32, device mix format) ─► WASAPI shared/event (master clock)
 ```
 
+HDR video (PQ/HDR10 or HLG, BT.2020) skips the video processor, which would only clip it to SDR. `HdrRenderer`
+copies the decoded P010 surface into a texture shaders can read, then a pixel shader does the conversion:
+- YCbCr → RGB, PQ/HLG → nits.
+- BT.2390 tone mapping from the content's peak brightness (MaxCLL, or the mastering display's peak; 1000 nits when
+  unknown) down to 203-nit SDR reference white, applied to the brightest RGB channel to keep hues.
+- BT.2020 → BT.709 colour conversion and sRGB encoding.
+- 2×2 supersampling for downscaling.
+
 Microsoft.UI.Composition, the WinAppSDK compositor RNW uses, has no public swapchain interop. Instead, the component's
 D3D11 device is also the rendering device of a `CompositionGraphicsDevice`, and each frame is blitted straight into
 the drawing surface's texture. Rendering is paced on the compositor clock (`DCompositionWaitForCompositorClock`). Once
@@ -24,22 +32,36 @@ is set, frames are decoded in software, converted to NV12 and uploaded once. Aft
 ## Usage
 
 ```tsx
-import { LibavVideoView } from 'react-native-libav';
+import { LibavVideoView, type LibavVideoViewHandle } from 'react-native-libav';
+
+const player = useRef<LibavVideoViewHandle>(null);
 
 <LibavVideoView
+  ref={player}
   style={{ flex: 1 }}
   source="C:/Videos/clip.mp4"        // any path or URL libavformat opens (file:///, http(s), rtsp, ...)
   paused={false}
   muted={false}
-  volume={1}
+  volume={1}                          // 0..1, applied per player
   loop
   hardwareDecoding                    // default true
-  onLoad={(e) => console.log(e.nativeEvent)}   // { duration, width, height, hasAudio, hwDecoding, codec }
+  audioTrack={-1}                     // stream index from onLoad's audioTracks; -1 = default track
+  onLoad={(e) => console.log(e.nativeEvent)}
+  // { duration, width, height, hasAudio, hwDecoding, codec,
+  //   audioTracks: [{ index, language, title, codec, channels, sampleRate }], audioTrack }
   onProgress={(e) => e.nativeEvent.currentTime}
+  onSeek={(e) => e.nativeEvent.currentTime}   // the frame at the seek target is on screen
   onEnd={() => {}}
   onError={(e) => console.warn(e.nativeEvent.message)}
 />
+
+player.current?.seek(42.5);           // seconds from the start, frame accurate (also while paused)
 ```
+
+A seek or audio track switch bumps a serial number through the pipeline. Queues are cleared, each stage flushes when
+it meets the new serial and drops anything older, and the WASAPI buffer is reset. The demuxer lands on the keyframe at
+or before the target, and the decoders drop the frames and samples before it, so playback restarts exactly at the
+target. Switching the audio track starts a new audio output on the other stream and seeks to the current position.
 
 ## Setup
 

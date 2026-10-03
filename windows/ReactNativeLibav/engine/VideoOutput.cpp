@@ -97,6 +97,8 @@ void VideoOutput::ApplyResize() {
 void VideoOutput::ResetCaches() {
   std::lock_guard lock(m_lock);
   m_inputViews.clear();
+  if (m_hdr)
+    m_hdr->Reset();
 }
 
 bool VideoOutput::EnsureProcessor(UINT inWidth, UINT inHeight) {
@@ -185,6 +187,15 @@ void VideoOutput::SetColorSpaces(const AVFrame *frame) {
   m_videoContext->VideoProcessorSetOutputColorSpace(m_processor.get(), &out);
 }
 
+void VideoOutput::ClearRegion(ID3D11Texture2D *target, POINT offset) {
+  winrt::com_ptr<ID3D11RenderTargetView> rtv;
+  if (SUCCEEDED(m_device->CreateRenderTargetView(target, nullptr, rtv.put()))) {
+    const float black[4] = {0, 0, 0, 1};
+    const D3D11_RECT region{offset.x, offset.y, offset.x + LONG(m_width), offset.y + LONG(m_height)};
+    m_context->ClearView(rtv.get(), black, &region, 1);
+  }
+}
+
 // Converts and scales the frame into our m_width x m_height region of target, which starts at offset (the
 // drawing surface may live in an atlas texture shared with other surfaces).
 bool VideoOutput::Blt(const AVFrame *frame, ID3D11Texture2D *target, POINT offset) {
@@ -198,9 +209,37 @@ bool VideoOutput::Blt(const AVFrame *frame, ID3D11Texture2D *target, POINT offse
   }
   if (!texture)
     return false;
-
   D3D11_TEXTURE2D_DESC desc{};
   texture->GetDesc(&desc);
+
+  // Aspect-fit, honouring the sample aspect ratio.
+  const double sar = frame->sample_aspect_ratio.num > 0 && frame->sample_aspect_ratio.den > 0
+      ? av_q2d(frame->sample_aspect_ratio)
+      : 1.0;
+  const double videoAspect = frame->width * sar / std::max(frame->height, 1);
+  double w = m_width, h = m_width / videoAspect;
+  if (h > m_height) {
+    h = m_height;
+    w = m_height * videoAspect;
+  }
+  const LONG x = offset.x, y = offset.y;
+  const RECT dest{x + LONG((m_width - w) / 2), y + LONG((m_height - h) / 2), x + LONG((m_width + w) / 2),
+                  y + LONG((m_height + h) / 2)};
+
+  if (HdrRenderer::IsHdr(frame)) {
+    if (!m_hdr && !m_hdrFailed) {
+      try {
+        m_hdr = std::make_unique<HdrRenderer>(m_device.get());
+      } catch (const winrt::hresult_error &) {
+        m_hdrFailed = true; // no shader compiler: fall back to the video processor's (clipping) conversion
+      }
+    }
+    if (m_hdr) {
+      ClearRegion(target, offset);
+      return m_hdr->Draw(frame, texture, slice, target, dest);
+    }
+  }
+
   if (!EnsureProcessor(desc.Width, desc.Height))
     return false;
   auto &inputView = m_inputViews[{texture, slice}];
@@ -217,19 +256,6 @@ bool VideoOutput::Blt(const AVFrame *frame, ID3D11Texture2D *target, POINT offse
   if (FAILED(m_videoDevice->CreateVideoProcessorOutputView(target, m_enumerator.get(), &outDesc, outputView.put())))
     return false;
 
-  // Aspect-fit, honouring the sample aspect ratio.
-  const double sar = frame->sample_aspect_ratio.num > 0 && frame->sample_aspect_ratio.den > 0
-      ? av_q2d(frame->sample_aspect_ratio)
-      : 1.0;
-  const double videoAspect = frame->width * sar / std::max(frame->height, 1);
-  double w = m_width, h = m_width / videoAspect;
-  if (h > m_height) {
-    h = m_height;
-    w = m_height * videoAspect;
-  }
-  const LONG x = offset.x, y = offset.y;
-  const RECT dest{x + LONG((m_width - w) / 2), y + LONG((m_height - h) / 2), x + LONG((m_width + w) / 2),
-                  y + LONG((m_height + h) / 2)};
   const RECT source{0, 0, LONG(std::min<UINT>(frame->width, desc.Width)),
                     LONG(std::min<UINT>(frame->height, desc.Height))};
   const RECT region{x, y, x + LONG(m_width), y + LONG(m_height)};
@@ -256,14 +282,8 @@ void VideoOutput::Present(const AVFrame *frame) {
   POINT offset{};
   winrt::check_hresult(m_surfaceInterop->BeginDraw(nullptr, IID_PPV_ARGS(target.put()), &offset));
   try {
-    if (!frame || !Blt(frame, target.get(), offset)) {
-      winrt::com_ptr<ID3D11RenderTargetView> rtv;
-      if (SUCCEEDED(m_device->CreateRenderTargetView(target.get(), nullptr, rtv.put()))) {
-        const float black[4] = {0, 0, 0, 1};
-        const D3D11_RECT region{offset.x, offset.y, offset.x + LONG(m_width), offset.y + LONG(m_height)};
-        m_context->ClearView(rtv.get(), black, &region, 1);
-      }
-    }
+    if (!frame || !Blt(frame, target.get(), offset))
+      ClearRegion(target.get(), offset);
   } catch (...) {
     m_surfaceInterop->EndDraw();
     throw;

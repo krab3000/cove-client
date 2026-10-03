@@ -109,6 +109,7 @@
     <ClInclude Include="engine\Clock.h" />
     <ClInclude Include="engine\CompositorClock.h" />
     <ClInclude Include="engine\FFmpeg.h" />
+    <ClInclude Include="engine\HdrRenderer.h" />
     <ClInclude Include="engine\Player.h" />
     <ClInclude Include="engine\Queues.h" />
     <ClInclude Include="engine\VideoOutput.h" />
@@ -122,6 +123,7 @@
   <ItemGroup>
     <ClCompile Include="LibavVideoView.cpp" />
     <ClCompile Include="engine\AudioOutput.cpp" />
+    <ClCompile Include="engine\HdrRenderer.cpp" />
     <ClCompile Include="engine\Player.cpp" />
     <ClCompile Include="engine\VideoOutput.cpp" />
     <ClCompile Include="pch.cpp">

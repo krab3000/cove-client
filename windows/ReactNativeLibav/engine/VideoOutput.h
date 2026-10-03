@@ -11,6 +11,7 @@
 #include <mutex>
 
 #include "FFmpeg.h"
+#include "HdrRenderer.h"
 
 namespace ReactNativeLibav {
 
@@ -20,6 +21,7 @@ namespace ReactNativeLibav {
 // converts the decoded NV12/P010 surface to BGRA in it, scaled and letterboxed. Frames never leave the GPU.
 // (Microsoft.UI.Composition has no public swapchain interop, so the drawing surface replaces a swapchain here.)
 // Software-decoded frames, converted to NV12 by the decoder, are uploaded once and then take the same path.
+// HDR (PQ/HLG) frames are tone mapped to SDR by HdrRenderer instead, also entirely on the GPU.
 class VideoOutput {
  public:
   // On the UI thread. Throws winrt::hresult_error.
@@ -49,6 +51,7 @@ class VideoOutput {
   ID3D11Texture2D *Upload(const AVFrame *frame);
   void SetColorSpaces(const AVFrame *frame);
   bool Blt(const AVFrame *frame, ID3D11Texture2D *target, POINT offset);
+  void ClearRegion(ID3D11Texture2D *target, POINT offset);
 
   std::recursive_mutex m_lock;
   winrt::com_ptr<ID3D11Device> m_device;
@@ -70,6 +73,9 @@ class VideoOutput {
   UINT m_processorIn[2]{};
   UINT m_processorOut[2]{};
   std::map<std::pair<ID3D11Texture2D *, UINT>, winrt::com_ptr<ID3D11VideoProcessorInputView>> m_inputViews;
+
+  std::unique_ptr<HdrRenderer> m_hdr; // PQ/HLG content: tone mapped by a shader instead of the video processor
+  bool m_hdrFailed = false;
 
   winrt::com_ptr<ID3D11Texture2D> m_staging;
   winrt::com_ptr<ID3D11Texture2D> m_upload;
