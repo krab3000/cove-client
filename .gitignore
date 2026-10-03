@@ -84,3 +84,18 @@ android/generated
 
 # React Native Nitro Modules
 nitrogen/
+
+# FFmpeg SDK (scripts/fetch-ffmpeg.ps1)
+third_party/
+
+# Test media (example)
+example/assets/media/
+
+# Native build outputs
+example/windows/x64/
+example/windows/ARM64/
+windows/x64/
+windows/ARM64/
+*.binlog
+msbuild_*.err
+msbuild_*.wrn

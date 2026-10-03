@@ -15,33 +15,31 @@
   "files": [
     "src",
     "lib",
-    "android",
-    "ios",
-    "cpp",
-    "*.podspec",
+    "windows",
+    "!windows/**/x64",
+    "!windows/**/Debug",
+    "!windows/**/Release",
+    "!windows/packages",
     "react-native.config.js",
-    "!ios/build",
-    "!android/build",
-    "!android/gradle",
-    "!android/gradlew",
-    "!android/gradlew.bat",
-    "!android/local.properties",
+    "scripts",
     "!**/__tests__",
-    "!**/__fixtures__",
-    "!**/__mocks__",
     "!**/.*"
   ],
   "scripts": {
     "example": "yarn workspace react-native-libav-example",
-    "clean": "del-cli android/build example/android/build example/android/app/build example/ios/build lib",
+    "clean": "del-cli lib example/windows/x64 windows/x64",
     "prepare": "bob build",
     "typecheck": "tsc",
-    "lint": "eslint \"**/*.{js,ts,tsx}\""
+    "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "fetch-ffmpeg": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-ffmpeg.ps1"
   },
   "keywords": [
     "react-native",
-    "ios",
-    "android"
+    "react-native-windows",
+    "ffmpeg",
+    "libav",
+    "video",
+    "d3d11"
   ],
   "repository": {
     "type": "git",
@@ -72,12 +70,14 @@
     "react": "19.2.3",
     "react-native": "0.84.1",
     "react-native-builder-bob": "^0.43.1",
+    "react-native-windows": "0.84.0",
     "turbo": "^2.10.8",
     "typescript": "^6.0.3"
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "react-native-windows": "*"
   },
   "workspaces": [
     "example"
@@ -102,18 +102,16 @@
     ]
   },
   "codegenConfig": {
-    "name": "LibavViewSpec",
+    "name": "LibavSpec",
     "type": "all",
     "jsSrcsDir": "src",
-    "android": {
-      "javaPackageName": "com.libav"
-    },
-    "ios": {
-      "components": {
-        "LibavView": {
-          "className": "LibavView"
-        }
-      }
+    "windows": {
+      "namespace": "ReactNativeLibavCodegen",
+      "generators": [
+        "componentsWindows"
+      ],
+      "outputDirectory": "windows/ReactNativeLibav/codegen",
+      "separateDataTypes": true
     }
   },
   "prettier": {
@@ -130,5 +128,12 @@
       "eslint"
     ],
     "version": "0.63.1"
+  },
+  "react-native-windows": {
+    "init-windows": {
+      "name": "ReactNativeLibav",
+      "namespace": "ReactNativeLibav",
+      "template": "cpp-lib"
+    }
   }
 }
