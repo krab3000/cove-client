@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -69,6 +70,8 @@ function Bar({
     </View>
   );
 }
+
+const HARDWARE_DECODER = Platform.OS === 'android' ? 'MediaCodec' : 'D3D11VA';
 
 const format = (s: number) =>
   `${Math.floor(s / 60)}:${Math.floor(s % 60)
@@ -227,7 +230,7 @@ export default function App() {
       <Text style={styles.status}>
         {info
           ? `${info.codec} ${info.width}x${info.height}` +
-            ` · ${info.hwDecoding ? 'D3D11VA' : 'software'} decode` +
+            ` · ${info.hwDecoding ? HARDWARE_DECODER : 'software'} decode` +
             (info.hasAudio
               ? ` · ${info.audioTracks.length} audio track(s)`
               : ' · no audio')
@@ -239,7 +242,14 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 12, gap: 8, backgroundColor: '#111' },
+  container: {
+    flex: 1,
+    padding: 12,
+    gap: 8,
+    backgroundColor: '#111',
+    // Android 15 draws edge to edge: keep clear of the status and navigation bars.
+    ...(Platform.OS === 'android' && { paddingTop: 40, paddingBottom: 56 }),
+  },
   video: { flex: 1, backgroundColor: '#000' },
   row: {
     flexDirection: 'row',
