@@ -18,11 +18,15 @@ namespace ReactNativeLibav {
 // device is playing now (the end of what it was given, minus what is still buffered).
 class AudioOutput {
  public:
-  AudioOutput(AVStream *stream, PacketQueue &packets, Clock &clock, std::function<void(std::string)> onError);
+  AudioOutput(AVStream *stream, PacketQueue &packets, Clock &clock, const SeekState &seek,
+              std::function<void(std::string)> onError);
   ~AudioOutput();
 
   // Opens the decoder and starts the playback thread. False if the decoder could not be opened.
   bool Start();
+
+  // Stops playback and joins the thread; the destructor does it too.
+  void Stop();
 
   void SetPaused(bool paused);
   void SetVolume(float volume) noexcept { m_volume = volume; }
@@ -39,10 +43,15 @@ class AudioOutput {
   // Decodes until there are converted samples pending. False when no packet is available right now.
   bool Refill();
   bool Convert(const AVFrame *frame);
+  // Forgets everything decoded or buffered so far (a seek).
+  void Flush();
 
   AVStream *m_stream;
   PacketQueue &m_packets;
   Clock &m_clock;
+  const SeekState &m_seek;
+  int m_serial = 0;       // serial of what we are decoding and playing
+  double m_target = -1;   // drop samples before this pts (after a seek)
   std::function<void(std::string)> m_onError;
 
   CodecContextPtr m_codec;

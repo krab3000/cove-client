@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
@@ -13,11 +14,29 @@ namespace ReactNativeLibav {
 // A demuxed packet, or a marker in the packet stream:
 //   Flush: the demuxer looped back to the start; drain and flush the decoder, timestamps continue monotonically.
 //   End:   end of input; drain the decoder.
+// serial counts seeks (and audio track switches): a decoder seeing a new serial flushes, and anything carrying an
+// older one is stale.
 struct PacketItem {
   enum class Kind { Data, Flush, End };
   Kind kind = Kind::Data;
   PacketPtr packet;
+  int serial = 0;
 };
+
+// Where playback restarts after the latest seek: the decoders drop what comes before target (stream seconds).
+// Writers set target, then bump serial; readers that see a new serial read the target that goes with it.
+struct SeekState {
+  std::atomic<int> serial{0};
+  std::atomic<double> target{-1};
+};
+
+// Decoded frames carry the serial of the packets they came from in AVFrame::opaque.
+inline int FrameSerial(const AVFrame *frame) noexcept {
+  return int(reinterpret_cast<intptr_t>(frame->opaque));
+}
+inline void SetFrameSerial(AVFrame *frame, int serial) noexcept {
+  frame->opaque = reinterpret_cast<void *>(intptr_t(serial));
+}
 
 // Thread-safe FIFO. Push blocks while the queue is at capacity; everything returns early once aborted.
 template <typename T>
@@ -52,6 +71,13 @@ class BlockingQueue {
   size_t Size() const {
     std::lock_guard lock(m_mutex);
     return m_items.size();
+  }
+
+  // Drops everything queued (a seek), unblocking a full queue's producer.
+  void Clear() {
+    std::lock_guard lock(m_mutex);
+    m_items.clear();
+    m_notFull.notify_all();
   }
 
   void Abort() {

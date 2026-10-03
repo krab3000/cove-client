@@ -31,8 +31,10 @@ struct LibavVideoViewProps : winrt::implements<LibavVideoViewProps, winrt::Micro
        volume = cloneFromProps->volume;
        loop = cloneFromProps->loop;
        hardwareDecoding = cloneFromProps->hardwareDecoding;
+       audioTrack = cloneFromProps->audioTrack;
        onLoad = cloneFromProps->onLoad;
        onProgress = cloneFromProps->onProgress;
+       onSeek = cloneFromProps->onSeek;
        onEnd = cloneFromProps->onEnd;
        onError = cloneFromProps->onError;  
      }
@@ -60,12 +62,18 @@ struct LibavVideoViewProps : winrt::implements<LibavVideoViewProps, winrt::Micro
   REACT_FIELD(hardwareDecoding)
   bool hardwareDecoding{true};
 
+  REACT_FIELD(audioTrack)
+  int32_t audioTrack{-1};
+
    // These fields can be used to determine if JS has registered for this event
   REACT_FIELD(onLoad)
   bool onLoad{false};
 
   REACT_FIELD(onProgress)
   bool onProgress{false};
+
+  REACT_FIELD(onSeek)
+  bool onSeek{false};
 
   REACT_FIELD(onEnd)
   bool onEnd{false};
@@ -76,6 +84,27 @@ struct LibavVideoViewProps : winrt::implements<LibavVideoViewProps, winrt::Micro
   const winrt::Microsoft::ReactNative::ViewProps ViewProps;
 };
 
+REACT_STRUCT(LibavVideoViewSpec_onLoad2)
+struct LibavVideoViewSpec_onLoad2 {
+  REACT_FIELD(index)
+  int32_t index{};
+
+  REACT_FIELD(language)
+  std::string language;
+
+  REACT_FIELD(title)
+  std::string title;
+
+  REACT_FIELD(codec)
+  std::string codec;
+
+  REACT_FIELD(channels)
+  int32_t channels{};
+
+  REACT_FIELD(sampleRate)
+  int32_t sampleRate{};
+};
+
 REACT_STRUCT(LibavVideoViewSpec_onError)
 struct LibavVideoViewSpec_onError {
   REACT_FIELD(message)
@@ -84,6 +113,12 @@ struct LibavVideoViewSpec_onError {
 
 REACT_STRUCT(LibavVideoViewSpec_onEnd)
 struct LibavVideoViewSpec_onEnd {
+};
+
+REACT_STRUCT(LibavVideoViewSpec_onSeek)
+struct LibavVideoViewSpec_onSeek {
+  REACT_FIELD(currentTime)
+  double currentTime{};
 };
 
 REACT_STRUCT(LibavVideoViewSpec_onProgress)
@@ -114,6 +149,12 @@ struct LibavVideoViewSpec_onLoad {
 
   REACT_FIELD(codec)
   std::string codec;
+
+  REACT_FIELD(audioTracks)
+  std::vector<LibavVideoViewSpec_onLoad2> audioTracks{};
+
+  REACT_FIELD(audioTrack)
+  int32_t audioTrack{};
 };
 
 struct LibavVideoViewEventEmitter {
@@ -122,6 +163,7 @@ struct LibavVideoViewEventEmitter {
 
   using OnLoad = LibavVideoViewSpec_onLoad;
   using OnProgress = LibavVideoViewSpec_onProgress;
+  using OnSeek = LibavVideoViewSpec_onSeek;
   using OnEnd = LibavVideoViewSpec_onEnd;
   using OnError = LibavVideoViewSpec_onError;
 
@@ -133,6 +175,12 @@ struct LibavVideoViewEventEmitter {
 
   void onProgress(OnProgress &&value) const {
     m_eventEmitter.DispatchEvent(L"progress", [value = std::move(value)](const winrt::Microsoft::ReactNative::IJSValueWriter writer) {
+      winrt::Microsoft::ReactNative::WriteValue(writer, value);
+    });
+  }
+
+  void onSeek(OnSeek &&value) const {
+    m_eventEmitter.DispatchEvent(L"seek", [value = std::move(value)](const winrt::Microsoft::ReactNative::IJSValueWriter writer) {
       winrt::Microsoft::ReactNative::WriteValue(writer, value);
     });
   }
@@ -210,7 +258,19 @@ struct BaseLibavVideoView {
     return nullptr;
   }
 
-  
+  // You must provide an implementation of this method to handle the "seek" command
+  virtual void HandleSeekCommand(double time) noexcept = 0;
+
+  void HandleCommand(const winrt::Microsoft::ReactNative::ComponentView &view, const winrt::Microsoft::ReactNative::HandleCommandArgs& args) noexcept {
+    auto userData = view.UserData().as<TUserData>();
+    auto commandName = args.CommandName();
+    if (commandName == L"seek") {
+      double time;
+      winrt::Microsoft::ReactNative::ReadArgs(args.CommandArgs(), time);
+      userData->HandleSeekCommand(time);
+      return;
+    }
+  }
 
   const std::shared_ptr<LibavVideoViewEventEmitter>& EventEmitter() const { return m_eventEmitter; }
   const winrt::com_ptr<LibavVideoViewProps>& Props() const { return m_props; }
@@ -268,6 +328,12 @@ void RegisterLibavVideoViewNativeComponent(
             userData->UpdateState(view, newState);
           });
         }
+
+        builder.SetCustomCommandHandler([](const winrt::Microsoft::ReactNative::ComponentView &view,
+                                          const winrt::Microsoft::ReactNative::HandleCommandArgs& args) noexcept {
+          auto userData = view.UserData().as<TUserData>();
+          userData->HandleCommand(view, args);
+        });
 
         if CONSTEXPR_SUPPORTED_ON_VIRTUAL_FN_ADDRESS (&TUserData::MountChildComponentView != &BaseLibavVideoView<TUserData>::MountChildComponentView) {
           builder.SetMountChildComponentViewHandler([](const winrt::Microsoft::ReactNative::ComponentView &view,

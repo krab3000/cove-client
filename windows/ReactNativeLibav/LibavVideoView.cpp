@@ -74,6 +74,8 @@ struct LibavVideoView : winrt::implements<LibavVideoView, winrt::Windows::Founda
     m_muted = newProps->muted.value_or(false);
     m_volume = newProps->volume;
     m_loop = newProps->loop.value_or(false);
+    const bool trackChanged = newProps->audioTrack != m_audioTrack;
+    m_audioTrack = newProps->audioTrack;
 
     const std::string source = newProps->source.value_or("");
     const bool hardware = newProps->hardwareDecoding;
@@ -86,7 +88,14 @@ struct LibavVideoView : winrt::implements<LibavVideoView, winrt::Windows::Founda
       m_player->SetMuted(m_muted);
       m_player->SetVolume(m_volume);
       m_player->SetLoop(m_loop);
+      if (trackChanged)
+        m_player->SetAudioTrack(m_audioTrack);
     }
+  }
+
+  void HandleSeekCommand(double time) noexcept override {
+    if (m_player)
+      m_player->Seek(time);
   }
 
  private:
@@ -104,15 +113,32 @@ struct LibavVideoView : winrt::implements<LibavVideoView, winrt::Windows::Founda
     PlayerCallbacks callbacks;
     callbacks.onLoad = [this, weak = get_weak(), generation](const MediaInfo &info) {
       Post(weak, generation, [info](LibavVideoView &self) {
-        if (self.EventEmitter())
-          self.EventEmitter()->onLoad(
-              {info.duration, info.width, info.height, info.hasAudio, info.hwDecoding, info.codec});
+        if (!self.EventEmitter())
+          return;
+        Codegen::LibavVideoViewEventEmitter::OnLoad e;
+        e.duration = info.duration;
+        e.width = info.width;
+        e.height = info.height;
+        e.hasAudio = info.hasAudio;
+        e.hwDecoding = info.hwDecoding;
+        e.codec = info.codec;
+        e.audioTrack = info.audioTrack;
+        for (const auto &track : info.audioTracks)
+          e.audioTracks.push_back(
+              {track.index, track.language, track.title, track.codec, track.channels, track.sampleRate});
+        self.EventEmitter()->onLoad(std::move(e));
       });
     };
     callbacks.onProgress = [this, weak = get_weak(), generation](double currentTime, double duration) {
       Post(weak, generation, [currentTime, duration](LibavVideoView &self) {
         if (self.EventEmitter())
           self.EventEmitter()->onProgress({currentTime, duration});
+      });
+    };
+    callbacks.onSeek = [this, weak = get_weak(), generation](double currentTime) {
+      Post(weak, generation, [currentTime](LibavVideoView &self) {
+        if (self.EventEmitter())
+          self.EventEmitter()->onSeek({currentTime});
       });
     };
     callbacks.onEnd = [this, weak = get_weak(), generation] {
@@ -133,7 +159,7 @@ struct LibavVideoView : winrt::implements<LibavVideoView, winrt::Windows::Founda
     m_player->SetMuted(m_muted);
     m_player->SetVolume(m_volume);
     m_player->SetLoop(m_loop);
-    m_player->Open(m_source, m_hardware);
+    m_player->Open(m_source, m_hardware, m_audioTrack);
   }
 
   // Runs on the UI thread if this view is still alive and still showing the same source.
@@ -175,6 +201,7 @@ struct LibavVideoView : winrt::implements<LibavVideoView, winrt::Windows::Founda
   bool m_muted = false;
   float m_volume = 1.0f;
   bool m_loop = false;
+  int m_audioTrack = -1;
   uint64_t m_generation = 0;
 };
 

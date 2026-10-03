@@ -14,18 +14,25 @@ namespace {
 constexpr REFERENCE_TIME kBufferDuration = 2'000'000; // 200 ms, in 100 ns units
 }
 
-AudioOutput::AudioOutput(AVStream *stream, PacketQueue &packets, Clock &clock,
+AudioOutput::AudioOutput(AVStream *stream, PacketQueue &packets, Clock &clock, const SeekState &seek,
                          std::function<void(std::string)> onError)
-    : m_stream(stream), m_packets(packets), m_clock(clock), m_onError(std::move(onError)) {}
+    : m_stream(stream), m_packets(packets), m_clock(clock), m_seek(seek), m_onError(std::move(onError)) {
+  m_serial = seek.serial;
+  m_target = seek.target;
+}
 
 AudioOutput::~AudioOutput() {
+  Stop();
+  swr_free(&m_swr);
+  av_channel_layout_uninit(&m_swrLayout);
+  av_channel_layout_uninit(&m_outLayout);
+}
+
+void AudioOutput::Stop() {
   m_stop = true;
   m_cv.notify_all();
   if (m_thread.joinable())
     m_thread.join();
-  swr_free(&m_swr);
-  av_channel_layout_uninit(&m_swrLayout);
-  av_channel_layout_uninit(&m_outLayout);
 }
 
 bool AudioOutput::Start() {
@@ -105,6 +112,17 @@ void AudioOutput::Play() {
 
   bool running = false;
   while (!m_stop) {
+    if (const int serial = m_seek.serial; serial != m_serial) {
+      // Seeked: drop what the device still holds, and everything decoded, before playing from the new position.
+      if (running) {
+        client->Stop();
+        running = false;
+      }
+      client->Reset();
+      Flush();
+      m_serial = serial;
+      m_target = m_seek.target;
+    }
     if (m_paused) {
       if (running) {
         client->Stop(); // keeps what is buffered: resume continues exactly where it stopped
@@ -142,7 +160,7 @@ void AudioOutput::Play() {
         // pts just past the last real sample handed over, minus what the device still has before it.
         const double end = m_pendingPts + double(m_pendingPos / m_outChannels) / m_outRate;
         const double buffered = double(padding + available - silence) / m_outRate;
-        m_clock.Set(end - buffered - latency);
+        m_clock.Set(end - buffered - latency, m_serial);
       } else if (m_decoderEnded && padding == 0) {
         m_finished = true;
       }
@@ -182,6 +200,8 @@ bool AudioOutput::Refill() {
     auto item = m_packets.TryPop();
     if (!item)
       return false;
+    if (item->serial != m_serial)
+      continue; // from before a seek
     switch (item->kind) {
       case PacketItem::Kind::Data:
         avcodec_send_packet(m_codec.get(), item->packet.get()); // a corrupt packet is not fatal
@@ -225,7 +245,27 @@ bool AudioOutput::Convert(const AVFrame *frame) {
       ? frame->best_effort_timestamp * av_q2d(m_stream->time_base)
       : m_nextPts;
   m_nextPts = m_pendingPts + double(count) / m_outRate;
+  if (m_target >= 0) {
+    // After a seek the decoder starts at a keyframe before the target: skip up to the target itself.
+    if (m_nextPts <= m_target)
+      return false;
+    if (m_pendingPts < m_target)
+      m_pendingPos = size_t((m_target - m_pendingPts) * m_outRate) * m_outChannels;
+    m_target = -1;
+  }
   return true;
+}
+
+void AudioOutput::Flush() {
+  avcodec_flush_buffers(m_codec.get());
+  swr_free(&m_swr);
+  m_swrFormat = -1;
+  m_pending.clear();
+  m_pendingPos = 0;
+  m_draining = false;
+  m_loopFlush = false;
+  m_decoderEnded = false;
+  m_finished = false;
 }
 
 } // namespace ReactNativeLibav
