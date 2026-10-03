@@ -29,6 +29,7 @@ struct MediaInfo {
   double duration = 0;
   int width = 0;
   int height = 0;
+  double aspect = 0; // display aspect ratio (sample aspect ratio applied)
   bool hasAudio = false;
   bool hwDecoding = false;
   std::string codec;

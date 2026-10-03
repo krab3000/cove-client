@@ -1,0 +1,100 @@
+buildscript {
+  ext.Libav = [
+    kotlinVersion: "2.1.20",
+    minSdkVersion: 26, // AAudio
+    compileSdkVersion: 36,
+    ndkVersion: "27.1.12297006"
+  ]
+
+  ext.getExtOrDefault = { prop ->
+    if (rootProject.ext.has(prop)) {
+      return rootProject.ext.get(prop)
+    }
+
+    return Libav[prop]
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.12.0"
+    // noinspection DifferentKotlinGradleVersion
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion')}"
+  }
+}
+
+
+apply plugin: "com.android.library"
+
+if (project.extensions.findByName("kotlin") == null) {
+  apply plugin: "kotlin-android"
+}
+
+apply plugin: "com.facebook.react"
+
+// FFmpeg built by scripts/ffmpeg-android (yarn build-ffmpeg-android); its .so files ship in the app next to ours.
+def ffmpegAbis = ["arm64-v8a"]
+def ffmpegDir = file("../third_party/ffmpeg")
+def ffmpegJniLibs = new File(buildDir, "ffmpeg-jniLibs")
+
+android {
+  namespace "com.libav"
+
+  compileSdkVersion getExtOrDefault("compileSdkVersion")
+  ndkVersion getExtOrDefault("ndkVersion")
+
+  defaultConfig {
+    minSdkVersion Math.max(26, getExtOrDefault("minSdkVersion") as int)
+    ndk {
+      abiFilters(*ffmpegAbis)
+    }
+    externalNativeBuild {
+      cmake {
+        arguments "-DANDROID_STL=c++_shared"
+      }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "CMakeLists.txt"
+      version "3.22.1"
+    }
+  }
+
+  sourceSets {
+    main {
+      jniLibs.srcDirs += [ffmpegJniLibs]
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+}
+
+tasks.register("copyFFmpegLibs", Copy) {
+  ffmpegAbis.each { abi ->
+    from(new File(ffmpegDir, "android-${abi}/lib")) {
+      include "*.so"
+      into abi
+    }
+  }
+  into ffmpegJniLibs
+  doFirst {
+    ffmpegAbis.each { abi ->
+      if (!new File(ffmpegDir, "android-${abi}/lib/libavcodec.so").exists()) {
+        throw new GradleException("FFmpeg for Android (${abi}) not found in ${ffmpegDir}. Run: yarn build-ffmpeg-android")
+      }
+    }
+  }
+}
+preBuild.dependsOn "copyFFmpegLibs"
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+}

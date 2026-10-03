@@ -26,6 +26,9 @@ class VideoSink {
   virtual void WaitForFrame() = 0;
   // Seconds between display refreshes.
   virtual double RefreshPeriod() const = 0;
+  // Refreshes from WaitForFrame returning until a frame presented then is on screen (the player picks frames for
+  // that time).
+  virtual int PresentLead() const { return 1; }
   // Shows frame (nullptr: black) from the next refresh on. Frames are hardware frames from the configured decoder or
   // software frames in SoftwareFormat(). Throws std::runtime_error when the output fails.
   virtual void Present(const AVFrame *frame) = 0;

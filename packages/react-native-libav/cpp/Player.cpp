@@ -1,8 +1,11 @@
 #include "Player.h"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <deque>
+#include <stdexcept>
+#include <utility>
 
 #include "Platform.h"
 
@@ -397,6 +400,10 @@ bool Player::ReceiveVideoFrames() {
         info.duration = m_duration;
         info.width = stream->codecpar->width;
         info.height = stream->codecpar->height;
+        const AVRational sar = av_guess_sample_aspect_ratio(m_format, stream, frame.get());
+        info.aspect = info.height > 0
+            ? info.width * (sar.num > 0 && sar.den > 0 ? av_q2d(sar) : 1.0) / info.height
+            : 0;
         info.hasAudio = m_info.audioTrack >= 0;
         info.hwDecoding = IsHardwareFrame(frame.get());
         info.codec = avcodec_get_name(stream->codecpar->codec_id);
@@ -478,6 +485,7 @@ void Player::Render() {
     while (!m_abort) {
       m_sink->WaitForFrame();
       const double refresh = m_sink->RefreshPeriod();
+      const double lead = refresh * m_sink->PresentLead(); // until what we present now is on screen
       const auto audio = Audio();
       const bool audioMaster = audio && !audio->Failed();
 
@@ -497,7 +505,7 @@ void Player::Render() {
           now = m_clock.Get();
         }
         if (now) { // else: waiting for the audio to start
-          const double displayTime = *now + refresh;
+          const double displayTime = *now + lead;
           if (pts(ready.front()) <= displayTime) {
             // Behind: skip frames whose successor is also due, by more than half a refresh (the slack keeps clock
             // jitter from dropping a frame, then repeating one, when the frame and refresh rates are close).
@@ -506,7 +514,7 @@ void Player::Render() {
             next = std::move(ready.front());
             ready.pop_front();
             if (!audioMaster && displayTime - pts(next) > 0.5) // stalled without audio: catch the clock up
-              m_clock.Set(pts(next) - refresh, serial);
+              m_clock.Set(pts(next) - lead, serial);
           }
         }
       } else if (m_paused && seekPending && fill(1)) {
