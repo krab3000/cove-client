@@ -1,15 +1,11 @@
 #pragma once
 
-// hwcontext_d3d11va.h includes these; they must not end up inside the extern "C" block.
-#include <d3d11.h>
-
 #pragma warning(push, 0)
 extern "C" {
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/channel_layout.h>
 #include <libavutil/hwcontext.h>
-#include <libavutil/hwcontext_d3d11va.h>
 #include <libavutil/imgutils.h>
 #include <libavutil/pixdesc.h>
 #include <libswresample/swresample.h>

@@ -7,7 +7,8 @@
 #include <winrt/Microsoft.UI.Composition.interop.h>
 
 #include "codegen/react/components/LibavSpec/LibavVideoView.g.h"
-#include "engine/Player.h"
+#include "Player.h"
+#include "engine/VideoOutput.h"
 
 namespace Codegen = ReactNativeLibavCodegen;
 namespace RN = winrt::Microsoft::ReactNative;
@@ -180,7 +181,7 @@ struct LibavVideoView : winrt::implements<LibavVideoView, winrt::Windows::Founda
     try {
       if (m_output)
         m_output->Present(nullptr);
-    } catch (const winrt::hresult_error &) {
+    } catch (const std::exception &) {
     }
   }
 

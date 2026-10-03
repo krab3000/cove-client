@@ -12,7 +12,7 @@
 #include "Clock.h"
 #include "FFmpeg.h"
 #include "Queues.h"
-#include "VideoOutput.h"
+#include "VideoSink.h"
 
 namespace ReactNativeLibav {
 
@@ -45,17 +45,17 @@ struct PlayerCallbacks {
   std::function<void(const std::string &)> onError;
 };
 
-// Plays one source into a VideoOutput. Threads:
+// Plays one source into a VideoSink (the platform's video output) and an AudioDevice (through AudioOutput). Threads:
 //   demux:  opens the input, then reads packets into the video/audio queues (loops by seeking to the start and
 //           shifting timestamps, so the clock keeps running forward); carries out seeks and audio track switches
-//   decode: video packets -> frames (D3D11 surfaces from D3D11VA, or NV12 from the software fallback)
-//   render: presents each frame when the master clock reaches it, paced by the compositor
+//   decode: video packets -> frames (hardware frames from the sink's decoder, or software frames in its format)
+//   render: presents each frame when the master clock reaches it, paced by the sink (display refresh)
 //   audio:  see AudioOutput (master clock)
 // A seek bumps the serial in m_seek: queues are cleared, every stage flushes when it meets the new serial and
 // drops anything older, and the decoders drop what precedes the target so the seek is frame accurate.
 class Player {
  public:
-  Player(std::shared_ptr<VideoOutput> output, PlayerCallbacks callbacks);
+  Player(std::shared_ptr<VideoSink> sink, PlayerCallbacks callbacks);
   ~Player();
 
   // audioTrack: stream index to play, -1 for the default one.
@@ -73,20 +73,20 @@ class Player {
   void Demux(std::string source);
   void OpenInput(const std::string &source, int audioTrack);
   void OpenVideoDecoder();
+  bool OpenDecoder(const AVCodec *codec, bool hardware);
   bool StartAudio(int index);
   int ValidAudioTrack(int index) const;
   // Applies pending seek / audio track requests; returns true if it seeked.
   bool HandleRequests();
   void DecodeVideo();
   bool ReceiveVideoFrames();
-  FramePtr ToNv12(FramePtr frame);
+  FramePtr ToSoftwareFormat(FramePtr frame);
   void Render();
   std::shared_ptr<AudioOutput> Audio();
   void Fail(const std::string &message);
-  static AVPixelFormat GetFormat(AVCodecContext *ctx, const AVPixelFormat *formats);
   static int Interrupt(void *opaque) noexcept;
 
-  std::shared_ptr<VideoOutput> m_output;
+  std::shared_ptr<VideoSink> m_sink;
   PlayerCallbacks m_callbacks;
 
   AVFormatContext *m_format = nullptr;
@@ -98,7 +98,6 @@ class Player {
   CodecContextPtr m_videoCodec;
   SwsContext *m_sws = nullptr;
   bool m_hardwareDecoding = true;
-  std::atomic<bool> m_hwActive{false};
   bool m_loaded = false;
   MediaInfo m_info;
 
@@ -108,7 +107,7 @@ class Player {
 
   PacketQueue m_videoPackets;
   PacketQueue m_audioPackets;
-  FrameQueue m_frames{4};
+  FrameQueue m_frames;
   Clock m_clock;
   SeekState m_seek;
   std::mutex m_audioMutex; // guards m_audio, replaced by the demux thread on a track switch

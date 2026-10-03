@@ -2,6 +2,12 @@
 
 #include "VideoOutput.h"
 
+#pragma warning(push, 0)
+extern "C" {
+#include <libavutil/hwcontext_d3d11va.h>
+}
+#pragma warning(pop)
+
 #include <winrt/Microsoft.Graphics.DirectX.h>
 
 #include <algorithm>
@@ -12,6 +18,9 @@ namespace Composition = winrt::Microsoft::UI::Composition;
 namespace DirectX = winrt::Microsoft::Graphics::DirectX;
 
 namespace {
+
+// Surfaces the decoder may keep beyond its reference frames: the frame queue, the frames the renderer holds, slack.
+constexpr int kExtraHwFrames = 8;
 
 winrt::com_ptr<ID3D11Device> CreateDevice() {
   // BGRA support is required by composition; video support by D3D11VA and the video processor.
@@ -54,8 +63,8 @@ DXGI_COLOR_SPACE_TYPE InputColorSpace(const AVFrame *f) {
 
 } // namespace
 
-VideoOutput::VideoOutput(const Composition::Compositor &compositor) {
-  m_device = CreateDevice();
+VideoOutput::VideoOutput(const Composition::Compositor &compositor)
+    : m_device(CreateDevice()), m_compositorClock(m_device.get()) {
   winrt::com_ptr<ID3D11DeviceContext> context;
   m_device->GetImmediateContext(context.put());
   m_context = context.as<ID3D11DeviceContext1>();
@@ -275,7 +284,63 @@ bool VideoOutput::Blt(const AVFrame *frame, ID3D11Texture2D *target, POINT offse
   return SUCCEEDED(m_videoContext->VideoProcessorBlt(m_processor.get(), outputView.get(), 0, 1, &stream));
 }
 
+const AVCodec *VideoOutput::HardwareDecoder(AVCodecID id) {
+  // D3D11VA is a hardware accelerator of FFmpeg's regular decoders.
+  const AVCodec *decoder = avcodec_find_decoder(id);
+  for (int i = 0; decoder; ++i) {
+    const AVCodecHWConfig *config = avcodec_get_hw_config(decoder, i);
+    if (!config)
+      break;
+    if (config->device_type == AV_HWDEVICE_TYPE_D3D11VA && (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX))
+      return decoder;
+  }
+  return nullptr;
+}
+
+bool VideoOutput::ConfigureHardwareDecoder(AVCodecContext *ctx, AVDictionary ** /*options*/) {
+  // Hand FFmpeg our device, so decoded surfaces can go straight into the video processor.
+  AVBufferRef *deviceRef = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_D3D11VA);
+  if (!deviceRef)
+    return false;
+  auto *d3d = static_cast<AVD3D11VADeviceContext *>(reinterpret_cast<AVHWDeviceContext *>(deviceRef->data)->hwctx);
+  d3d->device = m_device.get();
+  d3d->device->AddRef(); // released by FFmpeg with the device context
+  d3d->lock = &VideoOutput::LockCallback;
+  d3d->unlock = &VideoOutput::UnlockCallback;
+  d3d->lock_ctx = this;
+  const bool ok = av_hwdevice_ctx_init(deviceRef) >= 0;
+  if (ok) {
+    ctx->hw_device_ctx = av_buffer_ref(deviceRef);
+    ctx->get_format = &VideoOutput::GetFormat;
+    ctx->extra_hw_frames = kExtraHwFrames;
+  }
+  av_buffer_unref(&deviceRef);
+  return ok;
+}
+
+AVPixelFormat VideoOutput::GetFormat(AVCodecContext * /*ctx*/, const AVPixelFormat *formats) {
+  for (const AVPixelFormat *f = formats; *f != AV_PIX_FMT_NONE; ++f)
+    if (*f == AV_PIX_FMT_D3D11)
+      return *f;
+  // No D3D11VA for this stream (profile, size, ...): FFmpeg decodes in software.
+  for (const AVPixelFormat *f = formats; *f != AV_PIX_FMT_NONE; ++f) {
+    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(*f);
+    if (desc && !(desc->flags & AV_PIX_FMT_FLAG_HWACCEL))
+      return *f;
+  }
+  return AV_PIX_FMT_NONE;
+}
+
 void VideoOutput::Present(const AVFrame *frame) {
+  // The shared engine only knows standard exceptions.
+  try {
+    Draw(frame);
+  } catch (const winrt::hresult_error &e) {
+    throw std::runtime_error(winrt::to_string(e.message()));
+  }
+}
+
+void VideoOutput::Draw(const AVFrame *frame) {
   std::lock_guard lock(m_lock);
   ApplyResize();
   winrt::com_ptr<ID3D11Texture2D> target;

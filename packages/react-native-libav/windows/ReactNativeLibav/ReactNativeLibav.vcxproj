@@ -82,6 +82,8 @@
       <AdditionalUsingDirectories>$(WindowsSDK_WindowsMetadata);$(AdditionalUsingDirectories)</AdditionalUsingDirectories>
       <AdditionalIncludeDirectories>
         $(MSBuildThisFileDirectory);
+        $(MSBuildThisFileDirectory)engine;
+        $(SharedEngineDir);
         %(AdditionalIncludeDirectories)
       </AdditionalIncludeDirectories>
     </ClCompile>
@@ -105,14 +107,10 @@
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
     <ClInclude Include="LibavVideoView.h" />
-    <ClInclude Include="engine\AudioOutput.h" />
-    <ClInclude Include="engine\Clock.h" />
     <ClInclude Include="engine\CompositorClock.h" />
-    <ClInclude Include="engine\FFmpeg.h" />
     <ClInclude Include="engine\HdrRenderer.h" />
-    <ClInclude Include="engine\Player.h" />
-    <ClInclude Include="engine\Queues.h" />
     <ClInclude Include="engine\VideoOutput.h" />
+    <ClInclude Include="$(SharedEngineDir)*.h" />
     <ClInclude Include="ReactPackageProvider.h">
       <DependentUpon>ReactPackageProvider.idl</DependentUpon>
     </ClInclude>
@@ -122,10 +120,13 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="LibavVideoView.cpp" />
-    <ClCompile Include="engine\AudioOutput.cpp" />
     <ClCompile Include="engine\HdrRenderer.cpp" />
-    <ClCompile Include="engine\Player.cpp" />
     <ClCompile Include="engine\VideoOutput.cpp" />
+    <ClCompile Include="engine\WasapiAudioDevice.cpp" />
+    <!-- The engine shared with Android: plain C++, no precompiled header. -->
+    <ClCompile Include="$(SharedEngineDir)*.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>

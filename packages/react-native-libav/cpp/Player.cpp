@@ -1,12 +1,10 @@
-#include "pch.h"
-
 #include "Player.h"
 
 #include <algorithm>
 #include <cmath>
 #include <deque>
 
-#include "CompositorClock.h"
+#include "Platform.h"
 
 namespace ReactNativeLibav {
 
@@ -17,8 +15,6 @@ using namespace std::chrono_literals;
 // The demuxer reads ahead until both queues hold this many packets (or the total is large).
 constexpr size_t kMinQueuedPackets = 64;
 constexpr size_t kMaxQueuedPackets = 4000;
-// Surfaces the decoder may keep beyond its reference frames: the frame queue, the frames the renderer holds, slack.
-constexpr int kExtraHwFrames = 8;
 
 // "file:///C:/a%20b.mp4" -> "C:/a b.mp4"; libavformat's file protocol only understands plain paths on Windows.
 std::string NormalizeSource(std::string source) {
@@ -45,10 +41,15 @@ std::string Metadata(const AVDictionary *dict, const char *key) {
   return entry ? entry->value : "";
 }
 
+bool IsHardwareFrame(const AVFrame *frame) {
+  const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(AVPixelFormat(frame->format));
+  return desc && (desc->flags & AV_PIX_FMT_FLAG_HWACCEL);
+}
+
 } // namespace
 
-Player::Player(std::shared_ptr<VideoOutput> output, PlayerCallbacks callbacks)
-    : m_output(std::move(output)), m_callbacks(std::move(callbacks)) {}
+Player::Player(std::shared_ptr<VideoSink> sink, PlayerCallbacks callbacks)
+    : m_sink(std::move(sink)), m_callbacks(std::move(callbacks)), m_frames(m_sink->FrameQueueDepth()) {}
 
 Player::~Player() {
   m_abort = true;
@@ -66,7 +67,7 @@ Player::~Player() {
   sws_freeContext(m_sws);
   m_videoCodec.reset();
   avformat_close_input(&m_format);
-  m_output->ResetCaches();
+  m_sink->ResetCaches();
 }
 
 void Player::Open(std::string source, bool hardwareDecoding, int audioTrack) {
@@ -170,11 +171,7 @@ void Player::OpenInput(const std::string &source, int audioTrack) {
 
 // Starts playing audio stream index (none is playing). False if it cannot be decoded.
 bool Player::StartAudio(int index) {
-  auto audio = std::make_shared<AudioOutput>(m_format->streams[index], m_audioPackets, m_clock, m_seek,
-                                             [](const std::string &message) {
-                                               // Keep playing video on the system clock.
-                                               OutputDebugStringA((message + "\n").c_str());
-                                             });
+  auto audio = std::make_shared<AudioOutput>(m_format->streams[index], m_audioPackets, m_clock, m_seek);
   audio->SetPaused(m_paused);
   audio->SetMuted(m_muted);
   audio->SetVolume(m_volume);
@@ -188,69 +185,40 @@ bool Player::StartAudio(int index) {
 }
 
 void Player::OpenVideoDecoder() {
-  AVStream *stream = m_format->streams[m_videoIndex];
-  const AVCodec *decoder = avcodec_find_decoder(stream->codecpar->codec_id);
-  if (!decoder)
-    throw std::runtime_error(std::string("No decoder for ") + avcodec_get_name(stream->codecpar->codec_id));
-  m_videoCodec.reset(avcodec_alloc_context3(decoder));
-  avcodec_parameters_to_context(m_videoCodec.get(), stream->codecpar);
-  m_videoCodec->pkt_timebase = stream->time_base;
-  m_videoCodec->opaque = this;
-
-  bool hw = false;
+  const AVCodecID id = m_format->streams[m_videoIndex]->codecpar->codec_id;
   if (m_hardwareDecoding) {
-    for (int i = 0;; ++i) {
-      const AVCodecHWConfig *config = avcodec_get_hw_config(decoder, i);
-      if (!config)
-        break;
-      if (config->device_type == AV_HWDEVICE_TYPE_D3D11VA && (config->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX)) {
-        hw = true;
-        break;
-      }
-    }
+    if (const AVCodec *hardware = m_sink->HardwareDecoder(id); hardware && OpenDecoder(hardware, true))
+      return;
   }
-  if (hw) {
-    // Hand FFmpeg our device, so decoded surfaces can go straight into the video processor.
-    AVBufferRef *deviceRef = av_hwdevice_ctx_alloc(AV_HWDEVICE_TYPE_D3D11VA);
-    auto *d3d = static_cast<AVD3D11VADeviceContext *>(reinterpret_cast<AVHWDeviceContext *>(deviceRef->data)->hwctx);
-    d3d->device = m_output->Device();
-    d3d->device->AddRef(); // released by FFmpeg with the device context
-    d3d->lock = &VideoOutput::LockCallback;
-    d3d->unlock = &VideoOutput::UnlockCallback;
-    d3d->lock_ctx = m_output.get();
-    if (av_hwdevice_ctx_init(deviceRef) >= 0) {
-      m_videoCodec->hw_device_ctx = av_buffer_ref(deviceRef);
-      m_videoCodec->get_format = &Player::GetFormat;
-      m_videoCodec->extra_hw_frames = kExtraHwFrames;
-    } else {
-      hw = false;
-    }
-    av_buffer_unref(&deviceRef);
-  }
-  if (!hw)
-    m_videoCodec->thread_count = 0; // software: one thread per core
-
-  const int ret = avcodec_open2(m_videoCodec.get(), decoder, nullptr);
-  if (ret < 0)
-    throw std::runtime_error(std::string("Cannot open the ") + decoder->name + " decoder: " + AvError(ret));
+  // No hardware decoder for this stream (codec, profile, size, ...), or not wanted: decode in software.
+  const AVCodec *decoder = avcodec_find_decoder(id);
+  if (!decoder)
+    throw std::runtime_error(std::string("No decoder for ") + avcodec_get_name(id));
+  if (!OpenDecoder(decoder, false))
+    throw std::runtime_error(std::string("Cannot open the ") + decoder->name + " decoder");
 }
 
-AVPixelFormat Player::GetFormat(AVCodecContext *ctx, const AVPixelFormat *formats) {
-  auto *self = static_cast<Player *>(ctx->opaque);
-  for (const AVPixelFormat *f = formats; *f != AV_PIX_FMT_NONE; ++f) {
-    if (*f == AV_PIX_FMT_D3D11) {
-      self->m_hwActive = true;
-      return *f;
+bool Player::OpenDecoder(const AVCodec *codec, bool hardware) {
+  CodecContextPtr ctx{avcodec_alloc_context3(codec)};
+  avcodec_parameters_to_context(ctx.get(), m_format->streams[m_videoIndex]->codecpar);
+  ctx->pkt_timebase = m_format->streams[m_videoIndex]->time_base;
+  AVDictionary *options = nullptr;
+  if (hardware) {
+    if (!m_sink->ConfigureHardwareDecoder(ctx.get(), &options)) {
+      av_dict_free(&options);
+      return false;
     }
+  } else {
+    ctx->thread_count = 0; // one thread per core
   }
-  // No D3D11VA for this stream (profile, size, ...): FFmpeg decodes in software.
-  self->m_hwActive = false;
-  for (const AVPixelFormat *f = formats; *f != AV_PIX_FMT_NONE; ++f) {
-    const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(*f);
-    if (desc && !(desc->flags & AV_PIX_FMT_FLAG_HWACCEL))
-      return *f;
+  const int ret = avcodec_open2(ctx.get(), codec, &options);
+  av_dict_free(&options);
+  if (ret < 0) {
+    Log(std::string("cannot open the ") + codec->name + " decoder: " + AvError(ret));
+    return false;
   }
-  return AV_PIX_FMT_NONE;
+  m_videoCodec = std::move(ctx);
+  return true;
 }
 
 bool Player::HandleRequests() {
@@ -310,7 +278,7 @@ bool Player::HandleRequests() {
 }
 
 void Player::Demux(std::string source) {
-  SetThreadDescription(GetCurrentThread(), L"libav demux");
+  SetThreadName("libav demux");
   int audioTrack = -1;
   {
     std::lock_guard lock(m_requestMutex);
@@ -341,7 +309,7 @@ void Player::Demux(std::string source) {
       if (m_abort)
         break;
       if (ret != AVERROR_EOF && m_format->pb && m_format->pb->error < 0)
-        OutputDebugStringA(("libav: read error, treating as end of input: " + AvError(ret) + "\n").c_str());
+        Log("read error, treating as end of input: " + AvError(ret));
       const bool loop = m_loop && av_seek_frame(m_format, -1, m_format->start_time != AV_NOPTS_VALUE ? m_format->start_time : 0,
                                                 AVSEEK_FLAG_BACKWARD) >= 0;
       const auto marker = loop ? PacketItem::Kind::Flush : PacketItem::Kind::End;
@@ -376,20 +344,21 @@ void Player::Demux(std::string source) {
   }
 }
 
-FramePtr Player::ToNv12(FramePtr frame) {
+FramePtr Player::ToSoftwareFormat(FramePtr frame) {
+  const AVPixelFormat format = m_sink->SoftwareFormat();
   m_sws = sws_getCachedContext(m_sws, frame->width, frame->height, AVPixelFormat(frame->format), frame->width,
-                               frame->height, AV_PIX_FMT_NV12, SWS_BILINEAR, nullptr, nullptr, nullptr);
+                               frame->height, format, SWS_BILINEAR, nullptr, nullptr, nullptr);
   if (!m_sws)
     return nullptr;
   FramePtr out{av_frame_alloc()};
-  out->format = AV_PIX_FMT_NV12;
+  out->format = format;
   out->width = frame->width;
   out->height = frame->height;
   if (av_frame_get_buffer(out.get(), 0) < 0)
     return nullptr;
   sws_scale(m_sws, frame->data, frame->linesize, 0, frame->height, out->data, out->linesize);
   av_frame_copy_props(out.get(), frame.get());
-  // swscale converts the yuvj (full range) formats to limited range NV12.
+  // swscale converts the yuvj (full range) formats to limited range YUV.
   const AVPixelFormat f = AVPixelFormat(frame->format);
   if (f == AV_PIX_FMT_YUVJ420P || f == AV_PIX_FMT_YUVJ422P || f == AV_PIX_FMT_YUVJ444P)
     out->color_range = AVCOL_RANGE_MPEG;
@@ -403,7 +372,7 @@ bool Player::ReceiveVideoFrames() {
     if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
       return true;
     if (ret < 0) {
-      OutputDebugStringA(("libav: video decode error: " + AvError(ret) + "\n").c_str());
+      Log("video decode error: " + AvError(ret));
       return true;
     }
     frame->pts = frame->best_effort_timestamp;
@@ -415,8 +384,8 @@ bool Player::ReceiveVideoFrames() {
         continue;
       m_decodeTarget = -1;
     }
-    if (frame->format != AV_PIX_FMT_D3D11 && frame->format != AV_PIX_FMT_NV12)
-      frame = ToNv12(std::move(frame));
+    if (!IsHardwareFrame(frame.get()) && frame->format != m_sink->SoftwareFormat())
+      frame = ToSoftwareFormat(std::move(frame));
     if (!frame)
       continue;
     SetFrameSerial(frame.get(), m_decodeSerial);
@@ -429,7 +398,7 @@ bool Player::ReceiveVideoFrames() {
         info.width = stream->codecpar->width;
         info.height = stream->codecpar->height;
         info.hasAudio = m_info.audioTrack >= 0;
-        info.hwDecoding = frame->format == AV_PIX_FMT_D3D11;
+        info.hwDecoding = IsHardwareFrame(frame.get());
         info.codec = avcodec_get_name(stream->codecpar->codec_id);
         m_callbacks.onLoad(info);
       }
@@ -440,7 +409,7 @@ bool Player::ReceiveVideoFrames() {
 }
 
 void Player::DecodeVideo() {
-  SetThreadDescription(GetCurrentThread(), L"libav video decode");
+  SetThreadName("libav decode");
   m_decodeSerial = m_seek.serial;
   while (!m_abort) {
     auto item = m_videoPackets.Pop(100ms);
@@ -460,7 +429,7 @@ void Player::DecodeVideo() {
         if (!ReceiveVideoFrames())
           return;
       if (ret < 0 && ret != AVERROR_EOF)
-        OutputDebugStringA(("libav: video packet rejected: " + AvError(ret) + "\n").c_str());
+        Log("video packet rejected: " + AvError(ret));
       if (!ReceiveVideoFrames())
         return;
     } else {
@@ -476,11 +445,10 @@ void Player::DecodeVideo() {
 }
 
 void Player::Render() {
-  SetThreadDescription(GetCurrentThread(), L"libav render");
-  // Paced by the compositor: once per composited frame, pick the video frame that should be on screen when what
-  // we draw now is displayed (the next compositor frame), and draw it if it is a new one. This shows each video
-  // frame for whole refreshes, with no frame drawn and then overwritten before the compositor ever saw it.
-  CompositorClock compositor(m_output->Device());
+  SetThreadName("libav render");
+  // Paced by the display: once per refresh, pick the video frame that should be on screen when what we draw now is
+  // displayed (the next refresh), and present it if it is a new one. This shows each video frame for whole
+  // refreshes, with no frame drawn and then overwritten before the display ever showed it.
   std::deque<FramePtr> ready; // decoded, not shown yet (a few, taken from m_frames)
   FramePtr shown;             // on screen, kept for redraws (resize while paused, ...)
   int serial = m_seek.serial;
@@ -508,8 +476,8 @@ void Player::Render() {
 
   try {
     while (!m_abort) {
-      compositor.Wait();
-      const double refresh = compositor.RefreshPeriod();
+      m_sink->WaitForFrame();
+      const double refresh = m_sink->RefreshPeriod();
       const auto audio = Audio();
       const bool audioMaster = audio && !audio->Failed();
 
@@ -548,7 +516,7 @@ void Player::Render() {
       }
 
       if (next) {
-        m_output->Present(next.get());
+        m_sink->Present(next.get());
         shown = std::move(next);
         const double t = position(pts(shown));
         m_position = t;
@@ -561,8 +529,8 @@ void Player::Render() {
           lastProgress = t;
           m_callbacks.onProgress(t, period);
         }
-      } else if (m_output->ResizePending()) {
-        m_output->Present(shown.get());
+      } else if (m_sink->ResizePending()) {
+        m_sink->Present(shown.get());
       }
 
       if (!endReported && m_videoEnded && ready.empty() && m_frames.Size() == 0 &&
@@ -572,8 +540,8 @@ void Player::Render() {
           m_callbacks.onEnd();
       }
     }
-  } catch (const winrt::hresult_error &e) {
-    Fail("Rendering failed: " + winrt::to_string(e.message()));
+  } catch (const std::exception &e) {
+    Fail(std::string("Rendering failed: ") + e.what());
   }
 }
 

@@ -10,8 +10,10 @@
 #include <map>
 #include <mutex>
 
+#include "CompositorClock.h"
 #include "FFmpeg.h"
 #include "HdrRenderer.h"
+#include "VideoSink.h"
 
 namespace ReactNativeLibav {
 
@@ -22,11 +24,24 @@ namespace ReactNativeLibav {
 // (Microsoft.UI.Composition has no public swapchain interop, so the drawing surface replaces a swapchain here.)
 // Software-decoded frames, converted to NV12 by the decoder, are uploaded once and then take the same path.
 // HDR (PQ/HLG) frames are tone mapped to SDR by HdrRenderer instead, also entirely on the GPU.
-class VideoOutput {
+// Rendering is paced on the compositor clock (CompositorClock).
+class VideoOutput final : public VideoSink {
  public:
   // On the UI thread. Throws winrt::hresult_error.
   explicit VideoOutput(const winrt::Microsoft::UI::Composition::Compositor &compositor);
-  ~VideoOutput();
+  ~VideoOutput() override;
+
+  // VideoSink
+  const AVCodec *HardwareDecoder(AVCodecID id) override;
+  bool ConfigureHardwareDecoder(AVCodecContext *ctx, AVDictionary **options) override;
+  AVPixelFormat SoftwareFormat() const override { return AV_PIX_FMT_NV12; }
+  void WaitForFrame() override { m_compositorClock.Wait(); }
+  double RefreshPeriod() const override { return m_compositorClock.RefreshPeriod(); }
+  // Draws a frame (AV_PIX_FMT_D3D11 or AV_PIX_FMT_NV12), aspect-fit on black. nullptr draws black. Any thread.
+  void Present(const AVFrame *frame) override;
+  bool ResizePending() const override { return m_pendingSize.load() != 0; }
+  // Drops cached views of decoder surfaces; call when the decoder that owns them goes away.
+  void ResetCaches() override;
 
   ID3D11Device *Device() const noexcept { return m_device.get(); }
   const winrt::Microsoft::UI::Composition::CompositionDrawingSurface &Surface() const noexcept { return m_surface; }
@@ -37,15 +52,10 @@ class VideoOutput {
 
   // Thread-safe. The surface is resized on the next Present.
   void Resize(uint32_t width, uint32_t height) noexcept;
-  bool ResizePending() const noexcept { return m_pendingSize.load() != 0; }
-
-  // Draws a frame (AV_PIX_FMT_D3D11 or AV_PIX_FMT_NV12), aspect-fit on black. nullptr draws black. Any thread.
-  void Present(const AVFrame *frame);
-
-  // Drops cached views of decoder surfaces; call when the decoder that owns them goes away.
-  void ResetCaches();
 
  private:
+  void Draw(const AVFrame *frame);
+  static AVPixelFormat GetFormat(AVCodecContext *ctx, const AVPixelFormat *formats);
   void ApplyResize();
   bool EnsureProcessor(UINT inWidth, UINT inHeight);
   ID3D11Texture2D *Upload(const AVFrame *frame);
@@ -55,6 +65,7 @@ class VideoOutput {
 
   std::recursive_mutex m_lock;
   winrt::com_ptr<ID3D11Device> m_device;
+  CompositorClock m_compositorClock; // after m_device: built from it
   winrt::com_ptr<ID3D11DeviceContext1> m_context;
   winrt::com_ptr<ID3D11VideoDevice> m_videoDevice;
   winrt::com_ptr<ID3D11VideoContext> m_videoContext;

@@ -2,6 +2,8 @@
 <!-- FFmpeg SDK (headers, MSVC import libs, DLLs) laid out by scripts/fetch-ffmpeg.ps1. Override with /p:FFmpegDir=... -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
+    <!-- The platform-neutral engine (cpp/), compiled into this project. -->
+    <SharedEngineDir>$(MSBuildThisFileDirectory)..\..\cpp\</SharedEngineDir>
     <FFmpegDir Condition="'$(FFmpegDir)' == ''">$(MSBuildThisFileDirectory)..\..\third_party\ffmpeg\win-x64\</FFmpegDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
