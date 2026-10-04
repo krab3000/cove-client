@@ -7941,6 +7941,30 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-libav-cove-client@workspace:apps/cove-client":
+  version: 0.0.0-use.local
+  resolution: "react-native-libav-cove-client@workspace:apps/cove-client"
+  dependencies:
+    "@babel/core": "npm:^7.25.2"
+    "@babel/preset-env": "npm:^7.25.3"
+    "@babel/runtime": "npm:^7.25.0"
+    "@react-native-community/cli": "npm:20.1.0"
+    "@react-native-community/cli-platform-android": "npm:20.1.0"
+    "@react-native/babel-preset": "npm:0.84.1"
+    "@react-native/metro-config": "npm:0.84.1"
+    "@react-native/typescript-config": "npm:0.84.1"
+    "@rnx-kit/jest-preset": "npm:^0.3.1"
+    "@types/react": "npm:^19.2.0"
+    react: "npm:19.2.3"
+    react-native: "npm:0.84.1"
+    react-native-builder-bob: "npm:^0.43.1"
+    react-native-libav: "workspace:*"
+    react-native-monorepo-config: "npm:^0.4.0"
+    react-native-windows: "npm:0.84.0"
+    typescript: "npm:^6.0.3"
+  languageName: unknown
+  linkType: soft
+
 "react-native-libav-example-android@workspace:apps/example-android":
   version: 0.0.0-use.local
   resolution: "react-native-libav-example-android@workspace:apps/example-android"

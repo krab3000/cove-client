@@ -31,6 +31,7 @@ struct LibavVideoViewProps : winrt::implements<LibavVideoViewProps, winrt::Micro
        volume = cloneFromProps->volume;
        loop = cloneFromProps->loop;
        hardwareDecoding = cloneFromProps->hardwareDecoding;
+       tlsVerify = cloneFromProps->tlsVerify;
        audioTrack = cloneFromProps->audioTrack;
        onLoad = cloneFromProps->onLoad;
        onProgress = cloneFromProps->onProgress;
@@ -61,6 +62,9 @@ struct LibavVideoViewProps : winrt::implements<LibavVideoViewProps, winrt::Micro
 
   REACT_FIELD(hardwareDecoding)
   bool hardwareDecoding{true};
+
+  REACT_FIELD(tlsVerify)
+  bool tlsVerify{true};
 
   REACT_FIELD(audioTrack)
   int32_t audioTrack{-1};

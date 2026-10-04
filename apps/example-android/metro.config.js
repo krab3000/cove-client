@@ -34,6 +34,7 @@ config.resolver.blockList = [
   under(path.join(library, 'windows')),
   under(path.join(library, 'third_party')),
   under(path.join(root, 'apps', 'example-windows')),
+  under(path.join(root, 'apps', 'cove-client')),
 ];
 
 module.exports = config;

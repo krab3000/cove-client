@@ -43,6 +43,7 @@ internal class LibavPlayer(private val listener: Listener) {
   fun setMuted(muted: Boolean) = nativeSetMuted(handle, muted)
   fun setVolume(volume: Float) = nativeSetVolume(handle, volume)
   fun setLoop(loop: Boolean) = nativeSetLoop(handle, loop)
+  fun setTlsVerify(verify: Boolean) = nativeSetTlsVerify(handle, verify)
   fun setAudioTrack(index: Int) = nativeSetAudioTrack(handle, index)
   fun seek(seconds: Double) = nativeSeek(handle, seconds)
 
@@ -96,6 +97,7 @@ internal class LibavPlayer(private val listener: Listener) {
   private external fun nativeSetMuted(handle: Long, muted: Boolean)
   private external fun nativeSetVolume(handle: Long, volume: Float)
   private external fun nativeSetLoop(handle: Long, loop: Boolean)
+  private external fun nativeSetTlsVerify(handle: Long, verify: Boolean)
   private external fun nativeSetAudioTrack(handle: Long, index: Int)
   private external fun nativeSeek(handle: Long, seconds: Double)
 

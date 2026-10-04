@@ -42,6 +42,10 @@ class LibavVideoViewManager : SimpleViewManager<LibavVideoView>(), LibavVideoVie
     view.hardwareDecoding = value
   }
 
+  override fun setTlsVerify(view: LibavVideoView, value: Boolean) {
+    view.tlsVerify = value
+  }
+
   override fun setAudioTrack(view: LibavVideoView, value: Int) {
     view.audioTrack = value
   }

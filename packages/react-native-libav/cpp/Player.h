@@ -65,6 +65,8 @@ class Player {
   void SetMuted(bool muted);
   void SetVolume(float volume);
   void SetLoop(bool loop) noexcept { m_loop = loop; }
+  // For https sources: verify the server certificate (the default). Applies to the next Open.
+  void SetTlsVerify(bool verify) noexcept { m_tlsVerify = verify; }
   // Seconds from the start. Asynchronous: onSeek reports when the frame there is on screen.
   void Seek(double seconds);
   // Stream index, -1 for the default track. Playback continues from the current position on the new track.
@@ -99,6 +101,7 @@ class Player {
   CodecContextPtr m_videoCodec;
   SwsContext *m_sws = nullptr;
   bool m_hardwareDecoding = true;
+  bool m_tlsVerify = true;
   bool m_loaded = false;
   MediaInfo m_info;
 

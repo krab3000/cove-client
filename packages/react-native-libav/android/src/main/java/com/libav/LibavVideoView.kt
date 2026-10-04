@@ -36,11 +36,13 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   var volume = 1f
   var loop = false
   var hardwareDecoding = true
+  var tlsVerify = true
   var audioTrack = -1
 
   // What the player has
   private var openedSource: String? = null
   private var openedHardwareDecoding = true
+  private var openedTlsVerify = true
   private var openedAudioTrack = -1
   private var surfaceReady = false
   private var sourceFile: ParcelFileDescriptor? = null
@@ -58,7 +60,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
 
   /** After a batch of prop changes. */
   fun applyProps() {
-    if (source != openedSource || hardwareDecoding != openedHardwareDecoding) {
+    if (source != openedSource || hardwareDecoding != openedHardwareDecoding || tlsVerify != openedTlsVerify) {
       open(restoring = false)
     } else if (audioTrack != openedAudioTrack) {
       openedAudioTrack = audioTrack
@@ -84,6 +86,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   private fun open(restoring: Boolean) {
     openedSource = source
     openedHardwareDecoding = hardwareDecoding
+    openedTlsVerify = tlsVerify
     openedAudioTrack = audioTrack
     if (!restoring) {
       loaded = false
@@ -95,6 +98,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
     val src = source
     if (src.isNullOrEmpty() || !surfaceReady)
       return // opens once the surface is there
+    player.setTlsVerify(tlsVerify)
     player.open(resolve(src), hardwareDecoding, audioTrack)
     player.setPaused(paused)
   }

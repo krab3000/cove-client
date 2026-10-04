@@ -59,6 +59,12 @@ export interface NativeProps extends ViewProps {
   loop?: CodegenTypes.WithDefault<boolean, false>;
   /** Set to false to force software decoding (frames are still rendered on the GPU). */
   hardwareDecoding?: CodegenTypes.WithDefault<boolean, true>;
+  /**
+   * Verify the server's TLS certificate for https sources (default true). Set false only for a server whose
+   * certificate the app has validated itself, e.g. when FFmpeg's stricter check fails behind TLS-inspecting
+   * antivirus whose CA publishes no revocation list.
+   */
+  tlsVerify?: CodegenTypes.WithDefault<boolean, true>;
   /** Audio stream to play (an index from onLoad's audioTracks); -1 picks the default track. */
   audioTrack?: CodegenTypes.WithDefault<CodegenTypes.Int32, -1>;
   onLoad?: CodegenTypes.DirectEventHandler<LoadEvent>;

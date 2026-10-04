@@ -96,7 +96,7 @@ struct NativePlayer {
   jmethodID onLoad = nullptr, onProgress = nullptr, onSeek = nullptr, onEnd = nullptr, onError = nullptr;
   ANativeWindow *window = nullptr;
   std::unique_ptr<Player> player;
-  bool paused = false, muted = false, loop = false;
+  bool paused = false, muted = false, loop = false, tlsVerify = true;
   float volume = 1.0f;
 
   void SetWindow(ANativeWindow *newWindow) {
@@ -178,6 +178,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeOpen(JNIEnv *
   np->player->SetMuted(np->muted);
   np->player->SetVolume(np->volume);
   np->player->SetLoop(np->loop);
+  np->player->SetTlsVerify(np->tlsVerify);
   np->player->Open(FromUtf8(env, source), hardwareDecoding, audioTrack);
 }
 
@@ -215,6 +216,11 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetLoop(JNIEn
   np->loop = loop;
   if (np->player)
     np->player->SetLoop(loop);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetTlsVerify(JNIEnv *, jobject, jlong handle,
+                                                                               jboolean verify) {
+  From(handle)->tlsVerify = verify; // applies to the next open
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetAudioTrack(JNIEnv *, jobject, jlong handle,

@@ -80,9 +80,11 @@ struct LibavVideoView : winrt::implements<LibavVideoView, winrt::Windows::Founda
 
     const std::string source = newProps->source.value_or("");
     const bool hardware = newProps->hardwareDecoding;
-    if (source != m_source || hardware != m_hardware) {
+    const bool tlsVerify = newProps->tlsVerify;
+    if (source != m_source || hardware != m_hardware || tlsVerify != m_tlsVerify) {
       m_source = source;
       m_hardware = hardware;
+      m_tlsVerify = tlsVerify;
       Load();
     } else if (m_player) {
       m_player->SetPaused(m_paused);
@@ -160,6 +162,7 @@ struct LibavVideoView : winrt::implements<LibavVideoView, winrt::Windows::Founda
     m_player->SetMuted(m_muted);
     m_player->SetVolume(m_volume);
     m_player->SetLoop(m_loop);
+    m_player->SetTlsVerify(m_tlsVerify);
     m_player->Open(m_source, m_hardware, m_audioTrack);
   }
 
@@ -198,6 +201,7 @@ struct LibavVideoView : winrt::implements<LibavVideoView, winrt::Windows::Founda
   std::string m_initError;
   std::string m_source;
   bool m_hardware = true;
+  bool m_tlsVerify = true;
   bool m_paused = false;
   bool m_muted = false;
   float m_volume = 1.0f;

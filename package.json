@@ -15,8 +15,11 @@
     "build-ffmpeg-android": "yarn workspace react-native-libav build-ffmpeg-android",
     "setup-android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-android-toolchain.ps1",
     "make-test-media": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-test-media.ps1",
-    "typecheck": "yarn workspace react-native-libav typecheck && yarn workspace react-native-libav-example-ui typecheck",
-    "lint": "eslint \"**/*.{js,ts,tsx}\""
+    "typecheck": "yarn workspace react-native-libav typecheck && yarn workspace react-native-libav-example-ui typecheck && yarn workspace react-native-libav-cove-client typecheck",
+    "lint": "eslint \"**/*.{js,ts,tsx}\"",
+    "cove:windows": "yarn workspace react-native-libav-cove-client windows",
+    "start:cove": "yarn workspace react-native-libav-cove-client start",
+    "cove:android": "yarn workspace react-native-libav-cove-client android"
   },
   "devDependencies": {
     "@eslint/compat": "^2.1.0",

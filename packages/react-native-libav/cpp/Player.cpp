@@ -136,7 +136,17 @@ int Player::ValidAudioTrack(int index) const {
 void Player::OpenInput(const std::string &source, int audioTrack) {
   m_format = avformat_alloc_context();
   m_format->interrupt_callback = {&Player::Interrupt, this};
-  int ret = avformat_open_input(&m_format, source.c_str(), nullptr, nullptr);
+  AVDictionary *options = nullptr;
+  if (source.rfind("http://", 0) == 0 || source.rfind("https://", 0) == 0) {
+    // Streaming from a server: ride out dropped connections instead of ending playback.
+    av_dict_set(&options, "reconnect", "1", 0);
+    av_dict_set(&options, "reconnect_on_network_error", "1", 0);
+    av_dict_set(&options, "reconnect_delay_max", "5", 0);
+    if (!m_tlsVerify)
+      av_dict_set(&options, "tls_verify", "0", 0);
+  }
+  int ret = avformat_open_input(&m_format, source.c_str(), nullptr, &options);
+  av_dict_free(&options);
   if (ret < 0)
     throw std::runtime_error("Cannot open " + source + ": " + AvError(ret));
   if ((ret = avformat_find_stream_info(m_format, nullptr)) < 0)

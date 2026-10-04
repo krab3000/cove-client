@@ -1,0 +1,56 @@
+{
+  "name": "react-native-libav-cove-client",
+  "version": "0.0.1",
+  "private": true,
+  "description": "A Cove media server client: infinite-scroll video grid, playback with LibavVideoView",
+  "scripts": {
+    "windows": "npx @react-native-community/cli run-windows",
+    "start": "react-native start",
+    "typecheck": "tsc -p .",
+    "android": "react-native run-android"
+  },
+  "dependencies": {
+    "react": "19.2.3",
+    "react-native": "0.84.1",
+    "react-native-libav": "workspace:*",
+    "react-native-windows": "0.84.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.1.0",
+    "@react-native-community/cli-platform-android": "20.1.0",
+    "@react-native/babel-preset": "0.84.1",
+    "@react-native/metro-config": "0.84.1",
+    "@react-native/typescript-config": "0.84.1",
+    "@rnx-kit/jest-preset": "^0.3.1",
+    "@types/react": "^19.2.0",
+    "react-native-builder-bob": "^0.43.1",
+    "react-native-monorepo-config": "^0.4.0",
+    "typescript": "^6.0.3"
+  },
+  "engines": {
+    "node": ">= 22.11.0"
+  },
+  "react-native-windows": {
+    "init-windows": {
+      "name": "CoveClient",
+      "namespace": "CoveClient",
+      "template": "cpp-app"
+    }
+  },
+  "codegenConfig": {
+    "name": "CoveClientSpec",
+    "type": "all",
+    "jsSrcsDir": "src/native",
+    "windows": {
+      "namespace": "CoveClientCodegen",
+      "generators": [
+        "componentsWindows"
+      ],
+      "outputDirectory": "windows/CoveClient/codegen",
+      "separateDataTypes": true
+    }
+  }
+}

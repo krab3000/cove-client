@@ -39,6 +39,7 @@ config.resolver.blockList = [
   under(path.join(library, 'android')),
   under(path.join(library, 'third_party')),
   under(path.join(root, 'apps', 'example-android')),
+  under(path.join(root, 'apps', 'cove-client')),
   under(path.join(rnwPath, 'build')),
   under(path.join(rnwPath, 'target')),
   /.*\.ProjectImports\.zip/,
