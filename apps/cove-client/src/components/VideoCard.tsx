@@ -19,7 +19,12 @@ import {
 } from '../format';
 import { colors } from './Controls';
 import { HoverPreview } from './HoverPreview';
-import { useIsSelected, type Selection } from './selection';
+import {
+  useInRange,
+  useIsSelected,
+  type IndexRange,
+  type Selection,
+} from './selection';
 
 
 /**
@@ -47,9 +52,9 @@ export const VideoCard = memo(function VideoCard({
   height: number;
   onPress: (video: Video) => void;
   index: number; // in the grid
-  // Touch: the grid's previewing card (the one in the middle of the screen, by index) and the one pressed and
-  // held (by video id; the grid decides when that ends, as the finger may go on to scroll the list).
-  focus: Selection<number>;
+  // Touch: the grid's previewing cards (those wholly on screen, by index) and the one pressed and held (by video
+  // id; the grid decides when that ends, as the finger may go on to scroll the list).
+  focus: Selection<IndexRange>;
   held: Selection<number | null>;
   onHold: (video: Video) => void;
   onRelease: (video: Video) => void;
@@ -58,7 +63,7 @@ export const VideoCard = memo(function VideoCard({
   const [imageFailed, setImageFailed] = useState(false);
   const previewing = hovered;
   const held = useIsSelected(heldSelection, video.id);
-  const autoplay = useIsSelected(focus, index);
+  const autoplay = useInRange(focus, index);
   const showPreview = previewing || held || autoplay;
   // The loading bar runs from the preview being chosen until it plays (or turns out to have nothing to play).
   const [previewState, setPreviewState] = useState<'loading' | 'playing' | 'none'>('loading');

@@ -90,12 +90,14 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
   var tlsVerify = true
   var audioTrack = -1
   var overlay = false
+  var cache = false
 
   // What the session was opened with
   private var openedSource: String? = null
   private var openedHardwareDecoding = true
   private var openedLoop = false
   private var openedOverlay = false
+  private var openedCache = false
   private var openedAudioTrack = -1
   private var openedPaused = false
 
@@ -114,7 +116,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
   /** After a batch of prop changes. */
   fun applyProps() {
     if (session == null || source != openedSource || hardwareDecoding != openedHardwareDecoding || loop != openedLoop ||
-      overlay != openedOverlay) {
+      overlay != openedOverlay || cache != openedCache) {
       open()
       return
     }
@@ -146,12 +148,13 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     openedHardwareDecoding = hardwareDecoding
     openedLoop = loop
     openedOverlay = overlay
+    openedCache = cache
     openedAudioTrack = audioTrack
     openedPaused = paused
     val src = source
     if (src.isNullOrEmpty())
       return
-    session = Session(src, overlay).also { it.start() }
+    session = Session(src, overlay, cache).also { it.start() }
   }
 
   private fun emit(name: String, payload: WritableMap) {
@@ -165,7 +168,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
    * hardware overlay layer, no GPU copy of each frame (what browsers use for full-screen video), handed to libVLC
    * as is (it creates and destroys the surface itself), inside a container that crops the decoder's padding.
    */
-  private inner class Session(private val src: String, val overlay: Boolean) :
+  private inner class Session(private val src: String, val overlay: Boolean, private val cache: Boolean) :
     TextureView.SurfaceTextureListener, IVLCVout.OnNewVideoLayoutListener, MediaPlayer.EventListener {
 
     val textureView = TextureView(reactContext)
@@ -189,6 +192,15 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     private var seekTargetMs = -1L // set_time sent, waiting for the time to get there
     private var seekReached = false // there: onSeek with the next frame
     private var lastProgress = 0L
+    // TEMP: start-up timing ("RNVlcTiming <video> <step> +<ms since the session started> @<wall clock ms>").
+    private val t0 = System.currentTimeMillis()
+    private val traceId = Regex("/video/([0-9]+)").find(src)?.groupValues?.get(1) ?: "?"
+    private val traced = mutableSetOf<String>()
+    private fun mark(step: String, once: Boolean = true) {
+      if (once && !traced.add(step)) return
+      val now = System.currentTimeMillis()
+      android.util.Log.d("RNVlcTiming", "$traceId $step +${now - t0}ms @$now")
+    }
     private val handler = Handler(Looper.getMainLooper())
     // Stepping to a frame while paused pauses on the frame reaching the TextureView, but a hidden view may never
     // get one: then it pauses once VLC reports the time moving, or after a while at the latest, so a paused player
@@ -208,6 +220,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     }
 
     fun start() {
+      mark("session")
       if (overlay) {
         clip!!.addView(surfaceView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(clip, 0, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
@@ -233,7 +246,21 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       // The player starts once the TextureView has its SurfaceTexture (onSurfaceTextureAvailable).
     }
 
+    /** With cache, an http(s) source plays from MediaCache: downloaded first if needed, streamed if that fails. */
     private fun createPlayer(surface: SurfaceTexture?) {
+      if (!cache || !(src.startsWith("http://") || src.startsWith("https://"))) return createPlayer(surface, null)
+      MediaCache.cached(reactContext, src)?.let {
+        mark("cache-hit")
+        return createPlayer(surface, it)
+      }
+      mark("cache-download")
+      MediaCache.fetch(reactContext, src) { file ->
+        mark("cache-downloaded")
+        if (!disposed && player == null) createPlayer(surface, file)
+      }
+    }
+
+    private fun createPlayer(surface: SurfaceTexture?, file: java.io.File?) {
       val vlc = Vlc.get(reactContext)
       val p = MediaPlayer(vlc)
       p.setEventListener(this)
@@ -243,22 +270,37 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       if (width > 0 && height > 0)
         vout.setWindowSize(width, height)
 
-      val uri = if (src.contains("://")) Uri.parse(src) else null
-      if (!tlsVerify)
-        uri?.host?.let { Vlc.allowUnverified(it) }
-      val media = if (uri != null) Media(vlc, uri) else Media(vlc, src)
-      // Start sooner than with the default 1 s buffers; Cove streams from the LAN.
-      media.addOption(":network-caching=300")
-      media.addOption(":file-caching=300")
+      // A muted cached source is a preview clip (small, ~640×360): decoded on the CPU, which returns its first
+      // frame sooner than a hardware decoder starting up, and leaves the hardware decoders to the main player.
+      val preview = file != null && muted
+      val media = if (file != null) {
+        Media(vlc, file.path).also {
+          it.addOption(":file-caching=50") // a local file needs next to no buffer
+          // A muted cached source (a preview clip) has no audio at all: VLC otherwise starts an audio output and
+          // holds the first picture until the audio clock runs (~0.4 s). Unmuting it later stays silent.
+          if (muted) it.addOption(":no-audio")
+          if (preview) it.addOption(":codec=avcodec,all")
+        }
+      } else {
+        val uri = if (src.contains("://")) Uri.parse(src) else null
+        if (!tlsVerify)
+          uri?.host?.let { Vlc.allowUnverified(it) }
+        (if (uri != null) Media(vlc, uri) else Media(vlc, src)).also {
+          // Start sooner than with the default 1 s buffers; Cove streams from the LAN.
+          it.addOption(":network-caching=300")
+          it.addOption(":file-caching=300")
+        }
+      }
       if (loop)
         media.addOption(":input-repeat=65535")
-      media.setHWDecoderEnabled(hardwareDecoding, false)
+      if (!preview) media.setHWDecoderEnabled(hardwareDecoding, false)
       p.media = media
       media.release()
       player = p
       applyVolume()
       // Starting paused: play up to the first frame and pause there (a player paused from the start shows nothing).
       if (paused) stepToFrame() else p.play()
+      mark("play-called")
     }
 
     /** Plays up to the next frame and pauses there (muted meanwhile). */
@@ -424,7 +466,16 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     override fun onEvent(event: MediaPlayer.Event) {
       if (disposed) return
       when (event.type) {
+        MediaPlayer.Event.Opening -> mark("vlc-opening")
+        MediaPlayer.Event.Buffering -> {
+          mark("vlc-buffering-start")
+          if (event.buffering >= 100f) mark("vlc-buffering-100")
+        }
+        else -> {}
+      }
+      when (event.type) {
         MediaPlayer.Event.Playing, MediaPlayer.Event.Paused -> {
+          mark("vlc-playing")
           if (!started) {
             started = true
             applyVolume()
@@ -432,9 +483,14 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
           tryLoad()
         }
         MediaPlayer.Event.ESAdded, MediaPlayer.Event.ESSelected, MediaPlayer.Event.LengthChanged,
-        MediaPlayer.Event.Vout -> tryLoad()
+        MediaPlayer.Event.Vout -> {
+          if (event.type == MediaPlayer.Event.ESAdded) mark("vlc-es-added")
+          if (event.type == MediaPlayer.Event.Vout) mark("vlc-vout")
+          tryLoad()
+        }
         MediaPlayer.Event.TimeChanged -> {
           val time = event.timeChanged
+          mark("vlc-first-time")
           if (seekTargetMs >= 0 && abs(time - seekTargetMs) < 1500) {
             seekTargetMs = -1
             seekReached = true
@@ -483,6 +539,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
 
     // TextureView.SurfaceTextureListener
     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
+      mark("surface")
       if (player == null && !disposed) {
         surfaceTexture = surface
         createPlayer(surface)
@@ -504,6 +561,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       if (disposed) return
       if (!frameShown) {
         frameShown = true
+        mark("first-frame")
         updateAlpha()
       }
       if (pauseOnFrame) stepDone()

@@ -22,12 +22,17 @@ import {
 import type { CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
 import { Button, colors } from '../components/Controls';
-import { createSelection } from '../components/selection';
+import {
+  createSelection,
+  NO_RANGE,
+  type IndexRange,
+} from '../components/selection';
 import {
   CARD_TEXT_HEIGHT,
   PlaceholderCard,
   VideoCard,
 } from '../components/VideoCard';
+import { prefetchMedia } from '../player';
 import WheelCapture, {
   type WheelEvent,
 } from '../native/WheelCaptureNativeComponent';
@@ -179,26 +184,52 @@ export function BrowseScreen({
   // Touch: the card whose preview plays (the one in the middle of the screen), -1 for none. It stops as soon as it
   // leaves the middle; the next one starts once scrolling rests.
   // Kept in Selections, not state: when they change only the cards concerned re-render (see VideoCard).
-  const focus = useMemo(() => createSelection(-1), []);
+  const focus = useMemo(() => createSelection<IndexRange>(NO_RANGE), []);
   const held = useMemo(() => createSelection<number | null>(null), []);
   const previewsRef = useRef(previews);
   previewsRef.current = previews;
   const setFocused = useCallback(
-    (index: number) => focus.set(previewsRef.current ? index : -1),
+    (range: IndexRange) => {
+      const next = previewsRef.current ? range : NO_RANGE;
+      const current = focus.get();
+      if (next.first !== current.first || next.last !== current.last) focus.set(next);
+    },
     [focus]
   );
-  const centerCard = useCallback(() => {
-    if (total == null) return -1;
+  // The card in the middle of the screen (a range of one; the plumbing takes any range of cards).
+  const visibleCards = useCallback((): IndexRange => {
+    if (total == null || total === 0) return NO_RANGE;
     const { offset, viewport } = scrollRef.current;
     const { columns: cols, rowHeight: rh } = layout.current;
     const row = Math.max(0, Math.floor((offset + viewport / 2 - PADDING) / rh));
-    const index = row * cols + Math.floor((cols - 1) / 2);
-    return index < total ? index : -1;
+    const index = Math.min(total - 1, row * cols + Math.floor((cols - 1) / 2));
+    return { first: index, last: index };
   }, [total]);
+  // Touch: the preview clips of the cards around the centred one download ahead (Android caches them), so the
+  // next preview starts from a local file. Each video once.
+  const prefetched = useRef(new Set<number>());
+  const prefetchAround = useCallback(
+    (center: number) => {
+      const { columns: cols } = layout.current;
+      const row = Math.floor(center / cols);
+      for (let index = (row - 1) * cols; index < (row + 2) * cols; index++) {
+        if (index < 0 || total == null || index >= total) continue;
+        const video = pages.current.get(Math.floor(index / PER_PAGE))?.[index % PER_PAGE];
+        if (!video || prefetched.current.has(video.id)) continue;
+        prefetched.current.add(video.id);
+        client.previewAvailable(video).then((has) => {
+          if (has) prefetchMedia([client.previewUrl(video)]);
+        });
+      }
+    },
+    [client, total]
+  );
   const updateFocus = useCallback(() => {
     if (!touch) return;
-    setFocused(centerCard());
-  }, [centerCard, setFocused]);
+    const range = visibleCards();
+    setFocused(range);
+    if (range.last >= range.first) prefetchAround(range.first);
+  }, [visibleCards, setFocused, prefetchAround]);
   // The first screen, once the list is there.
   useEffect(() => {
     updateFocus();
@@ -324,7 +355,7 @@ export function BrowseScreen({
   // Previews off (the player is open over the grid): none playing; back on: the centred card again.
   useEffect(() => {
     if (!previews) {
-      focus.set(-1);
+      focus.set(NO_RANGE);
       held.set(null);
     } else {
       updateFocus();

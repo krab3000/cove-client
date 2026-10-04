@@ -1,5 +1,5 @@
 import { useImperativeHandle, useRef, type Ref } from 'react';
-import type { HostInstance } from 'react-native';
+import { NativeModules, Platform, type HostInstance } from 'react-native';
 import NativeVlcVideoView, {
   Commands,
   type NativeProps,
@@ -13,6 +13,14 @@ export type {
   SeekEvent,
   ErrorEvent,
 } from './VlcVideoViewNativeComponent';
+
+/**
+ * Android: downloads media into the cache a VlcVideoView with `cache` plays from, ahead of time (preview clips of
+ * the cards around the one previewing, say). Does nothing elsewhere.
+ */
+export function prefetchMedia(urls: string[]): void {
+  if (Platform.OS === 'android' && urls.length) NativeModules.VlcCache?.prefetch(urls);
+}
 
 export type VlcVideoViewHandle = {
   /** Seeks to a time in seconds from the start (frame accurate); onSeek fires once that frame is shown. */

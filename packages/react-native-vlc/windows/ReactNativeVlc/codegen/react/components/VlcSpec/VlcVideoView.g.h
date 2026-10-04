@@ -34,6 +34,7 @@ struct VlcVideoViewProps : winrt::implements<VlcVideoViewProps, winrt::Microsoft
        tlsVerify = cloneFromProps->tlsVerify;
        audioTrack = cloneFromProps->audioTrack;
        overlay = cloneFromProps->overlay;
+       cache = cloneFromProps->cache;
        onLoad = cloneFromProps->onLoad;
        onProgress = cloneFromProps->onProgress;
        onSeek = cloneFromProps->onSeek;
@@ -72,6 +73,9 @@ struct VlcVideoViewProps : winrt::implements<VlcVideoViewProps, winrt::Microsoft
 
   REACT_FIELD(overlay)
   std::optional<bool> overlay{};
+
+  REACT_FIELD(cache)
+  std::optional<bool> cache{};
 
    // These fields can be used to determine if JS has registered for this event
   REACT_FIELD(onLoad)

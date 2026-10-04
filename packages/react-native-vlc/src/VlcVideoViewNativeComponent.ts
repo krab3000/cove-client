@@ -73,6 +73,13 @@ export interface NativeProps extends ViewProps {
    * for small players that should stay transparent until their first frame (previews). Ignored on Windows.
    */
   overlay?: CodegenTypes.WithDefault<boolean, false>;
+  /**
+   * Android: download the whole http(s) source into the app's cache first and play the local file (streams it
+   * if the download fails). For small files such as preview clips, which then start much sooner (no streaming
+   * round trips, no network buffer); see prefetchMedia. A cached source opened muted plays without audio (it
+   * starts sooner; unmuting it stays silent). Ignored on Windows.
+   */
+  cache?: CodegenTypes.WithDefault<boolean, false>;
   onLoad?: CodegenTypes.DirectEventHandler<LoadEvent>;
   onProgress?: CodegenTypes.DirectEventHandler<ProgressEvent>;
   /** A seek finished: the frame at currentTime is on screen. */

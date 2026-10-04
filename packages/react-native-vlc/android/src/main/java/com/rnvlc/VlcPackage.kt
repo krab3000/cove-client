@@ -9,5 +9,6 @@ class VlcPackage : ReactPackage {
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
     listOf(VlcVideoViewManager())
 
-  override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> = emptyList()
+  override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
+    listOf(VlcCacheModule(reactContext))
 }

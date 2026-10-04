@@ -1,5 +1,7 @@
 import { VlcVideoView } from 'react-native-vlc';
 
+export { prefetchMedia } from 'react-native-vlc';
+
 export type {
   VlcVideoViewHandle as VideoViewHandle,
   LoadEvent,
