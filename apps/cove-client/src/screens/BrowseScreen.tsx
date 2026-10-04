@@ -181,8 +181,7 @@ export function BrowseScreen({
     []
   );
 
-  // Touch: the card whose preview plays (the one in the middle of the screen), -1 for none. It stops as soon as it
-  // leaves the middle; the next one starts once scrolling rests.
+  // Touch: the card whose preview plays (the one in the middle of the screen), none while the player is open.
   // Kept in Selections, not state: when they change only the cards concerned re-render (see VideoCard).
   const focus = useMemo(() => createSelection<IndexRange>(NO_RANGE), []);
   const held = useMemo(() => createSelection<number | null>(null), []);
@@ -205,14 +204,15 @@ export function BrowseScreen({
     const index = Math.min(total - 1, row * cols + Math.floor((cols - 1) / 2));
     return { first: index, last: index };
   }, [total]);
-  // Touch: the preview clips of the cards around the centred one download ahead (Android caches them), so the
-  // next preview starts from a local file. Each video once.
+  // Touch: the preview clips of the centred card's row and a row either side download ahead (Android caches them), so
+  // previews start from a local file. Each video once.
   const prefetched = useRef(new Set<number>());
   const prefetchAround = useCallback(
-    (center: number) => {
+    (range: IndexRange) => {
       const { columns: cols } = layout.current;
-      const row = Math.floor(center / cols);
-      for (let index = (row - 1) * cols; index < (row + 2) * cols; index++) {
+      const firstRow = Math.floor(range.first / cols) - 1;
+      const lastRow = Math.floor(range.last / cols) + 1;
+      for (let index = firstRow * cols; index < (lastRow + 1) * cols; index++) {
         if (index < 0 || total == null || index >= total) continue;
         const video = pages.current.get(Math.floor(index / PER_PAGE))?.[index % PER_PAGE];
         if (!video || prefetched.current.has(video.id)) continue;
@@ -228,7 +228,7 @@ export function BrowseScreen({
     if (!touch) return;
     const range = visibleCards();
     setFocused(range);
-    if (range.last >= range.first) prefetchAround(range.first);
+    if (range.last >= range.first) prefetchAround(range);
   }, [visibleCards, setFocused, prefetchAround]);
   // The first screen, once the list is there.
   useEffect(() => {

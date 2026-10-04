@@ -270,8 +270,9 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       if (width > 0 && height > 0)
         vout.setWindowSize(width, height)
 
-      // A muted cached source is a preview clip (small, ~640×360): decoded on the CPU, which returns its first
-      // frame sooner than a hardware decoder starting up, and leaves the hardware decoders to the main player.
+      // A muted cached source is a preview clip (small, ~640×360): decoded on the CPU, which shows its first frame
+      // in ~0.1 s against ~0.5 s for a hardware decoder starting up, and leaves the hardware decoders to the main
+      // player. (Fine for one preview at a time; a dozen took most of the CPU.)
       val preview = file != null && muted
       val media = if (file != null) {
         Media(vlc, file.path).also {
