@@ -6,10 +6,11 @@
 #include <winrt/Windows.UI.h>
 #include <winrt/Microsoft.UI.Composition.interop.h>
 
-#include <cerrno>
+#include <algorithm>
 #include <cstdarg>
 #include <cstdio>
 #include <mutex>
+#include <set>
 #include <thread>
 
 #include "codegen/react/components/VlcSpec/VlcVideoView.g.h"
@@ -23,7 +24,7 @@ namespace {
 
 using namespace ReactNativeVlc;
 
-constexpr libvlc_time_t kProgressPeriodUs = 250'000;
+constexpr ULONGLONG kProgressPeriodMs = 250;
 
 // The last error VLC logged, for onError (libVLC's events only say that playback failed).
 std::mutex g_errorLock;
@@ -41,6 +42,73 @@ void Log(void *, int level, const libvlc_log_t *, const char *fmt, va_list args)
   }
 }
 
+std::string LastError(const char *fallback) {
+  std::lock_guard lock(g_errorLock);
+  return g_lastError.empty() ? fallback : g_lastError;
+}
+
+// Servers whose certificate VLC may accept without verifying it (sources played with tlsVerify={false}). VLC's TLS
+// asks through a dialog when it cannot verify a certificate; these are answered here.
+std::mutex g_hostsLock;
+std::set<std::string> g_insecureHosts;
+
+std::string Lowercase(std::string text) {
+  std::transform(text.begin(), text.end(), text.begin(), [](unsigned char c) { return char(tolower(c)); });
+  return text;
+}
+
+// "https://user@host:port/path" -> "host".
+std::string UrlHost(const std::string &url) {
+  const auto scheme = url.find("://");
+  if (scheme == std::string::npos)
+    return {};
+  std::string authority = url.substr(scheme + 3, url.find_first_of("/?#", scheme + 3) - (scheme + 3));
+  if (const auto at = authority.rfind('@'); at != std::string::npos)
+    authority.erase(0, at + 1);
+  if (!authority.empty() && authority[0] == '[') // IPv6 literal
+    return Lowercase(authority.substr(1, authority.find(']') - 1));
+  return Lowercase(authority.substr(0, authority.find(':')));
+}
+
+void AllowUnverified(const std::string &host) {
+  if (host.empty())
+    return;
+  std::lock_guard lock(g_hostsLock);
+  g_insecureHosts.insert(host);
+}
+
+const libvlc_dialog_cbs *DialogCallbacks() {
+  static const libvlc_dialog_cbs callbacks = [] {
+    libvlc_dialog_cbs cbs{};
+    cbs.pf_display_error = [](void *, const char *, const char *) {};
+    cbs.pf_display_login = [](void *, libvlc_dialog_id *id, const char *, const char *, const char *, bool) {
+      libvlc_dialog_dismiss(id);
+    };
+    // "Insecure site" (twice: then the certificate, "Accept 24 hours" is action 1). The text names the server; the
+    // titles and buttons may be translated, so they are not matched.
+    cbs.pf_display_question = [](void *, libvlc_dialog_id *id, const char *title, const char *text,
+                                 libvlc_dialog_question_type, const char *, const char *, const char *) {
+      const std::string message = Lowercase(std::string(title ? title : "") + " " + (text ? text : ""));
+      bool allowed = false;
+      {
+        std::lock_guard lock(g_hostsLock);
+        for (const auto &host : g_insecureHosts)
+          allowed = allowed || message.find(host) != std::string::npos;
+      }
+      if (allowed)
+        libvlc_dialog_post_action(id, 1);
+      else
+        libvlc_dialog_dismiss(id);
+    };
+    cbs.pf_display_progress = [](void *, libvlc_dialog_id *, const char *, const char *, bool, float,
+                                 const char *) {};
+    cbs.pf_cancel = [](void *, libvlc_dialog_id *id) { libvlc_dialog_dismiss(id); };
+    cbs.pf_update_progress = [](void *, libvlc_dialog_id *, float, const char *) {};
+    return cbs;
+  }();
+  return &callbacks;
+}
+
 // One libVLC instance for the process (plugins are loaded once), created on first use.
 libvlc_instance_t *Instance() {
   static libvlc_instance_t *instance = [] {
@@ -48,31 +116,28 @@ libvlc_instance_t *Instance() {
         "--no-video-title-show",
         "--no-osd",
         "--no-snapshot-preview",
-        // VLC 4 remembers and restores where each media was left: playback here starts where the app says.
-        "--no-media-library",
-        "--restore-playback-pos=0",
-        // Start sooner than with the default 1 s buffers; Cove streams from the LAN.
-        "--network-caching=300",
-        "--file-caching=300",
+        // DirectSound: volume and mute per player. (WASAPI's mmdevice sets the volume of the process's audio
+        // session, which all players share and Windows remembers.)
+        "--aout=directsound,any",
+        // File and network caching stay at VLC's 1 s: in VLC 3 they are also how far ahead of the display the
+        // pictures are decoded, and with 300 ms a 4K HEVC hardware decode delivered a third of its frames too late.
     };
     libvlc_instance_t *vlc = libvlc_new(int(std::size(args)), args);
     if (!vlc) // an option this build does not know
       vlc = libvlc_new(0, nullptr);
-    if (vlc)
+    if (vlc) {
       libvlc_log_set(vlc, Log, nullptr);
+      libvlc_dialog_set_callbacks(vlc, DialogCallbacks(), nullptr);
+    }
     return vlc;
   }();
   return instance;
 }
 
-std::string LastError(const char *fallback) {
-  std::lock_guard lock(g_errorLock);
-  return g_lastError.empty() ? fallback : g_lastError;
-}
-
 // "H264 - MPEG-4 AVC (part 10)" -> "H264".
 std::string CodecName(libvlc_track_type_t type, uint32_t codec) {
-  std::string name = libvlc_media_get_codec_description(type, codec);
+  const char *description = libvlc_media_get_codec_description(type, codec);
+  std::string name = description ? description : "";
   if (const auto dash = name.find(" - "); dash != std::string::npos)
     name.resize(dash);
   return name;
@@ -80,8 +145,8 @@ std::string CodecName(libvlc_track_type_t type, uint32_t codec) {
 
 struct VlcVideoView;
 
-// One playback: the player, the renderer it draws through, and the view it reports to. VLC's callbacks get the
-// session and post to the view on the UI thread, where they are dropped once the view moved on (generation).
+// One playback: the player, the renderer it draws through, and the view it reports to. VLC's events get the session
+// and post to the view on the UI thread, where they are dropped once the view moved on (generation).
 struct Session {
   winrt::weak_ref<VlcVideoView> view;
   uint64_t generation = 0;
@@ -94,10 +159,16 @@ struct Session {
 
   ~Session() {
     if (player) {
-      libvlc_media_player_unwatch_time(player);
-      libvlc_media_player_release(player); // stops, joins VLC's threads and cleans up the renderer
+      libvlc_media_player_stop(player); // joins VLC's threads and cleans up the renderer
+      libvlc_media_player_release(player);
     }
   }
+};
+
+constexpr libvlc_event_type_t kPlayerEvents[] = {
+    libvlc_MediaPlayerPlaying, libvlc_MediaPlayerPaused,      libvlc_MediaPlayerEndReached,
+    libvlc_MediaPlayerEncounteredError, libvlc_MediaPlayerTimeChanged, libvlc_MediaPlayerLengthChanged,
+    libvlc_MediaPlayerESAdded, libvlc_MediaPlayerESSelected,  libvlc_MediaPlayerVout,
 };
 
 // <VlcVideoView>: a SpriteVisual showing a GPU composition surface that libVLC renders into from its own threads.
@@ -147,19 +218,26 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     const bool muted = newProps->muted.value_or(false);
     const float volume = newProps->volume;
     const int audioTrack = newProps->audioTrack;
+    const int subtitleTrack = newProps->subtitleTrack;
 
     const std::string source = newProps->source.value_or("");
     const bool hardware = newProps->hardwareDecoding;
     const bool loop = newProps->loop.value_or(false);
-    if (source != m_source || hardware != m_hardware || loop != m_loop || !m_propsSet) {
+    const bool cache = newProps->cache.value_or(false);
+    const bool tlsVerify = newProps->tlsVerify;
+    if (source != m_source || hardware != m_hardware || loop != m_loop || cache != m_cache ||
+        tlsVerify != m_tlsVerify || !m_propsSet) {
       m_propsSet = true;
       m_source = source;
       m_hardware = hardware;
       m_loop = loop;
+      m_cache = cache;
+      m_tlsVerify = tlsVerify;
       m_paused = paused;
       m_muted = muted;
       m_volume = volume;
       m_audioTrack = audioTrack;
+      m_subtitleTrack = subtitleTrack;
       Load();
       return;
     }
@@ -168,11 +246,17 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     auto *player = m_session->player;
     if (paused != m_paused) {
       m_paused = paused;
-      if (!paused && m_ended) { // stopped at the end: play again from the start
-        m_ended = false;
-        libvlc_media_player_play(player);
+      if (paused) {
+        if (!m_pauseOnFrame)
+          libvlc_media_player_set_pause(player, 1);
       } else {
-        libvlc_media_player_set_pause(player, paused);
+        m_pauseOnFrame = false;
+        ApplyAudio();
+        if (m_ended) { // stopped at the end: play again from the start
+          m_ended = false;
+          libvlc_media_player_stop(player);
+        }
+        libvlc_media_player_play(player);
       }
     }
     if (muted != m_muted || volume != m_volume) {
@@ -184,6 +268,10 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
       m_audioTrack = audioTrack;
       SelectAudioTrack();
     }
+    if (subtitleTrack != m_subtitleTrack) {
+      m_subtitleTrack = subtitleTrack;
+      SelectSubtitleTrack();
+    }
   }
 
   void HandleSeekCommand(double time) noexcept override {
@@ -192,20 +280,30 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     auto *player = m_session->player;
     if (m_ended) { // the player stopped at the end; seeking starts it again
       m_ended = false;
+      libvlc_media_player_stop(player);
       libvlc_media_player_play(player);
-      m_started = false; // OnState pauses on the first frame again
     }
+    const libvlc_time_t target = libvlc_time_t(time * 1000);
     m_seekTarget = time;
-    m_seekPending = true;
-    m_seekDone = false;
-    libvlc_media_player_set_time(player, libvlc_time_t(time * 1e6), false); // precise, not keyframe
+    libvlc_media_player_set_time(player, target); // precise, not keyframe (VLC's default)
+    if (m_paused) {
+      // A paused player shows nothing new after a seek: play up to the first frame from there. The seek is queued
+      // before the resume, so that frame is from the new position.
+      m_seekTargetMs = -1;
+      m_seekReached = true;
+      StepToFrame();
+    } else {
+      m_seekTargetMs = target;
+      m_seekReached = false;
+    }
   }
 
  private:
   void Load() {
     ReleaseSession();
     const uint64_t generation = ++m_generation;
-    m_started = m_loaded = m_ended = m_seekPending = m_seekDone = false;
+    m_started = m_loaded = m_ended = m_pauseOnFrame = m_seekReached = false;
+    m_seekTargetMs = -1;
     if (m_source.empty())
       return;
     if (!Instance())
@@ -222,21 +320,35 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     }
 
     const bool url = m_source.find("://") != std::string::npos;
-    libvlc_media_t *media = url ? libvlc_media_new_location(m_source.c_str()) : libvlc_media_new_path(m_source.c_str());
+    libvlc_media_t *media = url ? libvlc_media_new_location(Instance(), m_source.c_str())
+                                : libvlc_media_new_path(Instance(), m_source.c_str());
     if (!media)
       return Fail(generation, "Cannot open " + m_source);
+    if (url && !m_tlsVerify)
+      AllowUnverified(UrlHost(m_source));
+    // A muted cached source (a preview clip) has no audio at all: VLC otherwise starts an audio output and holds the
+    // first picture until the audio clock runs. Unmuting it later stays silent. (No download on Windows.)
+    // Small buffers make it start sooner, which suits these small clips (not long or 4K playback, see Instance()).
+    if (m_cache && m_muted) {
+      libvlc_media_add_option(media, ":no-audio");
+      libvlc_media_add_option(media, ":network-caching=300");
+      libvlc_media_add_option(media, ":file-caching=300");
+    }
     if (m_loop)
       libvlc_media_add_option(media, ":input-repeat=65535");
-    if (!m_hardware) {
-      libvlc_media_add_option(media, ":avcodec-hw=none");
-      libvlc_media_add_option(media, ":dec-dev=none");
-    }
-    session->player = libvlc_media_player_new_from_media(Instance(), media, PlayerCallbacks(), session.get());
+    // D3D11VA decodes into the output's pictures, on the renderer's device.
+    libvlc_media_add_option(media, m_hardware ? ":avcodec-hw=d3d11va" : ":avcodec-hw=none");
+    session->player = libvlc_media_player_new_from_media(media);
     libvlc_media_release(media);
     if (!session->player)
       return Fail(generation, "Cannot create the VLC player: " + LastError("libvlc_media_player_new failed"));
+    if (!session->renderer->Attach(session->player))
+      return Fail(generation, "The d3d11_host video output module is missing from libVLC's plugins");
 
-    session->renderer->Attach(session->player);
+    auto *events = libvlc_media_player_event_manager(session->player);
+    for (const auto type : kPlayerEvents)
+      libvlc_event_attach(events, type, OnEvent, session.get());
+
     // The video shows from its first frame on: until then the view stays transparent (no black flash over
     // whatever is under it, such as a cover image).
     session->renderer->SetFrameCallback([s = session.get()] { s->Post([](VlcVideoView &view) { view.OnFrame(); }); });
@@ -244,7 +356,6 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     m_content.IsVisible(false);
     if (m_size[0])
       session->renderer->Resize(m_size[0], m_size[1]);
-    libvlc_media_player_watch_time(session->player, kProgressPeriodUs, TimeCallbacks(), session.get());
 
     auto brush = m_compositor.CreateSurfaceBrush(session->renderer->Surface());
     // The surface follows VLC's output size, which is the view's; Fill only matters while a resize is in flight.
@@ -253,42 +364,80 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
 
     m_session = std::move(session);
     ApplyAudio();
-    // Starting paused: OnState shows the first frame and pauses there (a player paused from the start shows nothing).
-    if (libvlc_media_player_play(m_session->player) != 0)
+    // Starting paused: play up to the first frame and pause there (a player paused from the start shows nothing).
+    if (m_paused) {
+      StepToFrame();
+    } else if (libvlc_media_player_play(m_session->player) != 0) {
       return Fail(generation, "Cannot play " + m_source + ": " + LastError("libvlc_media_player_play failed"));
-  }
-
-  // Pauses on the next frame and shows it: a paused player displays nothing after starting or seeking otherwise.
-  void ShowFrame() {
-    m_frameRetry = true;
-    libvlc_media_player_next_frame(m_session->player);
-  }
-
-  void OnNextFrameStatus(int status) {
-    // -EAGAIN: the call only paused the player; the next one steps.
-    if (status == -EAGAIN && m_frameRetry && m_paused && m_session) {
-      m_frameRetry = false;
-      libvlc_media_player_next_frame(m_session->player);
     }
   }
 
+  // Plays up to the next frame and pauses there (OnFrame), muted meanwhile.
+  void StepToFrame() {
+    m_pauseOnFrame = true;
+    ApplyAudio();
+    m_session->renderer->NotifyNextFrame();
+    libvlc_media_player_play(m_session->player);
+  }
+
+  void StepDone() {
+    if (!m_pauseOnFrame || !m_session)
+      return;
+    m_pauseOnFrame = false;
+    libvlc_media_player_set_pause(m_session->player, 1);
+    ApplyAudio();
+  }
+
   void ApplyAudio() {
-    libvlc_audio_set_mute(m_session->player, m_muted);
+    if (!m_session)
+      return;
+    libvlc_audio_set_mute(m_session->player, m_muted || m_pauseOnFrame);
     libvlc_audio_set_volume(m_session->player, int(m_volume * 100 + 0.5f));
+  }
+
+  // A track description list's ids (without libVLC's "Disable" entry) and names, in the order onLoad reports them.
+  static std::vector<std::pair<int, std::string>> Tracks(libvlc_track_description_t *list) {
+    std::vector<std::pair<int, std::string>> tracks;
+    for (auto *track = list; track; track = track->p_next) {
+      if (track->i_id >= 0)
+        tracks.emplace_back(track->i_id, track->psz_name ? track->psz_name : "");
+    }
+    if (list)
+      libvlc_track_description_list_release(list);
+    return tracks;
+  }
+
+  std::vector<std::pair<int, std::string>> AudioTracks() const {
+    return Tracks(libvlc_audio_get_track_description(m_session->player));
+  }
+
+  std::vector<std::pair<int, std::string>> SubtitleTracks() const {
+    return Tracks(libvlc_video_get_spu_description(m_session->player));
   }
 
   // audioTrack is a position in the audio track list (the indices onLoad reports); -1 keeps VLC's choice.
   void SelectAudioTrack() {
     if (!m_session || m_audioTrack < 0)
       return;
-    if (auto *list = libvlc_media_player_get_tracklist(m_session->player, libvlc_track_audio, false)) {
-      if (size_t(m_audioTrack) < libvlc_media_tracklist_count(list)) {
-        auto *track = libvlc_media_tracklist_at(list, size_t(m_audioTrack));
-        if (!track->selected)
-          libvlc_media_player_select_track(m_session->player, track);
-      }
-      libvlc_media_tracklist_delete(list);
+    const auto tracks = AudioTracks();
+    if (size_t(m_audioTrack) < tracks.size() &&
+        libvlc_audio_get_track(m_session->player) != tracks[size_t(m_audioTrack)].first)
+      libvlc_audio_set_track(m_session->player, tracks[size_t(m_audioTrack)].first);
+  }
+
+  // subtitleTrack is a position in the subtitle track list; -1 keeps VLC's choice, -2 shows none.
+  void SelectSubtitleTrack() {
+    if (!m_session || m_subtitleTrack == -1)
+      return;
+    int id = -1;
+    if (m_subtitleTrack >= 0) {
+      const auto tracks = SubtitleTracks();
+      if (size_t(m_subtitleTrack) >= tracks.size())
+        return;
+      id = tracks[size_t(m_subtitleTrack)].first;
     }
+    if (libvlc_video_get_spu(m_session->player) != id)
+      libvlc_video_set_spu(m_session->player, id);
   }
 
   // onLoad, once playback has started and the video track (if any) is known.
@@ -296,47 +445,89 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     if (m_loaded || !m_started || !m_session)
       return;
     auto *player = m_session->player;
+    const bool hasVideo = libvlc_video_get_track_count(player) > 0;
+    const int videoId = libvlc_video_get_track(player);
+
+    // Codecs, sizes, languages, channels and rates are on the media's tracks, matched by id.
+    libvlc_media_track_t **mediaTracks = nullptr;
+    libvlc_media_t *media = libvlc_media_player_get_media(player);
+    const unsigned count = media ? libvlc_media_tracks_get(media, &mediaTracks) : 0;
+    auto find = [&](int id) -> const libvlc_media_track_t * {
+      for (unsigned i = 0; i < count; ++i)
+        if (mediaTracks[i]->i_id == id)
+          return mediaTracks[i];
+      return nullptr;
+    };
+
     Codegen::VlcVideoViewEventEmitter::OnLoad e;
-    bool hasVideo = false, videoKnown = false;
-    if (auto *list = libvlc_media_player_get_tracklist(player, libvlc_track_video, false)) {
-      for (size_t i = 0; i < libvlc_media_tracklist_count(list); ++i) {
-        auto *track = libvlc_media_tracklist_at(list, i);
-        hasVideo = true;
-        if (track->selected && track->u.video && track->u.video->i_width) {
-          videoKnown = true;
-          e.width = int(track->u.video->i_width);
-          e.height = int(track->u.video->i_height);
-          e.codec = CodecName(libvlc_track_video, track->i_codec);
-        }
+    unsigned width = 0, height = 0;
+    if (hasVideo && libvlc_video_get_size(player, 0, &width, &height) != 0)
+      width = height = 0;
+    const libvlc_media_track_t *video = hasVideo ? find(videoId) : nullptr;
+    if (video && video->i_type == libvlc_track_video) {
+      if (!width && video->video) {
+        width = video->video->i_width;
+        height = video->video->i_height;
       }
-      libvlc_media_tracklist_delete(list);
+      e.codec = CodecName(libvlc_track_video, video->i_codec);
     }
-    if (hasVideo && !videoKnown)
-      return; // the next track event tells
-    e.audioTrack = -1;
-    if (auto *list = libvlc_media_player_get_tracklist(player, libvlc_track_audio, false)) {
-      for (size_t i = 0; i < libvlc_media_tracklist_count(list); ++i) {
-        auto *track = libvlc_media_tracklist_at(list, i);
+    bool ready = !hasVideo || width > 0;
+    const auto audios = AudioTracks();
+    if (ready && !hasVideo && audios.empty())
+      ready = false;
+    if (ready) {
+      e.width = int(width);
+      e.height = int(height);
+      e.audioTrack = -1;
+      const int current = libvlc_audio_get_track(player);
+      for (size_t i = 0; i < audios.size(); ++i) {
+        const libvlc_media_track_t *audio = find(audios[i].first);
         Codegen::VlcVideoViewSpec_onLoad2 t;
         t.index = int(i);
-        t.language = track->psz_language ? track->psz_language : "";
-        t.title = track->psz_description ? track->psz_description : (track->psz_name ? track->psz_name : "");
-        t.codec = CodecName(libvlc_track_audio, track->i_codec);
-        if (track->u.audio) {
-          t.channels = int(track->u.audio->i_channels);
-          t.sampleRate = int(track->u.audio->i_rate);
+        t.language = audio && audio->psz_language ? audio->psz_language : "";
+        t.title = !audios[i].second.empty() ? audios[i].second
+                                            : (audio && audio->psz_description ? audio->psz_description : "");
+        if (audio) {
+          t.codec = CodecName(libvlc_track_audio, audio->i_codec);
+          if (audio->i_type == libvlc_track_audio && audio->audio) {
+            t.channels = int(audio->audio->i_channels);
+            t.sampleRate = int(audio->audio->i_rate);
+          }
         }
-        if (track->selected)
+        if (audios[i].first == current)
           e.audioTrack = int(i);
         e.audioTracks.push_back(std::move(t));
       }
-      libvlc_media_tracklist_delete(list);
+
+      SelectSubtitleTrack(); // before onLoad reports which one shows
+      e.subtitleTrack = -1;
+      const int currentSubtitle = libvlc_video_get_spu(player);
+      const auto subtitles = SubtitleTracks();
+      for (size_t i = 0; i < subtitles.size(); ++i) {
+        const libvlc_media_track_t *subtitle = find(subtitles[i].first);
+        Codegen::VlcVideoViewSpec_onLoad3 t;
+        t.index = int(i);
+        t.language = subtitle && subtitle->psz_language ? subtitle->psz_language : "";
+        t.title = !subtitles[i].second.empty()
+                      ? subtitles[i].second
+                      : (subtitle && subtitle->psz_description ? subtitle->psz_description : "");
+        if (subtitle)
+          t.codec = CodecName(libvlc_track_text, subtitle->i_codec);
+        if (subtitles[i].first == currentSubtitle)
+          e.subtitleTrack = int(i);
+        e.subtitleTracks.push_back(std::move(t));
+      }
     }
+    if (mediaTracks)
+      libvlc_media_tracks_release(mediaTracks, count);
+    if (media)
+      libvlc_media_release(media);
+    if (!ready)
+      return; // the next track event tells
+
     e.hasAudio = !e.audioTracks.empty();
-    if (!hasVideo && !e.hasAudio)
-      return;
     const libvlc_time_t length = libvlc_media_player_get_length(player);
-    e.duration = length > 0 ? double(length) / 1e6 : 0;
+    e.duration = length > 0 ? double(length) / 1000 : 0;
     // libVLC does not say which decoder it picked; with hardware decoding allowed, D3D11VA is used when the GPU
     // supports the codec.
     e.hwDecoding = m_hardware && hasVideo;
@@ -347,56 +538,49 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
       EventEmitter()->onLoad(std::move(e));
   }
 
-  void OnState(libvlc_state_t state) {
-    if (state == libvlc_Playing || state == libvlc_Paused) {
-      if (!m_started) {
-        m_started = true;
-        ApplyAudio(); // the audio output exists now
-        if (m_paused)
-          ShowFrame();
-      }
-      TryLoad();
-    } else if (state == libvlc_Error) {
-      EmitError("Cannot play " + m_source + ": " + LastError("VLC reported an error"));
+  void OnStarted() {
+    if (!m_started) {
+      m_started = true;
+      ApplyAudio();
     }
+    TryLoad();
   }
 
-  void OnStopping(libvlc_stopping_reason_t reason) {
-    if (reason == libvlc_stopping_reason_eos) {
-      m_ended = true;
-      if (EventEmitter())
-        EventEmitter()->onEnd({});
-    } else if (reason == libvlc_stopping_reason_error) {
-      EmitError("Cannot play " + m_source + ": " + LastError("VLC stopped on an error"));
-    }
-  }
-
-  void OnProgress(libvlc_time_t time, libvlc_time_t length) {
-    if (time >= 0 && EventEmitter())
-      EventEmitter()->onProgress({double(time) / 1e6, length > 0 ? double(length) / 1e6 : 0});
-  }
-
-  void OnSeekDone() {
-    if (!m_seekPending)
-      return;
-    m_seekPending = false;
+  void OnTime(libvlc_time_t time) {
     if (!m_session)
       return;
-    // onSeek once a frame from the new position is on screen (OnFrame).
-    m_seekDone = true;
-    m_session->renderer->NotifyNextFrame();
-    if (m_paused)
-      ShowFrame();
+    if (m_seekTargetMs >= 0 && std::abs(time - m_seekTargetMs) < 1500) {
+      // there: onSeek with the next frame (OnFrame)
+      m_seekTargetMs = -1;
+      m_seekReached = true;
+      m_session->renderer->NotifyNextFrame();
+    }
+    // Stepping with no video: no frame to wait for.
+    if (m_pauseOnFrame && libvlc_video_get_track_count(m_session->player) <= 0)
+      StepDone();
+    const ULONGLONG now = GetTickCount64();
+    if (!m_pauseOnFrame && now - m_lastProgress >= kProgressPeriodMs && EventEmitter()) {
+      m_lastProgress = now;
+      const libvlc_time_t length = libvlc_media_player_get_length(m_session->player);
+      EventEmitter()->onProgress({double(time) / 1000, length > 0 ? double(length) / 1000 : 0});
+    }
+  }
+
+  void OnEnded() {
+    m_ended = true;
+    if (EventEmitter())
+      EventEmitter()->onEnd({});
   }
 
   // A frame VLC presented after NotifyNextFrame is in the surface.
   void OnFrame() {
     m_content.IsVisible(true);
-    if (m_seekDone) {
-      m_seekDone = false;
+    StepDone();
+    if (m_seekReached) {
+      m_seekReached = false;
       const libvlc_time_t time = m_session ? libvlc_media_player_get_time(m_session->player) : -1;
       if (EventEmitter())
-        EventEmitter()->onSeek({time >= 0 ? double(time) / 1e6 : m_seekTarget});
+        EventEmitter()->onSeek({time >= 0 ? double(time) / 1000 : m_seekTarget});
     }
   }
 
@@ -427,10 +611,8 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
         // the visual is already closed (view destroyed)
       }
     }
-    if (auto session = std::move(m_session)) {
-      libvlc_media_player_stop_async(session->player);
+    if (auto session = std::move(m_session))
       std::thread([session = std::move(session)]() mutable { session.reset(); }).detach();
-    }
   }
 
   void Shutdown() noexcept {
@@ -438,54 +620,29 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     ReleaseSession();
   }
 
-  // VLC's callbacks: on VLC's threads, with the player locked (no player calls here), so they post to the view.
-  static Session &S(void *opaque) { return *static_cast<Session *>(opaque); }
-
-  // Must outlive the players: static.
-  static const libvlc_media_player_cbs *PlayerCallbacks() {
-    static const libvlc_media_player_cbs callbacks = [] {
-      libvlc_media_player_cbs cbs{};
-      cbs.version = 0;
-      cbs.on_state_changed = [](void *opaque, libvlc_state_t state) {
-        S(opaque).Post([state](VlcVideoView &view) { view.OnState(state); });
-      };
-      cbs.on_media_stopping = [](void *opaque, libvlc_media_t *, libvlc_stopping_reason_t reason) {
-        S(opaque).Post([reason](VlcVideoView &view) { view.OnStopping(reason); });
-      };
-      cbs.on_track_selection_changed = [](void *opaque, libvlc_track_type_t, const char *, const char *) {
-        S(opaque).Post([](VlcVideoView &view) { view.TryLoad(); });
-      };
-      cbs.on_track_list_changed = [](void *opaque, libvlc_list_action_t, libvlc_track_type_t, const char *) {
-        S(opaque).Post([](VlcVideoView &view) { view.TryLoad(); });
-      };
-      cbs.on_length_changed = [](void *opaque, libvlc_time_t) {
-        S(opaque).Post([](VlcVideoView &view) { view.TryLoad(); });
-      };
-      cbs.on_next_frame_status = [](void *opaque, int status) {
-        S(opaque).Post([status](VlcVideoView &view) { view.OnNextFrameStatus(status); });
-      };
-      return cbs;
-    }();
-    return &callbacks;
-  }
-
-  static const libvlc_media_player_watch_time_cbs *TimeCallbacks() {
-    static const libvlc_media_player_watch_time_cbs callbacks = [] {
-      libvlc_media_player_watch_time_cbs cbs{};
-      cbs.version = 0;
-      cbs.on_update = [](void *opaque, const libvlc_media_player_time_point_t *point) {
-        S(opaque).Post([time = point->ts_us, length = point->length_us](VlcVideoView &view) {
-          view.OnProgress(time, length);
-        });
-      };
-      cbs.on_paused = [](void *, libvlc_time_t) {};
-      cbs.on_seek = [](void *opaque, const libvlc_media_player_time_point_t *point) {
-        if (!point) // the seek is done
-          S(opaque).Post([](VlcVideoView &view) { view.OnSeekDone(); });
-      };
-      return cbs;
-    }();
-    return &callbacks;
+  // VLC's events: on VLC's threads, so they post to the view.
+  static void OnEvent(const libvlc_event_t *event, void *opaque) {
+    auto &session = *static_cast<Session *>(opaque);
+    switch (event->type) {
+    case libvlc_MediaPlayerPlaying:
+    case libvlc_MediaPlayerPaused:
+      session.Post([](VlcVideoView &view) { view.OnStarted(); });
+      break;
+    case libvlc_MediaPlayerEndReached:
+      session.Post([](VlcVideoView &view) { view.OnEnded(); });
+      break;
+    case libvlc_MediaPlayerEncounteredError:
+      session.Post([](VlcVideoView &view) {
+        view.EmitError("Cannot play " + view.m_source + ": " + LastError("VLC reported an error"));
+      });
+      break;
+    case libvlc_MediaPlayerTimeChanged:
+      session.Post([time = event->u.media_player_time_changed.new_time](VlcVideoView &view) { view.OnTime(time); });
+      break;
+    default: // tracks, length, video output
+      session.Post([](VlcVideoView &view) { view.TryLoad(); });
+      break;
+    }
   }
 
   friend struct Session;
@@ -500,19 +657,23 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
   std::string m_source;
   bool m_hardware = true;
   bool m_loop = false;
+  bool m_cache = false;
+  bool m_tlsVerify = true;
   bool m_paused = false;
   bool m_muted = false;
   float m_volume = 1.0f;
   int m_audioTrack = -1;
+  int m_subtitleTrack = -1;
   uint64_t m_generation = 0;
   bool m_started = false; // the player reached Playing (or Paused)
   bool m_loaded = false; // onLoad sent
   bool m_ended = false; // stopped at the end of the media
   bool m_errored = false;
-  bool m_seekPending = false; // set_time sent, VLC has not finished seeking
-  bool m_seekDone = false; // seeked, waiting for the first frame from there
-  bool m_frameRetry = false;
+  bool m_pauseOnFrame = false; // paused: playing up to the next frame, to pause there
+  libvlc_time_t m_seekTargetMs = -1; // set_time sent, waiting for the time to get there
+  bool m_seekReached = false; // there: onSeek with the next frame
   double m_seekTarget = 0;
+  ULONGLONG m_lastProgress = 0;
 };
 
 template <typename F>

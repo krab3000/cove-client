@@ -5,6 +5,7 @@
 #include <winrt/Microsoft.Graphics.DirectX.h>
 
 #include <algorithm>
+#include <string>
 
 namespace Composition = winrt::Microsoft::UI::Composition;
 namespace DX = winrt::Microsoft::Graphics::DirectX;
@@ -30,9 +31,39 @@ struct ContextLock {
   HANDLE m_mutex;
 };
 
+// The module's attach function, from the plugin libVLC loads too (plugins\video_output beside libvlc.dll).
+vlc_d3d11_host_attach_fn AttachFunction() {
+  static const vlc_d3d11_host_attach_fn attach = []() -> vlc_d3d11_host_attach_fn {
+    wchar_t path[MAX_PATH];
+    const HMODULE libvlc = GetModuleHandleW(L"libvlc.dll");
+    const DWORD length = libvlc ? GetModuleFileNameW(libvlc, path, MAX_PATH) : 0;
+    if (length == 0 || length >= MAX_PATH)
+      return nullptr;
+    std::wstring plugin(path, length);
+    plugin.resize(plugin.find_last_of(L'\\') + 1);
+    plugin += L"plugins\\video_output\\libd3d11_host_plugin.dll";
+    // It imports libvlccore.dll, which is beside libvlc.dll (already loaded).
+    const HMODULE module = LoadLibraryExW(plugin.c_str(), nullptr, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS |
+                                                                       LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR);
+    return module ? reinterpret_cast<vlc_d3d11_host_attach_fn>(GetProcAddress(module, VLC_D3D11_HOST_ATTACH))
+                  : nullptr;
+  }();
+  return attach;
+}
+
 } // namespace
 
 VlcRenderer::VlcRenderer(const Composition::Compositor &compositor) : m_device(CreateDevice()) {
+  m_callbacks.version = VLC_D3D11_HOST_VERSION;
+  m_callbacks.opaque = this;
+  m_callbacks.setup = Setup;
+  m_callbacks.cleanup = Cleanup;
+  m_callbacks.set_report_size = SetReportSize;
+  m_callbacks.update_output = UpdateOutput;
+  m_callbacks.make_current = MakeCurrent;
+  m_callbacks.select_plane = SelectPlane;
+  m_callbacks.swap = Swap;
+
   m_device->GetImmediateContext(m_context.put());
   // VLC's decoder and renderer, and composition (BeginDraw), all use the immediate context.
   m_context.as<ID3D10Multithread>()->SetMultithreadProtected(TRUE);
@@ -52,9 +83,9 @@ VlcRenderer::~VlcRenderer() {
   CloseHandle(m_contextMutex);
 }
 
-void VlcRenderer::Attach(libvlc_media_player_t *player) {
-  libvlc_video_set_output_callbacks(player, libvlc_video_engine_d3d11, Setup, Cleanup, SetWindow, UpdateOutput, Swap,
-                                    MakeCurrent, nullptr, nullptr, SelectPlane, this);
+bool VlcRenderer::Attach(libvlc_media_player_t *player) {
+  const auto attach = AttachFunction();
+  return attach && attach(player, &m_callbacks) == 0;
 }
 
 void VlcRenderer::Resize(unsigned width, unsigned height) {
@@ -63,8 +94,8 @@ void VlcRenderer::Resize(unsigned width, unsigned height) {
   std::lock_guard lock(m_sizeLock);
   m_viewSize[0] = width;
   m_viewSize[1] = height;
-  if (m_reportSizeChange)
-    m_reportSizeChange(m_reportOpaque, width, height);
+  if (m_reportSize)
+    m_reportSize(m_reportOpaque, width, height);
 }
 
 void VlcRenderer::Clear() {
@@ -75,11 +106,11 @@ void VlcRenderer::Clear() {
   }
 }
 
-bool VlcRenderer::Setup(void **opaque, const libvlc_video_setup_device_cfg_t *, libvlc_video_setup_device_info_t *out) {
-  auto self = static_cast<VlcRenderer *>(*opaque);
-  out->u.d3d11.device_context = self->m_context.get();
-  out->u.d3d11.context_mutex = self->m_contextMutex;
-  // Held for VLC until Cleanup (as in VLC's d3d11_player sample).
+bool VlcRenderer::Setup(void *opaque, vlc_d3d11_host_device_t *out) {
+  auto self = static_cast<VlcRenderer *>(opaque);
+  out->device_context = self->m_context.get();
+  out->context_mutex = self->m_contextMutex;
+  // Held for VLC until Cleanup.
   self->m_context->AddRef();
   return true;
 }
@@ -93,18 +124,17 @@ void VlcRenderer::Cleanup(void *opaque) {
   self->m_context->Release();
 }
 
-void VlcRenderer::SetWindow(void *opaque, libvlc_video_output_resize_cb reportSizeChange,
-                            libvlc_video_output_mouse_move_cb, libvlc_video_output_mouse_press_cb,
-                            libvlc_video_output_mouse_release_cb, void *reportOpaque) {
+void VlcRenderer::SetReportSize(void *opaque, vlc_d3d11_host_report_size_cb report, void *reportOpaque) {
   auto self = static_cast<VlcRenderer *>(opaque);
   std::lock_guard lock(self->m_sizeLock);
-  self->m_reportSizeChange = reportSizeChange;
+  self->m_reportSize = report;
   self->m_reportOpaque = reportOpaque;
-  if (reportSizeChange && self->m_viewSize[0])
-    reportSizeChange(reportOpaque, self->m_viewSize[0], self->m_viewSize[1]);
+  if (report && self->m_viewSize[0])
+    report(reportOpaque, self->m_viewSize[0], self->m_viewSize[1]);
 }
 
-bool VlcRenderer::UpdateOutput(void *opaque, const libvlc_video_render_cfg_t *cfg, libvlc_video_output_cfg_t *out) {
+bool VlcRenderer::UpdateOutput(void *opaque, const vlc_d3d11_host_render_cfg_t *cfg,
+                               vlc_d3d11_host_output_cfg_t *out) {
   auto self = static_cast<VlcRenderer *>(opaque);
   const UINT width = std::clamp(cfg->width, 1u, 16384u);
   const UINT height = std::clamp(cfg->height, 1u, 16384u);
@@ -136,30 +166,23 @@ bool VlcRenderer::UpdateOutput(void *opaque, const libvlc_video_render_cfg_t *cf
     }
   }
   // SDR BT.709 output: VLC converts and tone maps everything (HDR10, HLG, BT.2020) to it.
-  out->u.dxgi_format = DXGI_FORMAT_B8G8R8A8_UNORM;
+  out->dxgi_format = DXGI_FORMAT_B8G8R8A8_UNORM;
   out->full_range = true;
-  out->colorspace = libvlc_video_colorspace_BT709;
-  out->primaries = libvlc_video_primaries_BT709;
-  out->transfer = libvlc_video_transfer_func_SRGB;
-  out->orientation = libvlc_video_orient_top_left;
+  out->colorspace = VLC_D3D11_HOST_SPACE_BT709;
+  out->primaries = VLC_D3D11_HOST_PRIMARIES_BT709;
+  out->transfer = VLC_D3D11_HOST_TRANSFER_SRGB;
   return true;
 }
 
-bool VlcRenderer::MakeCurrent(void *opaque, bool enter) {
-  auto self = static_cast<VlcRenderer *>(opaque);
-  if (enter && self->m_rtv) {
-    // VLC draws the picture and its letterbox only; start from black.
-    const float black[4] = {0, 0, 0, 1};
-    self->m_context->ClearRenderTargetView(self->m_rtv.get(), black);
-  }
-  return true;
+bool VlcRenderer::MakeCurrent(void *, bool) {
+  return true; // VLC fills the whole target (black around the picture)
 }
 
-bool VlcRenderer::SelectPlane(void *opaque, size_t plane, void *output) {
+bool VlcRenderer::SelectPlane(void *opaque, size_t plane, ID3D11RenderTargetView **output) {
   auto self = static_cast<VlcRenderer *>(opaque);
   if (plane != 0 || !self->m_rtv)
     return false;
-  *static_cast<ID3D11RenderTargetView **>(output) = self->m_rtv.get();
+  *output = self->m_rtv.get();
   return true;
 }
 

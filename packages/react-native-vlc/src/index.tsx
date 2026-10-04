@@ -8,6 +8,7 @@ import NativeVlcVideoView, {
 export type {
   NativeProps as VlcVideoViewNativeProps,
   AudioTrack,
+  SubtitleTrack,
   LoadEvent,
   ProgressEvent,
   SeekEvent,

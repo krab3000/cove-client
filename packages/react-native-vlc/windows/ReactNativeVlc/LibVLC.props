@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- libVLC 4 SDK (headers, MSVC import lib, DLLs + plugins) laid out by scripts/fetch-libvlc.ps1. Override with /p:LibVlcDir=... -->
+<!-- libVLC 3 SDK (headers, MSVC import lib, DLLs + plugins, with the d3d11_host video output module) laid out by
+     scripts/fetch-libvlc.ps1. Override with /p:LibVlcDir=... -->
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup>
     <LibVlcDir Condition="'$(LibVlcDir)' == ''">$(MSBuildThisFileDirectory)..\..\third_party\libvlc\win-x64\</LibVlcDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
-      <AdditionalIncludeDirectories>$(LibVlcDir)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <!-- vlc_d3d11_host.h: the interface of the d3d11_host module -->
+      <AdditionalIncludeDirectories>$(LibVlcDir)include;$(MSBuildThisFileDirectory)..\vlc-d3d11-host;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(LibVlcDir)lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -16,14 +18,14 @@
   <ItemGroup>
     <!-- Shipped next to the app: libvlc.dll, libvlccore.dll, and the plugins\ and lua\ trees beside them (libVLC
          looks for plugins\ next to libvlc.dll). DeploymentContent puts them in the MSIX; see CopyLibVlc.
-         TODO: the packaging project also adds a second copy (~200 MB) under ReactNativeVlc\. -->
+         TODO: the packaging project also adds a second copy (~120 MB) under ReactNativeVlc\. -->
     <None Include="$(LibVlcDir)bin\**\*">
       <DeploymentContent>true</DeploymentContent>
       <Link>%(RecursiveDir)%(Filename)%(Extension)</Link>
     </None>
   </ItemGroup>
   <Target Name="CheckLibVlcSdk" BeforeTargets="PrepareForBuild">
-    <Error Condition="!Exists('$(LibVlcDir)include\vlc\vlc.h')" Text="libVLC SDK not found in $(LibVlcDir). Run: yarn workspace react-native-vlc fetch-libvlc" />
+    <Error Condition="!Exists('$(LibVlcDir)bin\plugins\video_output\libd3d11_host_plugin.dll')" Text="libVLC 3 SDK not found in $(LibVlcDir). Run: yarn workspace react-native-vlc fetch-libvlc" />
   </Target>
   <Target Name="CopyLibVlc" AfterTargets="Build">
     <Copy SourceFiles="@(None)" Condition="'%(None.Link)' != ''" DestinationFiles="@(None->'$(OutDir)%(Link)')" SkipUnchangedFiles="true" />

@@ -33,6 +33,7 @@ struct VlcVideoViewProps : winrt::implements<VlcVideoViewProps, winrt::Microsoft
        hardwareDecoding = cloneFromProps->hardwareDecoding;
        tlsVerify = cloneFromProps->tlsVerify;
        audioTrack = cloneFromProps->audioTrack;
+       subtitleTrack = cloneFromProps->subtitleTrack;
        overlay = cloneFromProps->overlay;
        cache = cloneFromProps->cache;
        onLoad = cloneFromProps->onLoad;
@@ -71,6 +72,9 @@ struct VlcVideoViewProps : winrt::implements<VlcVideoViewProps, winrt::Microsoft
   REACT_FIELD(audioTrack)
   int32_t audioTrack{-1};
 
+  REACT_FIELD(subtitleTrack)
+  int32_t subtitleTrack{-1};
+
   REACT_FIELD(overlay)
   std::optional<bool> overlay{};
 
@@ -94,6 +98,21 @@ struct VlcVideoViewProps : winrt::implements<VlcVideoViewProps, winrt::Microsoft
   bool onError{false};
 
   const winrt::Microsoft::ReactNative::ViewProps ViewProps;
+};
+
+REACT_STRUCT(VlcVideoViewSpec_onLoad3)
+struct VlcVideoViewSpec_onLoad3 {
+  REACT_FIELD(index)
+  int32_t index{};
+
+  REACT_FIELD(language)
+  std::string language;
+
+  REACT_FIELD(title)
+  std::string title;
+
+  REACT_FIELD(codec)
+  std::string codec;
 };
 
 REACT_STRUCT(VlcVideoViewSpec_onLoad2)
@@ -167,6 +186,12 @@ struct VlcVideoViewSpec_onLoad {
 
   REACT_FIELD(audioTrack)
   int32_t audioTrack{};
+
+  REACT_FIELD(subtitleTracks)
+  std::vector<VlcVideoViewSpec_onLoad3> subtitleTracks{};
+
+  REACT_FIELD(subtitleTrack)
+  int32_t subtitleTrack{};
 };
 
 struct VlcVideoViewEventEmitter {

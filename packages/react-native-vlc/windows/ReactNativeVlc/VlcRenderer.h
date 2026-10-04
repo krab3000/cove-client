@@ -9,14 +9,18 @@
 #include <functional>
 #include <mutex>
 
+#include <BaseTsd.h>
+typedef SSIZE_T ssize_t; // libVLC 3's headers use the POSIX type
 #include <vlc/vlc.h>
+
+#include "vlc_d3d11_host.h"
 
 namespace ReactNativeVlc {
 
-// The video output libVLC draws into (libvlc_video_engine_d3d11 output callbacks). We own a D3D11 device and hand
-// its immediate context to VLC, which decodes on it (D3D11VA) and renders each frame (YUV to RGB, scaling,
-// letterboxing, HDR tone mapping) into our BGRA render texture. On swap the texture is copied into a
-// CompositionDrawingSurface, which the component shows on its SpriteVisual. Frames never leave the GPU, and VLC
+// The video output libVLC draws into, through the d3d11_host video output module (windows/vlc-d3d11-host). We own a
+// D3D11 device and hand its immediate context to VLC, which decodes on it (D3D11VA) and renders each frame (YUV to
+// RGB, scaling, letterboxing, HDR tone mapping, subtitles) into our BGRA render texture. On swap the texture is copied
+// into a CompositionDrawingSurface, which the component shows on its SpriteVisual. Frames never leave the GPU, and VLC
 // paces presentation on its own clock.
 // (VLC cannot draw into the drawing surface directly: BeginDraw hands out a region of an atlas at an offset.)
 class VlcRenderer final {
@@ -28,7 +32,8 @@ class VlcRenderer final {
   const winrt::Microsoft::UI::Composition::CompositionDrawingSurface &Surface() const noexcept { return m_surface; }
 
   // Makes VLC render through this output. Call before playback starts; the renderer must outlive the player.
-  void Attach(libvlc_media_player_t *player);
+  // False when the d3d11_host module is missing.
+  bool Attach(libvlc_media_player_t *player);
   // The view's size in pixels: VLC renders at that size. Thread-safe.
   void Resize(unsigned width, unsigned height);
   // Fills the surface with black (no video). Any thread.
@@ -38,17 +43,17 @@ class VlcRenderer final {
   void NotifyNextFrame() noexcept { m_frameWanted = true; }
 
  private:
-  static bool Setup(void **opaque, const libvlc_video_setup_device_cfg_t *cfg, libvlc_video_setup_device_info_t *out);
+  static bool Setup(void *opaque, vlc_d3d11_host_device_t *out);
   static void Cleanup(void *opaque);
-  static void SetWindow(void *opaque, libvlc_video_output_resize_cb reportSizeChange,
-                        libvlc_video_output_mouse_move_cb, libvlc_video_output_mouse_press_cb,
-                        libvlc_video_output_mouse_release_cb, void *reportOpaque);
-  static bool UpdateOutput(void *opaque, const libvlc_video_render_cfg_t *cfg, libvlc_video_output_cfg_t *out);
-  static void Swap(void *opaque);
+  static void SetReportSize(void *opaque, vlc_d3d11_host_report_size_cb report, void *reportOpaque);
+  static bool UpdateOutput(void *opaque, const vlc_d3d11_host_render_cfg_t *cfg, vlc_d3d11_host_output_cfg_t *out);
   static bool MakeCurrent(void *opaque, bool enter);
-  static bool SelectPlane(void *opaque, size_t plane, void *output);
+  static bool SelectPlane(void *opaque, size_t plane, ID3D11RenderTargetView **output);
+  static void Swap(void *opaque);
 
   void Present(bool clear);
+
+  vlc_d3d11_host_callbacks_t m_callbacks{};
 
   winrt::com_ptr<ID3D11Device> m_device;
   winrt::com_ptr<ID3D11DeviceContext> m_context;
@@ -70,7 +75,7 @@ class VlcRenderer final {
 
   std::mutex m_sizeLock;
   unsigned m_viewSize[2]{};
-  libvlc_video_output_resize_cb m_reportSizeChange = nullptr;
+  vlc_d3d11_host_report_size_cb m_reportSize = nullptr;
   void *m_reportOpaque = nullptr;
 };
 

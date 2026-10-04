@@ -1,7 +1,7 @@
 {
   "name": "react-native-vlc",
   "version": "0.1.0",
-  "description": "libVLC 4 video player component for React Native (Fabric) on Windows and Android",
+  "description": "libVLC 3 video player component for React Native (Fabric) on Windows and Android",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {

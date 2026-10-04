@@ -34,6 +34,23 @@ export type LoadEvent = Readonly<{
   }[];
   /** Index of the audio track playing, -1 when there is none. */
   audioTrack: CodegenTypes.Int32;
+  /** Subtitle tracks: the file's, and subtitle files beside a local file (movie.srt for movie.mkv). */
+  subtitleTracks: {
+    index: CodegenTypes.Int32;
+    language: string;
+    title: string;
+    codec: string;
+  }[];
+  /** Index of the subtitle track shown, -1 when none is. */
+  subtitleTrack: CodegenTypes.Int32;
+}>;
+
+export type SubtitleTrack = Readonly<{
+  /** Position in onLoad's subtitleTracks: pass it as the subtitleTrack prop to show this track. */
+  index: CodegenTypes.Int32;
+  language: string;
+  title: string;
+  codec: string;
 }>;
 
 export type ProgressEvent = Readonly<{
@@ -68,6 +85,11 @@ export interface NativeProps extends ViewProps {
   /** Audio stream to play (an index from onLoad's audioTracks); -1 picks the default track. */
   audioTrack?: CodegenTypes.WithDefault<CodegenTypes.Int32, -1>;
   /**
+   * Subtitle track to show (an index from onLoad's subtitleTracks); -1 keeps VLC's choice (a track the file marks
+   * as default, else none), -2 shows none. (Android: subtitles are not rendered, see VlcVideoView.kt.)
+   */
+  subtitleTrack?: CodegenTypes.WithDefault<CodegenTypes.Int32, -1>;
+  /**
    * Android: show the video through a hardware overlay (a SurfaceView), the cheapest way for a large or
    * full-screen player (no GPU copy of every frame). The view is then opaque and ignores opacity; leave it false
    * for small players that should stay transparent until their first frame (previews). Ignored on Windows.
@@ -77,7 +99,8 @@ export interface NativeProps extends ViewProps {
    * Android: download the whole http(s) source into the app's cache first and play the local file (streams it
    * if the download fails). For small files such as preview clips, which then start much sooner (no streaming
    * round trips, no network buffer); see prefetchMedia. A cached source opened muted plays without audio (it
-   * starts sooner; unmuting it stays silent). Ignored on Windows.
+   * starts sooner; unmuting it stays silent). Windows streams the source (no download), but a cached source opened
+   * muted plays without audio there too.
    */
   cache?: CodegenTypes.WithDefault<boolean, false>;
   onLoad?: CodegenTypes.DirectEventHandler<LoadEvent>;

@@ -46,6 +46,10 @@ class VlcVideoViewManager : SimpleViewManager<VlcVideoView>(), VlcVideoViewManag
     view.tlsVerify = value
   }
 
+  override fun setSubtitleTrack(view: VlcVideoView, value: Int) {
+    view.subtitleTrack = value
+  }
+
   override fun setAudioTrack(view: VlcVideoView, value: Int) {
     view.audioTrack = value
   }

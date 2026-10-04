@@ -100,6 +100,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
   var hardwareDecoding = true
   var tlsVerify = true
   var audioTrack = -1
+  var subtitleTrack = -1
   var overlay = false
   var cache = false
 
@@ -110,6 +111,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
   private var openedOverlay = false
   private var openedCache = false
   private var openedAudioTrack = -1
+  private var openedSubtitleTrack = -1
   private var openedPaused = false
 
   private var session: Session? = null
@@ -141,6 +143,10 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       openedAudioTrack = audioTrack
       s.selectAudioTrack(audioTrack)
     }
+    if (subtitleTrack != openedSubtitleTrack) {
+      openedSubtitleTrack = subtitleTrack
+      s.selectSubtitleTrack(subtitleTrack)
+    }
   }
 
   fun seek(seconds: Double) {
@@ -161,6 +167,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     openedOverlay = overlay
     openedCache = cache
     openedAudioTrack = audioTrack
+    openedSubtitleTrack = subtitleTrack
     openedPaused = paused
     val src = source
     if (src.isNullOrEmpty())
@@ -381,6 +388,20 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       if (p.audioTrack != track.id) p.setAudioTrack(track.id)
     }
 
+    private fun subtitleTracks(p: MediaPlayer): List<MediaPlayer.TrackDescription> =
+      p.spuTracks?.filter { it.id >= 0 } ?: emptyList()
+
+    /** subtitleTrack is a position in the subtitle track list; -1 keeps VLC's choice, -2 shows none. */
+    fun selectSubtitleTrack(index: Int) {
+      val p = player ?: return
+      val id = when {
+        index == -1 -> return
+        index < 0 -> -1
+        else -> subtitleTracks(p).getOrNull(index)?.id ?: return
+      }
+      if (p.spuTrack != id) p.setSpuTrack(id)
+    }
+
     fun dispose() {
       disposed = true
       handler.removeCallbacks(pauseNow)
@@ -442,6 +463,20 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       val length = p.length
       if (audioTrack >= 0 && audioTrack != selectedAudio)
         selectAudioTrack(audioTrack)
+      selectSubtitleTrack(subtitleTrack)
+      val subtitles = Arguments.createArray()
+      var selectedSubtitle = -1
+      val currentSubtitle = p.spuTrack
+      subtitleTracks(p).forEachIndexed { i, t ->
+        val text = mediaTracks.firstOrNull { it.id == t.id } as? IMedia.SubtitleTrack
+        if (t.id == currentSubtitle) selectedSubtitle = i
+        subtitles.pushMap(Arguments.createMap().apply {
+          putInt("index", i)
+          putString("language", text?.language ?: "")
+          putString("title", t.name ?: text?.description ?: "")
+          putString("codec", text?.codec ?: "")
+        })
+      }
       emit("topLoad", Arguments.createMap().apply {
         putDouble("duration", if (length > 0) length / 1000.0 else 0.0)
         putInt("width", video?.width ?: 0)
@@ -453,6 +488,8 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
         putString("codec", video?.codec ?: "")
         putArray("audioTracks", tracks)
         putInt("audioTrack", selectedAudio)
+        putArray("subtitleTracks", subtitles)
+        putInt("subtitleTrack", selectedSubtitle)
       })
     }
 

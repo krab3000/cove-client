@@ -8073,6 +8073,28 @@ __metadata:
   languageName: node
   linkType: hard
 
+"react-native-vlc-test@workspace:apps/vlc-test":
+  version: 0.0.0-use.local
+  resolution: "react-native-vlc-test@workspace:apps/vlc-test"
+  dependencies:
+    "@babel/core": "npm:^7.25.2"
+    "@babel/preset-env": "npm:^7.25.3"
+    "@babel/runtime": "npm:^7.25.0"
+    "@react-native-community/cli": "npm:20.1.0"
+    "@react-native/babel-preset": "npm:0.84.1"
+    "@react-native/metro-config": "npm:0.84.1"
+    "@react-native/typescript-config": "npm:0.84.1"
+    "@types/react": "npm:^19.2.0"
+    react: "npm:19.2.3"
+    react-native: "npm:0.84.1"
+    react-native-builder-bob: "npm:^0.43.1"
+    react-native-monorepo-config: "npm:^0.4.0"
+    react-native-vlc: "workspace:*"
+    react-native-windows: "npm:0.84.0"
+    typescript: "npm:^6.0.3"
+  languageName: unknown
+  linkType: soft
+
 "react-native-vlc@workspace:*, react-native-vlc@workspace:packages/react-native-vlc":
   version: 0.0.0-use.local
   resolution: "react-native-vlc@workspace:packages/react-native-vlc"
