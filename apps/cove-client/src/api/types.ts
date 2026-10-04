@@ -49,3 +49,28 @@ export interface ApiTokenResponse {
   plaintextToken: string;
   expiresAt: string | null;
 }
+
+/**
+ * A rule tree of video filters (Cove's FilterExpression): groups of filters; a leaf is a VideoFilter with one
+ * criterion, e.g. { tagsCriterion: { value: [3], modifier: 'includes' } }. NOT takes exactly one child.
+ */
+export interface FilterExpression {
+  operator: 'AND' | 'OR' | 'JUST_ONE' | 'NOT';
+  children: FilterNode[];
+}
+
+export type FilterNode =
+  { filter: Record<string, unknown> } | { group: FilterExpression };
+
+/** A tag, performer, studio, group or gallery, as filter value pickers list them. */
+export interface NamedEntity {
+  id: number;
+  name: string;
+}
+
+/** A folder of Cove's library (metadata/library-folders): a library root or a folder under one. */
+export interface LibraryFolder {
+  name: string;
+  path: string;
+  hasChildren: boolean;
+}

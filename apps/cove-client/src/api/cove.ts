@@ -1,7 +1,10 @@
 import { Platform } from 'react-native';
 import type {
   ApiTokenResponse,
+  FilterExpression,
+  LibraryFolder,
   LoginResponse,
+  NamedEntity,
   PaginatedResponse,
   Video,
   VideoFile,
@@ -82,7 +85,11 @@ export class CoveClient {
     }
   }
 
-  findVideos(page: number, perPage: number) {
+  findVideos(
+    page: number,
+    perPage: number,
+    filterExpression?: FilterExpression | null
+  ) {
     // A secondary sort keeps page boundaries stable (like Cove's CLI).
     return this.request<PaginatedResponse<Video>>('POST', 'videos/find', {
       findFilter: {
@@ -95,7 +102,56 @@ export class CoveClient {
           { key: 'updated_at', direction: 'desc' },
         ],
       },
+      ...(filterExpression ? { filterExpression } : {}),
     });
+  }
+
+  /** How many videos match a filter (perPage 0: Cove only counts). */
+  async countVideos(
+    filterExpression?: FilterExpression | null
+  ): Promise<number> {
+    const result = await this.request<PaginatedResponse<Video>>(
+      'POST',
+      'videos/find',
+      {
+        findFilter: { page: 1, perPage: 0 },
+        ...(filterExpression ? { filterExpression } : {}),
+      }
+    );
+    return result.totalCount;
+  }
+
+  /**
+   * The library's root folders, or the folders right under one of its folders. Throws a CoveError with status 403
+   * when the account may not list folders (Cove wants Library scan or Files read), or for a path outside the library.
+   */
+  libraryFolders(path?: string): Promise<LibraryFolder[]> {
+    return this.request<LibraryFolder[]>(
+      'GET',
+      `metadata/library-folders${path ? `?path=${encodeURIComponent(path)}` : ''}`
+    );
+  }
+
+  /** Tags, performers, studios, groups or galleries matching a search, for filter value pickers. */
+  async lookup(
+    kind: 'tags' | 'performers' | 'studios' | 'groups' | 'galleries',
+    q: string
+  ): Promise<NamedEntity[]> {
+    const nameKey = kind === 'galleries' ? 'title' : 'name';
+    const params = [
+      'perPage=50',
+      q.trim()
+        ? `q=${encodeURIComponent(q.trim())}`
+        : `sort=${nameKey}&direction=asc`,
+      kind === 'tags' ? 'includeCounts=false' : '',
+    ].filter(Boolean);
+    const result = await this.request<
+      PaginatedResponse<Record<string, unknown>>
+    >('GET', `${kind}?${params.join('&')}`);
+    return result.items.map((item) => ({
+      id: Number(item.id),
+      name: String(item[nameKey] ?? `#${item.id}`),
+    }));
   }
 
   imageUrl(video: Video, max = 640): string {

@@ -20,8 +20,10 @@ import {
   type ViewStyle,
 } from 'react-native';
 import type { CoveClient } from '../api/cove';
-import type { Video } from '../api/types';
+import type { FilterExpression, Video } from '../api/types';
 import { Button, colors } from '../components/Controls';
+import { emptyTree, type Group } from '../filter/model';
+import { FilterScreen } from './FilterScreen';
 import {
   createSelection,
   NO_RANGE,
@@ -61,7 +63,7 @@ export function BrowseScreen({
   client,
   onPlay,
   onLogout,
-  previews,
+  previews: previewsAllowed,
 }: {
   client: CoveClient;
   onPlay: (video: Video) => void;
@@ -69,6 +71,15 @@ export function BrowseScreen({
   // Off while the player is open over the grid.
   previews: boolean;
 }) {
+  // --- Filter (design 2b) ----------------------------------------------------------------------------------------
+  // The rule tree being edited (kept while the filter screen is closed) and the filter the grid shows.
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterTree, setFilterTree] = useState<Group>(emptyTree);
+  const [applied, setApplied] = useState<FilterExpression | null>(null);
+  const appliedRef = useRef<FilterExpression | null>(null);
+  // No previews under the filter screen either.
+  const previews = previewsAllowed && !filterOpen;
+
   // Measured, not useWindowDimensions: that one does not follow window resizes on Windows.
   const [width, setWidth] = useState(1000);
   const columns = Math.max(
@@ -100,7 +111,11 @@ export function BrowseScreen({
       pending.current.add(page);
       failed.current.delete(page);
       try {
-        const result = await client.findVideos(page + 1, PER_PAGE);
+        const result = await client.findVideos(
+          page + 1,
+          PER_PAGE,
+          appliedRef.current
+        );
         if (gen !== generation.current) return; // refreshed meanwhile
         pages.current.set(page, result.items);
         setTotal(result.totalCount);
@@ -341,6 +356,45 @@ export function BrowseScreen({
     loadPage(0);
   }, [loadPage]);
 
+  // A new filter: the grid starts over from the top with its results.
+  const applyFilter = useCallback(
+    (filter: FilterExpression | null) => {
+      appliedRef.current = filter;
+      setApplied(filter);
+      if (loadTimer.current) clearTimeout(loadTimer.current);
+      anchor.current = 0;
+      wheelTarget.current = null;
+      focus.set(NO_RANGE);
+      held.set(null);
+      refresh();
+    },
+    [refresh, focus, held]
+  );
+  const showFilter = useCallback(
+    (filter: FilterExpression | null) => {
+      applyFilter(filter);
+      setFilterOpen(false);
+    },
+    [applyFilter]
+  );
+  const playFilter = useCallback(
+    (filter: FilterExpression | null) => {
+      showFilter(filter);
+      client.findVideos(1, 1, filter).then(
+        (result) => {
+          if (result.items[0]) onPlay(result.items[0]);
+        },
+        () => {}
+      );
+    },
+    [client, showFilter, onPlay]
+  );
+  const clearFilter = useCallback(() => {
+    setFilterTree(emptyTree());
+    applyFilter(null);
+  }, [applyFilter]);
+  const closeFilter = useCallback(() => setFilterOpen(false), []);
+
   const retry = useCallback(() => {
     failed.current = new Set();
     setError('');
@@ -456,6 +510,14 @@ export function BrowseScreen({
         ) : null}
         <View style={styles.headerActions}>
           <Text style={styles.count}>{client.username}</Text>
+          {/* Temporary entry to the filter screen (2b) until the library screen's design lands. */}
+          <Button
+            title={applied ? 'Filter •' : 'Filter'}
+            onPress={() => setFilterOpen(true)}
+          />
+          {applied ? (
+            <Button title="Clear filter" onPress={clearFilter} />
+          ) : null}
           <Button title="Refresh" onPress={refresh} />
           <Button title="Log out" onPress={onLogout} />
         </View>
@@ -502,6 +564,17 @@ export function BrowseScreen({
           windowSize={5}
         />
       </View>
+      {filterOpen ? (
+        <FilterScreen
+          client={client}
+          tree={filterTree}
+          onChange={setFilterTree}
+          applied={applied}
+          onApply={showFilter}
+          onPlayAll={playFilter}
+          onClose={closeFilter}
+        />
+      ) : null}
     </View>
   );
 }
