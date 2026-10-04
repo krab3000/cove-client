@@ -1,16 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import type { CoveClient, SpriteSheet } from '../api/cove';
 import type { Video } from '../api/types';
 import { VideoView } from '../player';
 import { colors } from './Controls';
 import { SpriteCell } from './SpriteCell';
-
-// TEMP: preview start-up timing, in logcat as ReactNativeJS ("[preview-timing] <video> <step> <wall clock ms>"), next
-// to the native RNVlcTiming lines.
-function trace(video: Video, step: string, extra = '') {
-  console.log(`[preview-timing] ${video.id} ${step} @${Date.now()}${extra ? ' ' + extra : ''}`);
-}
 
 // Phones and tablets: no sprite-sheet fallback. A sheet is one 2880×1620 JPEG (19 MB decoded) for a 300 px frame;
 // a few of them fill the image cache and starve a weak device's memory and GPU.
@@ -43,13 +37,9 @@ export function HoverPreview({
   onState?: (state: 'playing' | 'none') => void;
 }) {
   const [clip, setClip] = useState<boolean | null>(null);
-  const playingTraced = useRef(false);
   useEffect(() => {
     let alive = true;
-    const checkStart = Date.now();
-    trace(video, 'mount');
     client.previewAvailable(video).then((has) => {
-      trace(video, 'clip-check', `${Date.now() - checkStart}ms has=${has}`);
       if (!alive) return;
       setClip(has);
       if (!has && !SPRITE_FALLBACK) onState?.('none');
@@ -83,14 +73,7 @@ export function HoverPreview({
       // See PlayerScreen: the player's own TLS check fails here, the app's fetch already checked the server.
       tlsVerify={false}
       // The first progress report: frames are on screen.
-      onLoad={() => trace(video, 'onLoad')}
-      onProgress={() => {
-        if (!playingTraced.current) {
-          playingTraced.current = true;
-          trace(video, 'playing');
-        }
-        onState?.('playing');
-      }}
+      onProgress={() => onState?.('playing')}
       onError={() => onState?.('none')}
     />
   );

@@ -39,7 +39,18 @@ private object Vlc {
 
   fun get(context: Context): LibVLC =
     instance ?: synchronized(this) {
-      instance ?: LibVLC(context.applicationContext, arrayListOf("--no-video-title-show")).also {
+      instance ?: LibVLC(
+        context.applicationContext,
+        arrayListOf(
+          "--no-video-title-show",
+          // No subpictures (subtitles, on-screen text), so no FreeType text renderer: on the first run its
+          // Fontconfig scans every system font to build a cache (~20 s on a Galaxy S22), and no video output opens
+          // until it is done.
+          "--no-spu",
+          "--text-renderer=none",
+          "--no-sub-autodetect-file",
+        ),
+      ).also {
         Dialog.setCallbacks(it, dialogs)
         instance = it
       }
@@ -192,15 +203,6 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     private var seekTargetMs = -1L // set_time sent, waiting for the time to get there
     private var seekReached = false // there: onSeek with the next frame
     private var lastProgress = 0L
-    // TEMP: start-up timing ("RNVlcTiming <video> <step> +<ms since the session started> @<wall clock ms>").
-    private val t0 = System.currentTimeMillis()
-    private val traceId = Regex("/video/([0-9]+)").find(src)?.groupValues?.get(1) ?: "?"
-    private val traced = mutableSetOf<String>()
-    private fun mark(step: String, once: Boolean = true) {
-      if (once && !traced.add(step)) return
-      val now = System.currentTimeMillis()
-      android.util.Log.d("RNVlcTiming", "$traceId $step +${now - t0}ms @$now")
-    }
     private val handler = Handler(Looper.getMainLooper())
     // Stepping to a frame while paused pauses on the frame reaching the TextureView, but a hidden view may never
     // get one: then it pauses once VLC reports the time moving, or after a while at the latest, so a paused player
@@ -220,7 +222,6 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     }
 
     fun start() {
-      mark("session")
       if (overlay) {
         clip!!.addView(surfaceView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(clip, 0, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
@@ -249,15 +250,8 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     /** With cache, an http(s) source plays from MediaCache: downloaded first if needed, streamed if that fails. */
     private fun createPlayer(surface: SurfaceTexture?) {
       if (!cache || !(src.startsWith("http://") || src.startsWith("https://"))) return createPlayer(surface, null)
-      MediaCache.cached(reactContext, src)?.let {
-        mark("cache-hit")
-        return createPlayer(surface, it)
-      }
-      mark("cache-download")
-      MediaCache.fetch(reactContext, src) { file ->
-        mark("cache-downloaded")
-        if (!disposed && player == null) createPlayer(surface, file)
-      }
+      MediaCache.cached(reactContext, src)?.let { return createPlayer(surface, it) }
+      MediaCache.fetch(reactContext, src) { file -> if (!disposed && player == null) createPlayer(surface, file) }
     }
 
     private fun createPlayer(surface: SurfaceTexture?, file: java.io.File?) {
@@ -301,7 +295,6 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       applyVolume()
       // Starting paused: play up to the first frame and pause there (a player paused from the start shows nothing).
       if (paused) stepToFrame() else p.play()
-      mark("play-called")
     }
 
     /** Plays up to the next frame and pauses there (muted meanwhile). */
@@ -467,16 +460,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     override fun onEvent(event: MediaPlayer.Event) {
       if (disposed) return
       when (event.type) {
-        MediaPlayer.Event.Opening -> mark("vlc-opening")
-        MediaPlayer.Event.Buffering -> {
-          mark("vlc-buffering-start")
-          if (event.buffering >= 100f) mark("vlc-buffering-100")
-        }
-        else -> {}
-      }
-      when (event.type) {
         MediaPlayer.Event.Playing, MediaPlayer.Event.Paused -> {
-          mark("vlc-playing")
           if (!started) {
             started = true
             applyVolume()
@@ -484,14 +468,9 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
           tryLoad()
         }
         MediaPlayer.Event.ESAdded, MediaPlayer.Event.ESSelected, MediaPlayer.Event.LengthChanged,
-        MediaPlayer.Event.Vout -> {
-          if (event.type == MediaPlayer.Event.ESAdded) mark("vlc-es-added")
-          if (event.type == MediaPlayer.Event.Vout) mark("vlc-vout")
-          tryLoad()
-        }
+        MediaPlayer.Event.Vout -> tryLoad()
         MediaPlayer.Event.TimeChanged -> {
           val time = event.timeChanged
-          mark("vlc-first-time")
           if (seekTargetMs >= 0 && abs(time - seekTargetMs) < 1500) {
             seekTargetMs = -1
             seekReached = true
@@ -540,7 +519,6 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
 
     // TextureView.SurfaceTextureListener
     override fun onSurfaceTextureAvailable(surface: SurfaceTexture, width: Int, height: Int) {
-      mark("surface")
       if (player == null && !disposed) {
         surfaceTexture = surface
         createPlayer(surface)
@@ -562,7 +540,6 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       if (disposed) return
       if (!frameShown) {
         frameShown = true
-        mark("first-frame")
         updateAlpha()
       }
       if (pauseOnFrame) stepDone()
