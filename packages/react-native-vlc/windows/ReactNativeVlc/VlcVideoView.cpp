@@ -48,6 +48,9 @@ libvlc_instance_t *Instance() {
         "--no-video-title-show",
         "--no-osd",
         "--no-snapshot-preview",
+        // VLC 4 remembers and restores where each media was left: playback here starts where the app says.
+        "--no-media-library",
+        "--restore-playback-pos=0",
         // Start sooner than with the default 1 s buffers; Cove streams from the LAN.
         "--network-caching=300",
         "--file-caching=300",

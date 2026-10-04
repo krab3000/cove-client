@@ -1,17 +1,11 @@
-import { Platform } from 'react-native';
-import { LibavVideoView } from 'react-native-libav';
 import { VlcVideoView } from 'react-native-vlc';
 
 export type {
-  LibavVideoViewHandle as VideoViewHandle,
+  VlcVideoViewHandle as VideoViewHandle,
   LoadEvent,
-} from 'react-native-libav';
+} from 'react-native-vlc';
 
-/**
- * The video player: libVLC on Windows, react-native-libav on Android (until react-native-vlc has an Android
- * side). Both components take the same props and events and have the same seek() handle.
- */
-export const VideoView: typeof LibavVideoView =
-  Platform.OS === 'windows' ? VlcVideoView : LibavVideoView;
+/** The video player: libVLC, on Windows and Android. */
+export const VideoView = VlcVideoView;
 
-export const playerEngine = Platform.OS === 'windows' ? 'VLC' : 'libav';
+export const playerEngine = 'VLC';

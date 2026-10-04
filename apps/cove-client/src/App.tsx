@@ -24,33 +24,23 @@ export default function App() {
         {!client ? (
           <LoginScreen onLogin={setClient} />
         ) : (
-          <>
-            {/* The grid stays mounted under the player, so going back keeps the scroll position. */}
-            <BrowseScreen
-              client={client}
-              onPlay={setPlaying}
-              onLogout={logout}
-            />
-            {playing ? (
-              <PlayerScreen
-                client={client}
-                video={playing}
-                onClose={closePlayer}
-              />
-            ) : null}
-          </>
+          // The grid stays mounted under the player, so going back keeps the scroll position.
+          <BrowseScreen client={client} onPlay={setPlaying} onLogout={logout} />
         )}
       </View>
+      {/* Edge to edge, outside the content's system bar padding: the player keeps its own insets. */}
+      {client && playing ? (
+        <PlayerScreen client={client} video={playing} onClose={closePlayer} />
+      ) : null}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  app: {
+  app: { flex: 1, backgroundColor: colors.background },
+  content: {
     flex: 1,
-    backgroundColor: colors.background,
     // Android 15 draws edge to edge: keep clear of the status and navigation bars.
     ...(Platform.OS === 'android' && { paddingTop: 36, paddingBottom: 48 }),
   },
-  content: { flex: 1 },
 });

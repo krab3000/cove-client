@@ -7958,7 +7958,6 @@ __metadata:
     react: "npm:19.2.3"
     react-native: "npm:0.84.1"
     react-native-builder-bob: "npm:^0.43.1"
-    react-native-libav: "workspace:*"
     react-native-monorepo-config: "npm:^0.4.0"
     react-native-vlc: "workspace:*"
     react-native-windows: "npm:0.84.0"

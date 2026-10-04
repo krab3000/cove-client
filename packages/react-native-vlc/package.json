@@ -1,7 +1,7 @@
 {
   "name": "react-native-vlc",
   "version": "0.1.0",
-  "description": "libVLC 4 video player component for React Native Windows (Fabric), rendering into a composition surface on the GPU",
+  "description": "libVLC 4 video player component for React Native (Fabric) on Windows and Android",
   "main": "./lib/module/index.js",
   "types": "./lib/typescript/src/index.d.ts",
   "exports": {
@@ -15,6 +15,7 @@
   "files": [
     "src",
     "lib",
+    "android",
     "windows",
     "!windows/**/x64",
     "!windows/**/ARM64",
@@ -23,7 +24,10 @@
     "!windows/packages",
     "scripts",
     "!**/__tests__",
-    "!**/.*"
+    "!**/.*",
+    "!android/build",
+    "!android/.cxx",
+    "!android/.gradle"
   ],
   "scripts": {
     "prepare": "bob build",
@@ -34,6 +38,7 @@
   "keywords": [
     "react-native",
     "react-native-windows",
+    "android",
     "vlc",
     "libvlc",
     "video",
@@ -89,6 +94,9 @@
       ],
       "outputDirectory": "windows/ReactNativeVlc/codegen",
       "separateDataTypes": true
+    },
+    "android": {
+      "javaPackageName": "com.rnvlc"
     }
   },
   "react-native-windows": {

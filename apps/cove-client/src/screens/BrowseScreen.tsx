@@ -22,7 +22,11 @@ import {
 import type { CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
 import { Button, colors } from '../components/Controls';
-import { VideoCard } from '../components/VideoCard';
+import {
+  CARD_TEXT_HEIGHT,
+  PlaceholderCard,
+  VideoCard,
+} from '../components/VideoCard';
 import WheelCapture, {
   type WheelEvent,
 } from '../native/WheelCaptureNativeComponent';
@@ -31,12 +35,20 @@ const PER_PAGE = 40;
 const CARD_MIN_WIDTH = 300;
 const PADDING = 16;
 const GAP = 14;
-// Card text below the 16:9 thumbnail, for the row height.
-const CARD_TEXT_HEIGHT = 64;
 // One wheel notch scrolls this much of a row (React Native Windows' own step is 120 px).
 const WHEEL_ROWS_PER_NOTCH = 0.75;
+// Pages load once scrolling rests this long (dragging the scrollbar across the library loads nothing on the way).
+const LOAD_DELAY_MS = 120;
+// Also load this many screens above and below the visible rows.
+const PREFETCH_SCREENS = 1;
 
-/** The library as an endless grid: pages of videos/find are appended as the end of the list comes into view. */
+/**
+ * The whole library as one grid, virtual in both senses: the list is as long as the library from the first page on
+ * (videos/find reports the total), so the scrollbar shows the real size and position, and it can jump anywhere.
+ * Rows have a fixed height, so their offsets are known without rendering them. Pages of videos/find load for the
+ * rows in view (and a screen around them); rows whose page has not arrived show placeholders. FlatList renders
+ * only the rows near the viewport.
+ */
 export function BrowseScreen({
   client,
   onPlay,
@@ -55,15 +67,133 @@ export function BrowseScreen({
   const cardWidth = Math.floor(
     (width - 2 * PADDING - GAP * (columns - 1)) / columns
   );
+  // The card's 16:9 thumbnail sits inside its 1 px border.
+  const cardHeight = Math.round(((cardWidth - 2) * 9) / 16) + CARD_TEXT_HEIGHT;
+  const rowHeight = cardHeight + GAP;
 
-  const rowHeight = (cardWidth * 9) / 16 + CARD_TEXT_HEIGHT + GAP;
+  // --- Pages ---------------------------------------------------------------------------------------------------
+  // Loaded pages (0-based) of PER_PAGE videos. Kept in refs; `version` re-renders when one arrives.
+  const pages = useRef(new Map<number, Video[]>());
+  const pending = useRef(new Set<number>());
+  const failed = useRef(new Set<number>());
+  const generation = useRef(0);
+  const [version, setVersion] = useState(0);
+  const [total, setTotal] = useState<number | null>(null);
+  const [error, setError] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
-  const listRef = useRef<FlatList<Video>>(null);
+  const loadPage = useCallback(
+    async (page: number) => {
+      if (pages.current.has(page) || pending.current.has(page)) return;
+      const gen = generation.current;
+      pending.current.add(page);
+      failed.current.delete(page);
+      try {
+        const result = await client.findVideos(page + 1, PER_PAGE);
+        if (gen !== generation.current) return; // refreshed meanwhile
+        pages.current.set(page, result.items);
+        setTotal(result.totalCount);
+        setError('');
+      } catch (e) {
+        if (gen !== generation.current) return;
+        failed.current.add(page);
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (gen === generation.current) {
+          pending.current.delete(page);
+          setVersion((v) => v + 1);
+          setRefreshing(false);
+        }
+      }
+    },
+    [client]
+  );
+
+  const rowCount = total == null ? 0 : Math.ceil(total / columns);
+  const rows = useMemo(
+    () => Array.from({ length: rowCount }, (_, i) => i),
+    [rowCount]
+  );
+
+  // --- Scrolling -----------------------------------------------------------------------------------------------
+  const listRef = useRef<FlatList<number>>(null);
   const [scroll, setScroll] = useState({ offset: 0, content: 0, viewport: 0 });
   const scrollRef = useRef(scroll);
   scrollRef.current = scroll;
-  // Where wheel scrolling is heading: consecutive notches add up while the animation runs.
-  const wheelTarget = useRef<{ offset: number; at: number } | null>(null);
+  // The first video in view, to keep it in view when the grid reflows (window resize, rotation).
+  const anchor = useRef(0);
+  const layout = useRef({ columns, rowHeight });
+  layout.current = { columns, rowHeight };
+
+  // Loads the pages for the rows in view and a screen around them.
+  const loadVisible = useCallback(() => {
+    if (total == null) return;
+    const { offset, viewport } = scrollRef.current;
+    const { columns: cols, rowHeight: rh } = layout.current;
+    const margin = viewport * PREFETCH_SCREENS;
+    const firstRow = Math.max(0, Math.floor((offset - PADDING - margin) / rh));
+    const lastRow = Math.floor((offset + viewport + margin - PADDING) / rh);
+    const first = firstRow * cols;
+    const last = Math.min(total - 1, (lastRow + 1) * cols - 1);
+    for (
+      let page = Math.floor(first / PER_PAGE);
+      page <= Math.floor(last / PER_PAGE);
+      page++
+    ) {
+      if (!failed.current.has(page)) loadPage(page);
+    }
+  }, [total, loadPage]);
+
+  const loadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleLoad = useCallback(() => {
+    if (loadTimer.current) clearTimeout(loadTimer.current);
+    loadTimer.current = setTimeout(loadVisible, LOAD_DELAY_MS);
+  }, [loadVisible]);
+  useEffect(
+    () => () => {
+      if (loadTimer.current) clearTimeout(loadTimer.current);
+    },
+    []
+  );
+
+  const onScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+      setScroll({
+        offset: contentOffset.y,
+        content: contentSize.height,
+        viewport: layoutMeasurement.height,
+      });
+      const { columns: cols, rowHeight: rh } = layout.current;
+      anchor.current =
+        Math.max(0, Math.floor((contentOffset.y - PADDING + rh / 2) / rh)) *
+        cols;
+      scheduleLoad();
+    },
+    [scheduleLoad]
+  );
+
+  // The first page tells the total; then the pages in view.
+  useEffect(() => {
+    loadPage(0);
+  }, [loadPage]);
+  useEffect(() => {
+    loadVisible();
+  }, [loadVisible, scroll.viewport]);
+
+  // Reflow: the same video stays at the top.
+  const lastLayout = useRef({ columns, rowHeight });
+  useEffect(() => {
+    const prev = lastLayout.current;
+    lastLayout.current = { columns, rowHeight };
+    if (prev.columns === columns && prev.rowHeight === rowHeight) return;
+    const row = Math.floor(anchor.current / columns);
+    listRef.current?.scrollToOffset({
+      offset: row * rowHeight,
+      animated: false,
+    });
+    scheduleLoad();
+  }, [columns, rowHeight, scheduleLoad]);
 
   const scrollTo = useCallback((offset: number, animated: boolean) => {
     const { content, viewport } = scrollRef.current;
@@ -75,13 +205,15 @@ export function BrowseScreen({
     return clamped;
   }, []);
 
+  // Where wheel scrolling is heading: consecutive notches add up while the animation runs.
+  const wheelTarget = useRef<{ offset: number; at: number } | null>(null);
   const onWheel = useCallback(
     (e: NativeSyntheticEvent<WheelEvent>) => {
       const now = Date.now();
-      const pending = wheelTarget.current;
+      const target = wheelTarget.current;
       const from =
-        pending && now - pending.at < 400
-          ? pending.offset
+        target && now - target.at < 400
+          ? target.offset
           : scrollRef.current.offset;
       const step =
         (e.nativeEvent.delta / 120) * rowHeight * WHEEL_ROWS_PER_NOTCH;
@@ -116,88 +248,30 @@ export function BrowseScreen({
     []
   );
 
-  const onScroll = useCallback((e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    setScroll({
-      offset: contentOffset.y,
-      content: contentSize.height,
-      viewport: layoutMeasurement.height,
-    });
-  }, []);
-
-  const [videos, setVideos] = useState<Video[]>([]);
-  const [total, setTotal] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
-  // Paging state outside React state: onEndReached can fire again before a render.
-  // failed: the last load failed; only Retry loads again (onEndReached would retry in a loop).
-  const paging = useRef({
-    next: 1,
-    done: false,
-    busy: false,
-    failed: false,
-    generation: 0,
-  });
-
-  const loadMore = useCallback(
-    async (retry = false) => {
-      const p = paging.current;
-      if (p.busy || p.done || (p.failed && !retry)) return;
-      p.failed = false;
-      p.busy = true;
-      const generation = p.generation;
-      setLoading(true);
-      setError('');
-      try {
-        const page = await client.findVideos(p.next, PER_PAGE);
-        if (generation !== paging.current.generation) return; // refreshed meanwhile
-        p.next = page.page + 1;
-        p.done =
-          page.items.length === 0 ||
-          page.page * page.perPage >= page.totalCount;
-        setTotal(page.totalCount);
-        setVideos((current) => {
-          const seen = new Set(current.map((v) => v.id));
-          return current.concat(page.items.filter((v) => !seen.has(v.id)));
-        });
-      } catch (e) {
-        if (generation === paging.current.generation) {
-          p.failed = true;
-          setError(e instanceof Error ? e.message : String(e));
-        }
-      } finally {
-        if (generation === paging.current.generation) {
-          p.busy = false;
-          setLoading(false);
-          setRefreshing(false);
-        }
-      }
-    },
-    [client]
-  );
-
   const refresh = useCallback(() => {
-    paging.current = {
-      next: 1,
-      done: false,
-      busy: false,
-      failed: false,
-      generation: paging.current.generation + 1,
-    };
+    generation.current++;
+    pages.current = new Map();
+    pending.current = new Set();
+    failed.current = new Set();
     setRefreshing(true);
-    setVideos([]);
+    setError('');
     setTotal(null);
-    loadMore();
-  }, [loadMore]);
+    setVersion((v) => v + 1);
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+    loadPage(0);
+  }, [loadPage]);
 
-  useEffect(() => {
-    loadMore();
-  }, [loadMore]);
+  const retry = useCallback(() => {
+    failed.current = new Set();
+    setError('');
+    if (total == null) loadPage(0);
+    else loadVisible();
+  }, [total, loadPage, loadVisible]);
 
-  // Touch preview (press and hold a card). It lasts while the finger is down, also when the finger goes on to
-  // scroll the list: the content moves with the finger, so the card stays under it. The card's press ends when
-  // the list takes the touch over, so then only the end of the drag (finger up) stops the preview.
+  // --- Touch preview -------------------------------------------------------------------------------------------
+  // Press and hold a card. It lasts while the finger is down, also when the finger goes on to scroll the list: the
+  // content moves with the finger, so the card stays under it. The card's press ends when the list takes the
+  // touch over, so then only the end of the drag (finger up) stops the preview.
   const [heldId, setHeldId] = useState<number | null>(null);
   const dragging = useRef(false);
   const onHold = useCallback((video: Video) => setHeldId(video.id), []);
@@ -208,20 +282,64 @@ export function BrowseScreen({
     }, 80);
   }, []);
 
-  const renderItem = useCallback(
-    ({ item }: { item: Video }) => (
-      <VideoCard
-        client={client}
-        video={item}
-        imageUrl={client.imageUrl(item)}
-        width={cardWidth}
-        onPress={onPlay}
-        held={item.id === heldId}
-        onHold={onHold}
-        onRelease={onRelease}
-      />
-    ),
-    [client, cardWidth, onPlay, heldId, onHold, onRelease]
+  const renderRow = useCallback(
+    ({ item: row }: { item: number }) => {
+      const cards: ReactNode[] = [];
+      for (let c = 0; c < columns; c++) {
+        const index = row * columns + c;
+        if (total != null && index >= total) break;
+        const video = pages.current.get(Math.floor(index / PER_PAGE))?.[
+          index % PER_PAGE
+        ];
+        cards.push(
+          video ? (
+            <VideoCard
+              key={video.id}
+              client={client}
+              video={video}
+              imageUrl={client.imageUrl(video)}
+              width={cardWidth}
+              height={cardHeight}
+              onPress={onPlay}
+              held={video.id === heldId}
+              onHold={onHold}
+              onRelease={onRelease}
+            />
+          ) : (
+            <PlaceholderCard
+              key={`placeholder-${index}`}
+              width={cardWidth}
+              height={cardHeight}
+            />
+          )
+        );
+      }
+      return <View style={[styles.row, { height: rowHeight }]}>{cards}</View>;
+    },
+    // version: a page arrived (the pages live in a ref).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      columns,
+      total,
+      version,
+      client,
+      cardWidth,
+      cardHeight,
+      rowHeight,
+      onPlay,
+      heldId,
+      onHold,
+      onRelease,
+    ]
+  );
+
+  const getItemLayout = useCallback(
+    (_: ArrayLike<number> | null | undefined, index: number) => ({
+      length: rowHeight,
+      offset: PADDING + rowHeight * index,
+      index,
+    }),
+    [rowHeight]
   );
 
   return (
@@ -232,8 +350,16 @@ export function BrowseScreen({
       <View style={styles.header}>
         <Text style={styles.heading}>Cove</Text>
         <Text style={styles.count}>
-          {total == null ? '' : `${videos.length} of ${total} videos`}
+          {total == null ? '' : `${total} videos`}
         </Text>
+        {error ? (
+          <View style={styles.errorRow}>
+            <Text style={styles.error} numberOfLines={1}>
+              {error}
+            </Text>
+            <Button title="Retry" onPress={retry} />
+          </View>
+        ) : null}
         <View style={styles.headerActions}>
           <Text style={styles.count}>{client.username}</Text>
           <Button title="Refresh" onPress={refresh} />
@@ -241,16 +367,19 @@ export function BrowseScreen({
         </View>
       </View>
       <View style={styles.listArea}>
+        {total == null && !error ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
+        ) : null}
         <FlatList
           ref={listRef}
-          key={columns} // numColumns cannot change on a mounted FlatList
-          data={videos}
-          numColumns={columns}
-          keyExtractor={(v) => String(v.id)}
-          renderItem={renderItem}
+          data={rows}
+          keyExtractor={(row) => String(row)}
+          renderItem={renderRow}
+          getItemLayout={getItemLayout}
+          extraData={version}
           contentContainerStyle={styles.content}
-          columnWrapperStyle={columns > 1 ? styles.row : undefined}
-          onEndReached={() => loadMore()}
           onScroll={onScroll}
           onScrollBeginDrag={() => {
             dragging.current = true;
@@ -259,9 +388,8 @@ export function BrowseScreen({
             dragging.current = false;
             setHeldId(null); // finger up
           }}
-          extraData={heldId}
-          // RNW's native scrollbar hides itself for good once the content fits the viewport (as it does while the
-          // first page loads): only a change of this prop makes it check again. So it flips with the overflow.
+          // RNW's native scrollbar hides itself for good once the content fits the viewport (as it does before
+          // the first page arrives): only a change of this prop makes it check again. So it flips with the overflow.
           showsVerticalScrollIndicator={scroll.content > scroll.viewport}
           scrollEventThrottle={16}
           onContentSizeChange={(_, h) =>
@@ -273,28 +401,11 @@ export function BrowseScreen({
             setScroll((s) => ({ ...s, viewport }));
           }}
           CellRendererComponent={Platform.OS === 'windows' ? Cell : undefined}
-          onEndReachedThreshold={1.5}
           refreshing={refreshing}
           onRefresh={refresh}
-          initialNumToRender={PER_PAGE / 2}
-          windowSize={7}
-          ListFooterComponent={
-            <View style={styles.footer}>
-              {loading ? <ActivityIndicator color={colors.accent} /> : null}
-              {error ? (
-                <View style={styles.errorRow}>
-                  <Text style={styles.error}>{error}</Text>
-                  <Button title="Retry" onPress={() => loadMore(true)} />
-                </View>
-              ) : null}
-              {!loading &&
-              !error &&
-              paging.current.done &&
-              videos.length > 0 ? (
-                <Text style={styles.count}>That's everything.</Text>
-              ) : null}
-            </View>
-          }
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          windowSize={5}
         />
       </View>
     </View>
@@ -304,6 +415,11 @@ export function BrowseScreen({
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background },
   listArea: { flex: 1 },
+  center: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -321,9 +437,19 @@ const styles = StyleSheet.create({
     gap: 10,
     marginLeft: 'auto',
   },
-  content: { padding: PADDING, gap: GAP },
-  row: { gap: GAP },
-  footer: { paddingVertical: 24, alignItems: 'center', gap: 10 },
-  errorRow: { alignItems: 'center', gap: 10 },
-  error: { color: colors.error },
+  // Rows carry the gap below them (part of their fixed height); the list's bottom padding makes up the rest.
+  content: { paddingTop: PADDING, paddingBottom: PADDING - GAP },
+  row: {
+    flexDirection: 'row',
+    gap: GAP,
+    paddingHorizontal: PADDING,
+    paddingBottom: GAP,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flexShrink: 1,
+  },
+  error: { color: colors.error, flexShrink: 1 },
 });

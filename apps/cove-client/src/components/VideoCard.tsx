@@ -20,6 +20,7 @@ export const VideoCard = memo(function VideoCard({
   video,
   imageUrl,
   width,
+  height,
   onPress,
   held,
   onHold,
@@ -29,6 +30,8 @@ export const VideoCard = memo(function VideoCard({
   video: Video;
   imageUrl: string;
   width: number;
+  // Every card is this tall (the grid's rows have a fixed height, see BrowseScreen).
+  height: number;
   onPress: (video: Video) => void;
   // Touch: press and hold previews; the grid decides when it ends (the finger may go on to scroll the list).
   held: boolean;
@@ -49,7 +52,7 @@ export const VideoCard = memo(function VideoCard({
       delayLongPress={300}
       onLongPress={() => onHold(video)}
       onPressOut={() => onRelease(video)}
-      style={[styles.card, { width }, hovered && styles.cardHover]}
+      style={[styles.card, { width, height }, hovered && styles.cardHover]}
     >
       <View style={styles.thumb}>
         {imageFailed ? (
@@ -135,16 +138,46 @@ const styles = StyleSheet.create({
   },
   badgeLeft: { left: 6 },
   badgeRight: { right: 6 },
+  // Fixed heights (two title lines, one subtitle line): see CARD_TEXT_HEIGHT.
   title: {
     color: colors.text,
     fontSize: 14,
+    lineHeight: 18,
+    height: 36,
     marginTop: 8,
     marginHorizontal: 10,
   },
   subtitle: {
     color: colors.textDim,
     fontSize: 12,
+    lineHeight: 16,
+    height: 16,
     marginTop: 3,
     marginHorizontal: 10,
   },
+});
+
+/** The card's height below its 16:9 thumbnail: title, subtitle, margins, the bottom padding and the border. */
+export const CARD_TEXT_HEIGHT = 8 + 36 + 3 + 16 + 10 + 2;
+
+/** A card whose video is still loading. */
+export function PlaceholderCard({ width, height }: { width: number; height: number }) {
+  return (
+    <View style={[styles.card, { width, height }]}>
+      <View style={styles.thumb} />
+      <View style={[skeletonStyles.skeleton, { width: '70%' }]} />
+      <View style={[skeletonStyles.skeleton, skeletonStyles.skeletonShort]} />
+    </View>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  skeleton: {
+    height: 12,
+    borderRadius: 4,
+    marginTop: 12,
+    marginHorizontal: 10,
+    backgroundColor: colors.surfaceHover,
+  },
+  skeletonShort: { width: '35%', marginTop: 10 },
 });
