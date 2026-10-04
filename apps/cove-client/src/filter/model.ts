@@ -509,6 +509,212 @@ export function conditionCount(group: Group): number {
   );
 }
 
+// --- Editing the tree (design 4a–4c): cut / copy / paste, wrap, ungroup ------------------------------------------
+
+export function findNode(root: Group, id: string): Node | null {
+  if (root.id === id) return root;
+  for (const child of root.children) {
+    if (child.id === id) return child;
+    if (child.kind === 'group') {
+      const found = findNode(child, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** The group holding the node of that id, and the node's position in it (null for the root or an unknown id). */
+export function findParent(
+  root: Group,
+  id: string
+): { parent: Group; index: number } | null {
+  const index = root.children.findIndex((c) => c.id === id);
+  if (index >= 0) return { parent: root, index };
+  for (const child of root.children) {
+    if (child.kind === 'group') {
+      const found = findParent(child, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+/** Whether id is node itself or anything inside it. */
+export function contains(node: Node, id: string): boolean {
+  if (node.id === id) return true;
+  return node.kind === 'group' && node.children.some((c) => contains(c, id));
+}
+
+export function removeNode(root: Group, id: string): Group {
+  return replaceNode(root, id, null);
+}
+
+/** The tree with node placed right before or after the node of that id. */
+export function insertRelative(
+  root: Group,
+  targetId: string,
+  node: Node,
+  where: 'before' | 'after'
+): Group {
+  const walk = (group: Group): Group => ({
+    ...group,
+    children: group.children.flatMap((child) => {
+      const self = child.kind === 'group' ? walk(child) : child;
+      if (child.id !== targetId) return [self];
+      return where === 'before' ? [node, self] : [self, node];
+    }),
+  });
+  return walk(root);
+}
+
+/** The node replaced by a new All of group holding it; for the root, a new root around it. */
+export function wrapNode(root: Group, id: string): Group {
+  const wrap = (node: Node): Group => ({
+    kind: 'group',
+    id: newId(),
+    op: 'all',
+    children: [node],
+  });
+  if (root.id === id) return wrap(root);
+  const node = findNode(root, id);
+  return node ? replaceNode(root, id, wrap(node)) : root;
+}
+
+/** The group's children in its place, in its parent, and the group gone. */
+export function ungroup(root: Group, groupId: string): Group {
+  const walk = (group: Group): Group => ({
+    ...group,
+    children: group.children.flatMap((child) => {
+      if (child.kind !== 'group') return [child];
+      return child.id === groupId
+        ? child.children.map((c) => c)
+        : [walk(child)];
+    }),
+  });
+  return walk(root);
+}
+
+/** A deep copy with new ids (what Copy pastes). */
+export function cloneNode<T extends Node>(node: T): T {
+  if (node.kind === 'condition') return { ...node, id: newId() };
+  return {
+    ...node,
+    id: newId(),
+    children: node.children.map((c) => cloneNode(c)),
+  };
+}
+
+/** A node in a few words: "Tag includes Drone", "Any of · 2 conditions". */
+export function summary(node: Node): string {
+  if (node.kind === 'group') {
+    const count = conditionCount(node);
+    return `${GROUP_LABELS[node.op]} · ${count} condition${count === 1 ? '' : 's'}`;
+  }
+  const { label, runs } = rowText(node);
+  const line = runs
+    .map((r) => (r.folder ? '' : r.sep ? '›' : r.text))
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return `${label} ${line}`;
+}
+
+/** What the clipboard holds: a cut node (pasting moves it) or a copied one (each paste is a new copy). */
+export interface Clipboard {
+  node: Node;
+  mode: 'cut' | 'copy';
+}
+
+/** Whether the clipboard can go at a target: never into, before or after a cut node itself or its inside. */
+export function canPaste(
+  clipboard: Clipboard | null,
+  targetId: string
+): boolean {
+  if (!clipboard) return false;
+  return !(clipboard.mode === 'cut' && contains(clipboard.node, targetId));
+}
+
+/**
+ * The tree with the clipboard pasted: into a group (at its end) or before / after a node. A cut node moves there (it
+ * leaves its old place); a copy goes in as a new copy.
+ */
+export function paste(
+  root: Group,
+  clipboard: Clipboard,
+  target: { into: string } | { at: string; where: 'before' | 'after' }
+): Group {
+  const targetId = 'into' in target ? target.into : target.at;
+  if (!canPaste(clipboard, targetId)) return root;
+  // A cut node as it is now (it may have been edited since it was cut).
+  const node =
+    clipboard.mode === 'copy'
+      ? cloneNode(clipboard.node)
+      : (findNode(root, clipboard.node.id) ?? clipboard.node);
+  const base =
+    clipboard.mode === 'cut' ? removeNode(root, clipboard.node.id) : root;
+  return 'into' in target
+    ? appendTo(base, target.into, node)
+    : insertRelative(base, target.at, node, target.where);
+}
+
+// --- Deep trees (design 5a–5f): levels, Simplify ------------------------------------------------------------------
+
+/** The groups from the root down to the group of that id, both included (null if it isn't a group in the tree). */
+export function findChain(root: Group, id: string): Group[] | null {
+  if (root.id === id) return [root];
+  for (const child of root.children) {
+    if (child.kind === 'group') {
+      const chain = findChain(child, id);
+      if (chain) return [root, ...chain];
+    }
+  }
+  return null;
+}
+
+function groupCount(group: Group): number {
+  return group.children.reduce(
+    (n, c) => n + (c.kind === 'group' ? groupCount(c) : 0),
+    1
+  );
+}
+
+/**
+ * The tree without groups that change nothing, their items merged into the parent: an empty group, a group of one
+ * (not None of), an All of in an All of, an Any of in an Any of; and a root holding just one group (unless None of).
+ */
+export function simplify(root: Group): Group {
+  const walk = (group: Group): Group => ({
+    ...group,
+    children: group.children.flatMap((child): Node[] => {
+      if (child.kind !== 'group') return [child];
+      const g = walk(child);
+      if (!g.children.length) return [];
+      if (g.children.length === 1 && g.op !== 'none') return g.children;
+      if (g.op === group.op && (g.op === 'all' || g.op === 'any'))
+        return g.children;
+      return [g];
+    }),
+  });
+  let next = root;
+  for (;;) {
+    let step = walk(next);
+    const only = step.children[0];
+    if (
+      step.op !== 'none' &&
+      step.children.length === 1 &&
+      only?.kind === 'group'
+    )
+      step = only;
+    if (groupCount(step) === groupCount(next)) return step;
+    next = step;
+  }
+}
+
+/** How many groups Simplify would merge away. */
+export function simplifiable(root: Group): number {
+  return groupCount(root) - groupCount(simplify(root));
+}
+
 // --- Cove's wire format ---------------------------------------------------------------------------------------
 
 const NO_VALUE: Modifier[] = ['isNull', 'notNull'];
@@ -756,15 +962,15 @@ function dateValue(v: unknown): string {
   return relativePhrase(s) ?? formatDay(s, true);
 }
 
-/** One condition in plain words: "tagged Drone and Landscape", "added in the last year", "longer than 20 min". */
+/** One condition in plain words: "tagged Drone and Landscape", "added in the last year", "over 20 min". */
 export function describeCondition(c: Condition): string {
   const f = fieldById(c.field);
   const m = c.modifier;
   if (f.type === 'path') {
-    // Design 3c: "in Drone/2024", "not in Family", "with “GoPro” in the path"
+    // Design 3c / 5a: "in Drone/2024", "not in Family", "“GoPro” in path"
     if (m === 'underPath') return `in ${shortFolder(c)}`;
     if (m === 'notUnderPath') return `not in ${shortFolder(c)}`;
-    if (m === 'includes') return `with “${c.value}” in the path`;
+    if (m === 'includes') return `“${c.value}” in path`;
     if (m === 'matchesRegex') return `with a path matching ${c.value}`;
   }
   if (f.type === 'multiId' && f.lookup) {
@@ -835,9 +1041,9 @@ export function describeCondition(c: Condition): string {
     const b = valueText(c, 2);
     switch (m) {
       case 'greaterThan':
-        return `longer than ${a}`;
+        return `over ${a}`;
       case 'lessThan':
-        return `shorter than ${a}`;
+        return `under ${a}`;
       case 'between':
         return `${a}–${b} long`;
       case 'notBetween':
@@ -892,47 +1098,152 @@ export function describeCondition(c: Condition): string {
   }
 }
 
-function describeNested(group: Group): string | null {
-  const parts = group.children
-    .map(describeNode)
-    .filter((p): p is string => !!p);
-  if (!parts.length) return null;
+// --- The summary (design 5a): at most three short lines ------------------------------------------------------------
+
+/** A piece of a summary line; a group token opens that group. */
+export type SummaryRun =
+  | { kind: 'lead' | 'word' | 'text'; text: string }
+  | { kind: 'group'; group: Group; text: string }
+  | { kind: 'more'; count: number };
+
+// About what fits on one 13.5px line of a phone; a token counts its icon and padding.
+const LINE_BUDGET = 48;
+const REPEATABLE = ['tagged', 'with', 'from', 'in', 'added', 'over', 'under'];
+const LINE_WORDS: Record<GroupOp, string> = {
+  all: 'and',
+  any: 'or',
+  one: 'or',
+  none: 'nor',
+};
+
+const text = (t: string): SummaryRun => ({ kind: 'text', text: t });
+
+function runsLength(runs: SummaryRun[]): number {
+  return runs.reduce(
+    (n, r) =>
+      n +
+      (r.kind === 'more'
+        ? 8
+        : r.kind === 'group'
+          ? r.text.length + 5
+          : r.text.length),
+    0
+  );
+}
+
+/** A group as a token: "all of 5". */
+export function groupToken(group: Group): SummaryRun {
+  return {
+    kind: 'group',
+    group,
+    text: `${GROUP_LABELS[group.op].toLowerCase()} ${conditionCount(group)}`,
+  };
+}
+
+/** "a, b or c", with each part a list of runs. */
+function listRuns(parts: SummaryRun[][], joiner: string): SummaryRun[] {
+  return parts.flatMap((p, i) =>
+    i === 0 ? p : [text(i === parts.length - 1 ? ` ${joiner} ` : ', '), ...p]
+  );
+}
+
+/** A group spelled out one level down: its conditions in words, its own subgroups as tokens. */
+export function groupPhrase(group: Group): SummaryRun[] {
+  let verb = '';
+  const parts = group.children.flatMap((c): SummaryRun[][] => {
+    if (c.kind !== 'condition') {
+      verb = '';
+      return conditionCount(c) ? [[groupToken(c)]] : [];
+    }
+    // "tagged Blurry nor Rejected": a verb the previous condition just used goes
+    const phrase = describeCondition(c);
+    const first = phrase.split(' ')[0]!;
+    const repeated = first === verb && REPEATABLE.includes(first);
+    verb = first;
+    return [[text(repeated ? phrase.slice(first.length + 1) : phrase)]];
+  });
+  if (!parts.length) return [];
   if (parts.length === 1)
-    return group.op === 'none' ? `not ${parts[0]}` : parts[0]!;
+    return group.op === 'none' ? [text('not '), ...parts[0]!] : parts[0]!;
   switch (group.op) {
     case 'all':
-      return list(parts, 'and');
+      return listRuns(parts, 'and');
     case 'any':
-      return list(parts, 'or');
+      return listRuns(parts, 'or');
     case 'one':
       return parts.length === 2
-        ? `either ${parts[0]} or ${parts[1]}, not both`
-        : `exactly one of ${list(parts, 'or')}`;
+        ? [
+            text('either '),
+            ...parts[0]!,
+            text(' or '),
+            ...parts[1]!,
+            text(', not both'),
+          ]
+        : [text('exactly one of '), ...listRuns(parts, 'or')];
     case 'none':
       return parts.length === 2
-        ? `neither ${parts[0]} nor ${parts[1]}`
-        : `none of ${list(parts, 'or')}`;
+        ? [text('neither '), ...parts[0]!, text(' nor '), ...parts[1]!]
+        : [text('none of '), ...listRuns(parts, 'or')];
   }
 }
 
-function describeNode(node: Node): string | null {
-  return node.kind === 'condition'
-    ? describeCondition(node)
-    : describeNested(node);
+/** Runs as plain text (tokens by their words). */
+export function runsText(runs: SummaryRun[]): string {
+  return runs
+    .map((r) => (r.kind === 'more' ? `+ ${r.count} more` : r.text))
+    .join('');
 }
 
-const ROOT_WORDS: Record<GroupOp, string> = {
-  all: 'all',
-  any: 'any',
-  one: 'exactly one',
-  none: 'none',
-};
-
-/** The whole tree as one sentence, like the design's summary at the top of 2b. */
-export function describe(root: Group): string {
-  const parts = root.children.map(describeNode).filter((p): p is string => !!p);
-  if (!parts.length) return 'All videos. Add a condition to narrow them down.';
-  return `Videos matching ${ROOT_WORDS[root.op]} of: ${parts.join(' · ')}.`;
+/**
+ * A group as its summary lines (design 5a): its conditions on the first line after its operator ("All of: tagged
+ * Drone · 4K"); a line per subgroup, starting with the group's word ("and 4K or {all of 5}"); deeper groups as tokens.
+ * Short of `full`, three lines at most: whole items that don't fit fold into "+ N more", never mid-phrase.
+ */
+export function outline(group: Group, full = false): SummaryRun[][] {
+  let more = 0;
+  const first: SummaryRun[] = [
+    { kind: 'lead', text: `${GROUP_LABELS[group.op]}:` },
+  ];
+  let conditions = 0;
+  for (const c of group.children) {
+    if (c.kind !== 'condition') continue;
+    const piece = text(`${conditions ? ' · ' : ' '}${describeCondition(c)}`);
+    if (
+      !full &&
+      conditions &&
+      runsLength(first) + runsLength([piece]) > LINE_BUDGET
+    )
+      more++;
+    else {
+      first.push(piece);
+      conditions++;
+    }
+  }
+  const lines: SummaryRun[][] = [first];
+  let firstTaken = conditions > 0;
+  for (const g of group.children) {
+    if (g.kind !== 'group' || !conditionCount(g)) continue;
+    let phrase = groupPhrase(g);
+    if (!full && runsLength(phrase) + 4 > LINE_BUDGET) phrase = [groupToken(g)];
+    if (!firstTaken) first.push(text(' '), ...phrase);
+    else
+      lines.push([
+        { kind: 'word', text: `${LINE_WORDS[group.op]} ` },
+        ...phrase,
+      ]);
+    firstTaken = true;
+  }
+  if (first.length === 1) return [];
+  if (full) return lines;
+  if (lines.length > 3) more += lines.splice(3).length;
+  if (more) {
+    const last = lines[lines.length - 1]!;
+    const tag: SummaryRun = { kind: 'more', count: more };
+    if (runsLength(last) + 11 <= LINE_BUDGET) last.push(text(' · '), tag);
+    else if (lines.length < 3) lines.push([tag]);
+    else lines[2] = [{ kind: 'more', count: more + 1 }];
+  }
+  return lines;
 }
 
 // --- Rows -----------------------------------------------------------------------------------------------------

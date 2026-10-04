@@ -23,6 +23,7 @@ Cove filters are trees: groups (All / Any / Just one / None), conditions with op
 Mobile exposes three depths writing to **one** filter object:
 1. Search tokens (2e) 2. Flat filter sheet (2a) 3. Rule tree outline + block sheets (2b, 2c; tablet 2d).
 Path conditions pick a library folder (3a–3d, `design/source/path-selector/`): browse Cove's library folders, "in folder" = the folder and everything inside it; typing a path is the fallback.
+The tree is edited with ⋮ menus on every item (conditions, subgroups, the root): cut / copy / paste (before, after, or Paste in a group's add row), Wrap in group, Ungroup (4a–4c). No drag and drop.
 Saved filters are first-class and runnable ("run first, build second"). Every filter has a generated plain-language sentence.
 
 ## Open decisions

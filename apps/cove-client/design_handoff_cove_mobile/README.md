@@ -118,6 +118,24 @@ Backed by Cove's `GET /api/metadata/library-folders?path=` (library roots withou
 **3c · In the rule tree** — A path row reads "in folder" + filled folder icon (accent) + breadcrumb of the last folders; the full path + "· and N subfolders" below in mono 11.5 accent-300 (like resolved dates). "Not in folder" = a path in a **None of** group or the `notUnderPath` operator. Text matches show the text in mono ("contains GoPro"). Sentence: "in Drone/2024", "not in Family", "with “GoPro” in the path".
 **3d · Typing a path** — For accounts that can't browse folders (library-folders needs the Files or Library scan permission): a banner with a lock says so. Mono path field (folder icon, clear button). Status line: found ("Folder found · {n} videos, its subfolders included", check-circle, accent-300), inside a library folder but no such folder, or outside every library folder ("nothing would match"). "Folders here" suggests the subfolders of the typed parent whose names start with what follows the last slash (typed part accent-300); tapping completes the path. "Add condition" enabled once the folder is found.
 
+### Editing the tree (turn 4)
+Moving items between groups in the rule tree (2b) without drag and drop: **cut / copy / paste**, plus **Wrap** and **Ungroup**. Turn 4 of the main document (4a–4c, static).
+Every item has a **⋮** at the end of its row — conditions, subgroups (in the pill row) and the root (in the root pill row, after "these N") — opening one menu sheet (surface, 22px top radius, grabber) that lists only what applies. Top line: the item in a few words ("Any of · 2 conditions"), or the clipboard ("Copied: …") when something is on it. Rows 48px (56 with a detail line): accent-300 Phosphor icon + 15px label; a fading rule before Remove.
+- **Condition:** Edit condition · Cut · Copy · Paste before · Paste after · Wrap in group · Remove condition.
+- **Subgroup:** Cut · Copy · Paste before · Paste after · Wrap in group · Ungroup ("Move its N conditions into {parent}") · Remove group ("… and its N conditions").
+- **Root:** Copy · Wrap in group ("Put the whole filter in a new All of group") · Clear all. The root can't be cut, removed or ungrouped.
+**4a · Group menu** — opened from a subgroup's ⋮ (pressed state: text 10% fill). **4b · Cut, then paste** — a cut item stays in place until pasted: 60% opacity, dashed 1px outline, a neutral "Cut" tag (scissors) after its label; a subgroup that is cut dims as a whole. **Paste** (clipboard-text icon, accent-200, 1px accent-45% outline) joins every group's add row (after "+ Condition" / "{} Subgroup", which every group has), appending there. Above the footer, the **clipboard bar** (surface, 1px accent-45% outline): scissors or copy icon, "Cut · paste it where it goes" / "Copied · paste as many copies as you need", the item, ✕ to clear. **4c · Condition menu with a group on the clipboard** — Paste before / after; behind it, a wrapped condition: a new All of group in its place.
+Behavior: pasting a cut item **moves** it and empties the clipboard; a copy pastes a **new copy** (new ids) each time. A cut group can't be pasted into itself or anything inside it (those Paste targets don't show). **Wrap** = a new All of group holding the item, in its place (cycle the pill to change it); wrapping the root makes a new root around it. **Ungroup** = the group's children take its place in its parent. Android back clears the clipboard before it closes the screen.
+
+### Deep trees (turn 5 — proposal, for review)
+Keeps a deeply nested filter usable on a phone. Turn 5 of the main document (5a–5f, static), all on one example tree (All of: Drone, Added, Any of [4K, All of [over 10 min, GoPro, None of [Family, Any of [Kids, Birthday]]]], None of [Blurry, Rejected]).
+**5a · Summary rules** — at most **3 lines** (13.5px). The group's conditions share the first line after its operator ("All of: tagged Drone · added in the last year"); each subgroup gets a line starting with the group's word (*and / or / nor*). Short phrases ("tagged Drone", "4K", "over 10 min", "in Family", "“GoPro” in path"; None of = "neither … nor …"). Subgroups are spelled out one level down only; deeper ones are a **token** (brackets-curly, accent 14% fill, accent-200 12px: "{} all of 5 ›") that opens the group. Over 3 lines, whole items fold into "+ N more" (tap shows the rest). Inside an opened group, the summary covers only that group.
+**5b · Two levels inline** — the group shown and one level of subgroups; deeper groups are one **group row** (32px accent tile with brackets-curly, "All of · 5 conditions", 13px summary up to 2 lines, caret-right, ⋮; tap opens it). Coming back up, the row you came from has the selected ring for a moment.
+**5c · Inside a group** — same screen, the list slides over (push); under the header, **breadcrumb chips** as in 3b ("Filter" with funnel-simple › Any of › All of, current accent-300; tap jumps). Back / Android back / back swipe = up one level; at the top level it closes the filter. Clipboard bar and footer ("Show N videos" for the whole filter) stay at every level; each level keeps its scroll position.
+**5d · Very deep** — the breadcrumb folds the middle into "…"; tapping it lists the hidden levels with their short summaries.
+**5e · "+ Add"** — one action per group instead of Condition / Subgroup: a sheet "Add to {group}" with Condition, Subgroup, and (when something is on the clipboard) Paste "{item}". Paste also stays visible beside "+ Add".
+**5f · Simplify** — in the whole filter's ⋮ menu (magic-wand, "Merge N groups that don't change the result"): merges a group into its parent when it has the same operator (All of in All of, Any of in Any of) or a single child (not None of).
+
 ---
 
 ## Interactions & behavior (summary)
@@ -147,7 +165,7 @@ Real data comes from Cove's API (see https://yourcove.net/docs/developer/api/ove
 - No custom illustrations or logos; the brand mark is a 22px outlined rounded square (placeholder — use Cove's real logo).
 
 ## Files
-- `design/Cove Mobile - standalone.html` — open in a browser (turns 1–3)
+- `design/Cove Mobile - standalone.html` — open in a browser (turns 1–5)
 - `design/source/Cove Mobile.dc.html` — source with exact styles + logic
 - `design/source/path-selector/` — path selector screens 3a–3d as separate artboards (also turn 3 of the main document)
 - `design/tokens/nocturne.css`, `design/tokens/nocturne-guide.md` — design system

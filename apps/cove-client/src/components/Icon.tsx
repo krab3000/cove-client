@@ -12,6 +12,9 @@ const GLYPHS = {
   'brackets-curly': 0xe860,
   'play': 0xe3d0,
   'x': 0xe4f6,
+  'funnel-simple': 0xe268,
+  'magic-wand': 0xe6b6,
+  'arrow-square-in': 0xe5dc,
   'magnifying-glass': 0xe30c,
   'check': 0xe182,
   'minus': 0xe32a,
@@ -26,6 +29,13 @@ const GLYPHS = {
   'warning-circle': 0xe4e2,
   'x-circle': 0xe4f8,
   'arrow-elbow-down-right': 0xe046,
+  'scissors': 0xeae0,
+  'copy': 0xe1ca,
+  'clipboard-text': 0xe198,
+  'arrow-line-up': 0xe066,
+  'arrow-line-down': 0xe05c,
+  'arrow-elbow-up-left': 0xe054,
+  'eraser': 0xe21e,
 } as const;
 
 export type IconName = keyof typeof GLYPHS;
