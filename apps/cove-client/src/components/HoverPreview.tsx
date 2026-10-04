@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet } from 'react-native';
-import { LibavVideoView, type LibavVideoViewHandle } from 'react-native-libav';
+import { VideoView, type VideoViewHandle } from '../player';
 import type { CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
 
@@ -19,7 +19,7 @@ export function HoverPreview({
   client: CoveClient;
   video: Video;
 }) {
-  const player = useRef<LibavVideoViewHandle>(null);
+  const player = useRef<VideoViewHandle>(null);
   const [source, setSource] = useState<{ uri: string; clip: boolean } | null>(
     null
   );
@@ -53,7 +53,7 @@ export function HoverPreview({
 
   if (!source) return null;
   return (
-    <LibavVideoView
+    <VideoView
       ref={player}
       // Hidden until the first frame, so the thumbnail stays up while it loads.
       style={[StyleSheet.absoluteFill, !visible && styles.hidden]}

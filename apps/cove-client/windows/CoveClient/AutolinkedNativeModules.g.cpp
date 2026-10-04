@@ -6,6 +6,9 @@
 // Includes from react-native-libav
 #include <winrt/ReactNativeLibav.h>
 
+// Includes from react-native-vlc
+#include <winrt/ReactNativeVlc.h>
+
 namespace winrt::Microsoft::ReactNative
 {
 
@@ -13,6 +16,8 @@ void RegisterAutolinkedNativeModulePackages(winrt::Windows::Foundation::Collecti
 { 
     // IReactPackageProviders from react-native-libav
     packageProviders.Append(winrt::ReactNativeLibav::ReactPackageProvider());
+    // IReactPackageProviders from react-native-vlc
+    packageProviders.Append(winrt::ReactNativeVlc::ReactPackageProvider());
 }
 
 }

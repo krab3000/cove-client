@@ -260,6 +260,9 @@ export function BrowseScreen({
             setHeldId(null); // finger up
           }}
           extraData={heldId}
+          // RNW's native scrollbar hides itself for good once the content fits the viewport (as it does while the
+          // first page loads): only a change of this prop makes it check again. So it flips with the overflow.
+          showsVerticalScrollIndicator={scroll.content > scroll.viewport}
           scrollEventThrottle={16}
           onContentSizeChange={(_, h) =>
             setScroll((s) => ({ ...s, content: h }))

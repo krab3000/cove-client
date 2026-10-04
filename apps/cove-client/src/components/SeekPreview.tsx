@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
-import { LibavVideoView, type LibavVideoViewHandle } from 'react-native-libav';
+import { VideoView, type VideoViewHandle } from '../player';
 import type { CoveClient, SpriteSheet } from '../api/cove';
 import type { Video } from '../api/types';
 import { formatDuration } from '../format';
@@ -94,7 +94,7 @@ function PlayerFrame({
   video: Video;
   time: number;
 }) {
-  const player = useRef<LibavVideoViewHandle>(null);
+  const player = useRef<VideoViewHandle>(null);
   const [loaded, setLoaded] = useState(false);
   const lastSeek = useRef(0);
   const trailing = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -115,7 +115,7 @@ function PlayerFrame({
   }, [time, loaded]);
 
   return (
-    <LibavVideoView
+    <VideoView
       ref={player}
       style={StyleSheet.absoluteFill}
       source={client.streamUrl(video)}

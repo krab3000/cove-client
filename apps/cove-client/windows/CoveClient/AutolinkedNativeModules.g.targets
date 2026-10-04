@@ -6,5 +6,9 @@
     <ProjectReference Include="$(ProjectDir)..\..\..\..\packages\react-native-libav\windows\ReactNativeLibav\ReactNativeLibav.vcxproj">
       <Project>{BF230465-A0BE-43D9-B57C-5006E7EEABFB}</Project>
     </ProjectReference>
+    <!-- Projects from react-native-vlc -->
+    <ProjectReference Include="$(ProjectDir)..\..\node_modules\react-native-vlc\windows\ReactNativeVlc\ReactNativeVlc.vcxproj">
+      <Project>{61505EF9-498C-451A-B297-6E2ADA3D975A}</Project>
+    </ProjectReference>
   </ItemGroup>
 </Project>

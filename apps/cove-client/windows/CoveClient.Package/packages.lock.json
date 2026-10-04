@@ -150,10 +150,21 @@
           "Microsoft.VCRTForwarders.140": "[1.0.2-rc, )",
           "Microsoft.WindowsAppSDK": "[1.8.260508005, )",
           "ReactNativeLibav": "[1.0.0, )",
+          "ReactNativeVlc": "[1.0.0, )",
           "boost": "[1.84.0, )"
         }
       },
       "reactnativelibav": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.ReactNative": "[0.84.0, )",
+          "Microsoft.ReactNative.Cxx": "[0.84.0, )",
+          "Microsoft.VCRTForwarders.140": "[1.0.2-rc, )",
+          "Microsoft.WindowsAppSDK": "[1.8.260508005, )",
+          "boost": "[1.84.0, )"
+        }
+      },
+      "reactnativevlc": {
         "type": "Project",
         "dependencies": {
           "Microsoft.ReactNative": "[0.84.0, )",

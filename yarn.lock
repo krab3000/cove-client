@@ -7960,6 +7960,7 @@ __metadata:
     react-native-builder-bob: "npm:^0.43.1"
     react-native-libav: "workspace:*"
     react-native-monorepo-config: "npm:^0.4.0"
+    react-native-vlc: "workspace:*"
     react-native-windows: "npm:0.84.0"
     typescript: "npm:^6.0.3"
   languageName: unknown
@@ -8072,6 +8073,25 @@ __metadata:
   checksum: 10c0/62e6e2ab859a2e0e5a4028b9f018043a803bfd35c62017a0ca834fc0ff389b5f9cca82c3bf5332d30644e9488e6144ebb0a94965c918d64fce5dbabe094163f8
   languageName: node
   linkType: hard
+
+"react-native-vlc@workspace:*, react-native-vlc@workspace:packages/react-native-vlc":
+  version: 0.0.0-use.local
+  resolution: "react-native-vlc@workspace:packages/react-native-vlc"
+  dependencies:
+    "@react-native/babel-preset": "npm:0.84.1"
+    "@types/react": "npm:^19.2.0"
+    del-cli: "npm:^7.0.0"
+    react: "npm:19.2.3"
+    react-native: "npm:0.84.1"
+    react-native-builder-bob: "npm:^0.43.1"
+    react-native-windows: "npm:0.84.0"
+    typescript: "npm:^6.0.3"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+    react-native-windows: "*"
+  languageName: unknown
+  linkType: soft
 
 "react-native-windows@npm:0.84.0":
   version: 0.84.0

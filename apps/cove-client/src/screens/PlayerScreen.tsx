@@ -6,20 +6,22 @@ import {
   Text,
   View,
 } from 'react-native';
-import {
-  LibavVideoView,
-  type LibavVideoViewHandle,
-  type LoadEvent,
-} from 'react-native-libav';
 import type { CoveClient, SpriteSheet } from '../api/cove';
 import type { Video } from '../api/types';
 import { Bar, Button, colors } from '../components/Controls';
 import { SeekPreview } from '../components/SeekPreview';
 import { formatDuration, videoTitle } from '../format';
+import {
+  playerEngine,
+  VideoView,
+  type LoadEvent,
+  type VideoViewHandle,
+} from '../player';
 
 /**
- * Plays a video's original file, streamed from Cove over HTTP(S) range requests, in LibavVideoView (hardware
- * decoding). A clip (a video cut from another one) plays its parent's file between clipStartSec and clipEndSec.
+ * Plays a video's original file, streamed from Cove over HTTP(S) range requests, in VideoView (libVLC on
+ * Windows, libav on Android; hardware decoding). A clip (a video cut from another one) plays its parent's file
+ * between clipStartSec and clipEndSec.
  */
 export function PlayerScreen({
   client,
@@ -30,7 +32,7 @@ export function PlayerScreen({
   video: Video;
   onClose: () => void;
 }) {
-  const player = useRef<LibavVideoViewHandle>(null);
+  const player = useRef<VideoViewHandle>(null);
   const [info, setInfo] = useState<LoadEvent | null>(null);
   const [error, setError] = useState('');
   const [paused, setPaused] = useState(false);
@@ -85,7 +87,7 @@ export function PlayerScreen({
 
   return (
     <View style={styles.screen}>
-      <LibavVideoView
+      <VideoView
         ref={player}
         style={styles.video}
         source={client.streamUrl(video)}
@@ -125,7 +127,7 @@ export function PlayerScreen({
         {info ? (
           <Text style={styles.dim}>
             {info.codec} {info.width}×{info.height} ·{' '}
-            {info.hwDecoding ? 'hardware' : 'software'} decode
+            {info.hwDecoding ? 'hardware' : 'software'} decode · {playerEngine}
           </Text>
         ) : null}
       </View>

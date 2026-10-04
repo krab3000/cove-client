@@ -4,6 +4,7 @@
     "allowUnusedLabels": false,
     "customConditions": [
       "react-native-libav-source",
+      "react-native-vlc-source",
       "react-native-strict-api"
     ],
     "esModuleInterop": true,

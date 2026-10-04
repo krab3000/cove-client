@@ -1,0 +1,101 @@
+{
+  "name": "react-native-vlc",
+  "version": "0.1.0",
+  "description": "libVLC 4 video player component for React Native Windows (Fabric), rendering into a composition surface on the GPU",
+  "main": "./lib/module/index.js",
+  "types": "./lib/typescript/src/index.d.ts",
+  "exports": {
+    ".": {
+      "react-native-vlc-source": "./src/index.tsx",
+      "types": "./lib/typescript/src/index.d.ts",
+      "default": "./lib/module/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "windows",
+    "!windows/**/x64",
+    "!windows/**/ARM64",
+    "!windows/**/Debug",
+    "!windows/**/Release",
+    "!windows/packages",
+    "scripts",
+    "!**/__tests__",
+    "!**/.*"
+  ],
+  "scripts": {
+    "prepare": "bob build",
+    "typecheck": "tsc -p .",
+    "clean": "del-cli lib windows/x64",
+    "fetch-libvlc": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/fetch-libvlc.ps1"
+  },
+  "keywords": [
+    "react-native",
+    "react-native-windows",
+    "vlc",
+    "libvlc",
+    "video",
+    "d3d11"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/krab3000/react-native-libav.git"
+  },
+  "author": "krab3000 <echekanskiy@gmail.com> (https://github.com/krab3000)",
+  "license": "LGPL-2.1-or-later",
+  "devDependencies": {
+    "@react-native/babel-preset": "0.84.1",
+    "@types/react": "^19.2.0",
+    "del-cli": "^7.0.0",
+    "react": "19.2.3",
+    "react-native": "0.84.1",
+    "react-native-builder-bob": "^0.43.1",
+    "react-native-windows": "0.84.0",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*",
+    "react-native-windows": "*"
+  },
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      [
+        "module",
+        {
+          "esm": true
+        }
+      ],
+      [
+        "typescript",
+        {
+          "project": "tsconfig.build.json"
+        }
+      ]
+    ]
+  },
+  "codegenConfig": {
+    "name": "VlcSpec",
+    "type": "all",
+    "jsSrcsDir": "src",
+    "windows": {
+      "namespace": "ReactNativeVlcCodegen",
+      "generators": [
+        "componentsWindows"
+      ],
+      "outputDirectory": "windows/ReactNativeVlc/codegen",
+      "separateDataTypes": true
+    }
+  },
+  "react-native-windows": {
+    "init-windows": {
+      "name": "ReactNativeVlc",
+      "namespace": "ReactNativeVlc",
+      "template": "cpp-lib"
+    }
+  }
+}

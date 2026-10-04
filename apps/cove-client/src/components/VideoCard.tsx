@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
@@ -10,9 +10,6 @@ import {
 } from '../format';
 import { colors } from './Controls';
 import { HoverPreview } from './HoverPreview';
-
-// Hover this long before the preview starts (not while the pointer just passes over cards).
-const PREVIEW_DELAY_MS = 400;
 
 /**
  * A grid card: the cover (or a placeholder until Cove's generate task has made one), duration and resolution
@@ -40,15 +37,6 @@ export const VideoCard = memo(function VideoCard({
 }) {
   const [hovered, setHovered] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
-  const [previewing, setPreviewing] = useState(false);
-  useEffect(() => {
-    if (!hovered) {
-      setPreviewing(false);
-      return;
-    }
-    const timer = setTimeout(() => setPreviewing(true), PREVIEW_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [hovered]);
   const file = primaryFile(video);
   const duration = formatDuration(file?.duration);
   const resolution = resolutionLabel(video);
@@ -81,7 +69,7 @@ export const VideoCard = memo(function VideoCard({
             onError={() => setImageFailed(true)}
           />
         )}
-        {previewing || held ? (
+        {hovered || held ? (
           <HoverPreview client={client} video={video} />
         ) : null}
         {resolution ? (
