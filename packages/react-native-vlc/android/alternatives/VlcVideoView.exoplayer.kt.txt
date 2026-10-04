@@ -1,0 +1,340 @@
+package com.rnvlc
+
+import android.net.Uri
+import android.os.Handler
+import android.os.Looper
+import android.view.TextureView
+import android.widget.FrameLayout
+import androidx.annotation.OptIn
+import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MediaItem
+import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
+import androidx.media3.common.VideoSize
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.DecoderReuseEvaluation
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
+import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
+import com.facebook.react.bridge.Arguments
+import com.facebook.react.bridge.WritableMap
+import com.facebook.react.uimanager.ThemedReactContext
+import com.facebook.react.uimanager.UIManagerHelper
+import com.facebook.react.uimanager.events.Event
+import kotlin.math.roundToInt
+
+private const val PROGRESS_MS = 250L
+
+/**
+ * <VlcVideoView> on Android, played by Media3 ExoPlayer (the JS API is the Windows component's, which uses libVLC).
+ * ExoPlayer drives the device's MediaCodec decoders directly and renders into a TextureView, placed aspect fit
+ * inside this view. libVLC was tried here first: on older Exynos (OMX) decoders its MediaCodec path failed to
+ * allocate output buffers and fell back to software decoding, and a player per preview was too heavy.
+ *
+ * The TextureView stays transparent until the first frame is rendered, so whatever is under this view (a cover
+ * image) shows until then. onSeek fires once the player is ready at the new position. HTTPS goes through
+ * Android's own stack, so the app's network security config (user-installed CAs, say) applies; tlsVerify is not
+ * used here. Props are applied after each Fabric update transaction.
+ */
+@OptIn(UnstableApi::class)
+class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(reactContext) {
+  // Props
+  var source: String? = null
+  var paused = false
+  var muted = false
+  var volume = 1f
+  var loop = false
+  var hardwareDecoding = true
+  var tlsVerify = true
+  var audioTrack = -1
+
+  private val textureView = TextureView(reactContext)
+  private var player: ExoPlayer? = null
+  private var openedSource: String? = null
+  private var openedHardwareDecoding = true
+  private var openedAudioTrack = -1
+
+  private var loaded = false
+  private var ended = false
+  private var errored = false
+  private var seekPending = false
+  private var firstFrame = false
+  private var decoderName = ""
+  private var videoAspect = 0.0
+  private val handler = Handler(Looper.getMainLooper())
+
+  // React Native's opacity goes to the TextureView: Android does not draw a view at alpha 0, and the TextureView
+  // only gets its surface when drawn (a preview hidden until its first frame would never start).
+  private var opacity = 1f
+
+  init {
+    textureView.alpha = 0f
+    addView(textureView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+  }
+
+  override fun setAlpha(alpha: Float) {
+    opacity = alpha
+    updateAlpha()
+  }
+
+  private fun updateAlpha() {
+    textureView.alpha = if (firstFrame) opacity else 0f
+  }
+
+  /** After a batch of prop changes. */
+  fun applyProps() {
+    if (player == null || source != openedSource || hardwareDecoding != openedHardwareDecoding) {
+      open()
+      return
+    }
+    val p = player ?: return
+    if (!paused && ended) {
+      ended = false
+      p.seekTo(0)
+    }
+    p.playWhenReady = !paused
+    p.volume = if (muted) 0f else volume
+    p.repeatMode = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+    if (audioTrack != openedAudioTrack) {
+      openedAudioTrack = audioTrack
+      selectAudioTrack(p, audioTrack)
+    }
+  }
+
+  fun seek(seconds: Double) {
+    val p = player ?: return
+    ended = false
+    seekPending = true
+    p.seekTo((seconds * 1000).toLong().coerceAtLeast(0))
+  }
+
+  fun release() {
+    close()
+  }
+
+  private fun close() {
+    handler.removeCallbacks(progress)
+    player?.let {
+      it.clearVideoTextureView(textureView)
+      it.release()
+    }
+    player = null
+    loaded = false
+    ended = false
+    errored = false
+    seekPending = false
+    firstFrame = false
+    decoderName = ""
+    videoAspect = 0.0
+    updateAlpha()
+  }
+
+  private fun open() {
+    close()
+    openedSource = source
+    openedHardwareDecoding = hardwareDecoding
+    openedAudioTrack = audioTrack
+    val src = source
+    if (src.isNullOrEmpty()) return
+
+    val renderers = DefaultRenderersFactory(reactContext)
+      .setEnableDecoderFallback(true)
+    if (!hardwareDecoding)
+      renderers.setMediaCodecSelector(softwareOnly)
+    val p = ExoPlayer.Builder(reactContext, renderers).build()
+    p.setVideoTextureView(textureView)
+    p.addListener(listener)
+    p.addAnalyticsListener(analytics)
+    p.repeatMode = if (loop) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+    p.volume = if (muted) 0f else volume
+    p.playWhenReady = !paused
+    val uri = if (src.contains("://")) Uri.parse(src) else Uri.fromFile(java.io.File(src))
+    p.setMediaItem(MediaItem.fromUri(uri))
+    p.prepare()
+    player = p
+  }
+
+  private val listener = object : Player.Listener {
+    override fun onPlaybackStateChanged(state: Int) {
+      val p = player ?: return
+      when (state) {
+        Player.STATE_READY -> {
+          if (!loaded) emitLoad(p)
+          if (seekPending) {
+            seekPending = false
+            emit("topSeek", Arguments.createMap().apply { putDouble("currentTime", p.currentPosition / 1000.0) })
+          }
+          scheduleProgress()
+        }
+        Player.STATE_ENDED -> {
+          if (!ended) {
+            ended = true
+            emit("topEnd", Arguments.createMap())
+          }
+        }
+      }
+    }
+
+    override fun onIsPlayingChanged(isPlaying: Boolean) {
+      if (isPlaying) scheduleProgress()
+    }
+
+    override fun onRenderedFirstFrame() {
+      firstFrame = true
+      updateAlpha()
+    }
+
+    override fun onVideoSizeChanged(videoSize: VideoSize) {
+      if (videoSize.width > 0 && videoSize.height > 0) {
+        videoAspect = videoSize.width * videoSize.pixelWidthHeightRatio.toDouble() / videoSize.height
+        requestLayout()
+      }
+    }
+
+    override fun onPlayerError(error: PlaybackException) {
+      if (errored) return
+      errored = true
+      emit("topError", Arguments.createMap().apply {
+        putString("message", "Cannot play $source: ${error.errorCodeName}: ${error.message ?: ""}")
+      })
+    }
+  }
+
+  private val analytics = object : AnalyticsListener {
+    override fun onVideoDecoderInitialized(
+      eventTime: AnalyticsListener.EventTime, decoderName: String,
+      initializedTimestampMs: Long, initializationDurationMs: Long,
+    ) {
+      this@VlcVideoView.decoderName = decoderName
+    }
+
+    override fun onVideoInputFormatChanged(
+      eventTime: AnalyticsListener.EventTime, format: Format, decoderReuseEvaluation: DecoderReuseEvaluation?,
+    ) {}
+  }
+
+  private val progress = object : Runnable {
+    override fun run() {
+      val p = player ?: return
+      if (p.playbackState == Player.STATE_READY && !seekPending) {
+        val duration = p.duration
+        emit("topProgress", Arguments.createMap().apply {
+          putDouble("currentTime", p.currentPosition / 1000.0)
+          putDouble("duration", if (duration != C.TIME_UNSET && duration > 0) duration / 1000.0 else 0.0)
+        })
+      }
+      if (p.isPlaying) handler.postDelayed(this, PROGRESS_MS)
+    }
+  }
+
+  private fun scheduleProgress() {
+    handler.removeCallbacks(progress)
+    handler.post(progress)
+  }
+
+  /** The audio track groups, in the order onLoad reports them. */
+  private fun audioGroups(p: ExoPlayer): List<Tracks.Group> =
+    p.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+
+  /** audioTrack is a position in the audio track list (the indices onLoad reports); -1 keeps the default. */
+  private fun selectAudioTrack(p: ExoPlayer, index: Int) {
+    val group = audioGroups(p).getOrNull(index) ?: return
+    p.trackSelectionParameters = p.trackSelectionParameters.buildUpon()
+      .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, 0))
+      .build()
+  }
+
+  private fun emitLoad(p: ExoPlayer) {
+    loaded = true
+    val video = p.videoFormat
+    val audios = audioGroups(p)
+    val tracks = Arguments.createArray()
+    var selected = -1
+    audios.forEachIndexed { i, group ->
+      val format = group.getTrackFormat(0)
+      if (group.isSelected) selected = i
+      tracks.pushMap(Arguments.createMap().apply {
+        putInt("index", i)
+        putString("language", format.language ?: "")
+        putString("title", format.label ?: "")
+        putString("codec", codecName(format))
+        putInt("channels", format.channelCount.takeIf { it != Format.NO_VALUE } ?: 0)
+        putInt("sampleRate", format.sampleRate.takeIf { it != Format.NO_VALUE } ?: 0)
+      })
+    }
+    if (audioTrack >= 0 && audioTrack != selected) selectAudioTrack(p, audioTrack)
+    val duration = p.duration
+    emit("topLoad", Arguments.createMap().apply {
+      putDouble("duration", if (duration != C.TIME_UNSET && duration > 0) duration / 1000.0 else 0.0)
+      putInt("width", video?.width?.takeIf { it > 0 } ?: 0)
+      putInt("height", video?.height?.takeIf { it > 0 } ?: 0)
+      putBoolean("hasAudio", audios.isNotEmpty())
+      putBoolean("hwDecoding", video != null && decoderName.isNotEmpty() && !isSoftware(decoderName))
+      putString("codec", video?.let { codecName(it) } ?: "")
+      putArray("audioTracks", tracks)
+      putInt("audioTrack", selected)
+    })
+  }
+
+  private fun emit(name: String, payload: WritableMap) {
+    val dispatcher = UIManagerHelper.getEventDispatcherForReactTag(reactContext, id) ?: return
+    dispatcher.dispatchEvent(VlcEvent(UIManagerHelper.getSurfaceId(this), id, name, payload))
+  }
+
+  // Layout: React Native lays this view out, but not our TextureView child; the picture goes aspect fit.
+  private val measureAndLayout = Runnable {
+    measure(MeasureSpec.makeMeasureSpec(width, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(height, MeasureSpec.EXACTLY))
+    layout(left, top, right, bottom)
+  }
+
+  override fun requestLayout() {
+    super.requestLayout()
+    post(measureAndLayout)
+  }
+
+  override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
+    val w = r - l
+    val h = b - t
+    var vw = w
+    var vh = h
+    if (videoAspect > 0 && w > 0 && h > 0) {
+      if (w / videoAspect <= h) vh = (w / videoAspect).roundToInt() else vw = (h * videoAspect).roundToInt()
+    }
+    val x = (w - vw) / 2
+    val y = (h - vh) / 2
+    textureView.measure(MeasureSpec.makeMeasureSpec(vw, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(vh, MeasureSpec.EXACTLY))
+    textureView.layout(x, y, x + vw, y + vh)
+  }
+
+  private companion object {
+    fun isSoftware(name: String) =
+      name.startsWith("OMX.google.") || name.startsWith("c2.android.") || name.startsWith("c2.google.")
+
+    /** "video/hevc" -> "HEVC", "video/avc" -> "H264". */
+    fun codecName(format: Format): String = when (val mime = format.sampleMimeType ?: "") {
+      "video/avc" -> "H264"
+      "video/hevc" -> "HEVC"
+      "video/x-vnd.on2.vp9" -> "VP9"
+      "video/av01" -> "AV1"
+      "audio/mp4a-latm" -> "AAC"
+      else -> mime.substringAfter('/').uppercase()
+    }
+
+    /** hardwareDecoding=false: the platform's software decoders only. */
+    val softwareOnly = MediaCodecSelector { mimeType, requiresSecureDecoder, requiresTunnelingDecoder ->
+      MediaCodecUtil.getDecoderInfos(mimeType, requiresSecureDecoder, requiresTunnelingDecoder)
+        .filter { it.softwareOnly }
+    }
+  }
+}
+
+internal class VlcEvent(surfaceId: Int, viewTag: Int, private val name: String, private val payload: WritableMap) :
+  Event<VlcEvent>(surfaceId, viewTag) {
+  override fun getEventName() = name
+  override fun getEventData(): WritableMap = payload
+}

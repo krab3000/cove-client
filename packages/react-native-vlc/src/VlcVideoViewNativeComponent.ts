@@ -67,6 +67,12 @@ export interface NativeProps extends ViewProps {
   tlsVerify?: CodegenTypes.WithDefault<boolean, true>;
   /** Audio stream to play (an index from onLoad's audioTracks); -1 picks the default track. */
   audioTrack?: CodegenTypes.WithDefault<CodegenTypes.Int32, -1>;
+  /**
+   * Android: show the video through a hardware overlay (a SurfaceView), the cheapest way for a large or
+   * full-screen player (no GPU copy of every frame). The view is then opaque and ignores opacity; leave it false
+   * for small players that should stay transparent until their first frame (previews). Ignored on Windows.
+   */
+  overlay?: CodegenTypes.WithDefault<boolean, false>;
   onLoad?: CodegenTypes.DirectEventHandler<LoadEvent>;
   onProgress?: CodegenTypes.DirectEventHandler<ProgressEvent>;
   /** A seek finished: the frame at currentTime is on screen. */

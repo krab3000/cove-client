@@ -25,7 +25,13 @@ export default function App() {
           <LoginScreen onLogin={setClient} />
         ) : (
           // The grid stays mounted under the player, so going back keeps the scroll position.
-          <BrowseScreen client={client} onPlay={setPlaying} onLogout={logout} />
+          <BrowseScreen
+            client={client}
+            onPlay={setPlaying}
+            onLogout={logout}
+            // No previews under the player: the hardware decoder is shared, and a 4K stream needs all of it.
+            previews={!playing}
+          />
         )}
       </View>
       {/* Edge to edge, outside the content's system bar padding: the player keeps its own insets. */}

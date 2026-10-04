@@ -22,6 +22,7 @@ import {
 import type { CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
 import { Button, colors } from '../components/Controls';
+import { createSelection } from '../components/selection';
 import {
   CARD_TEXT_HEIGHT,
   PlaceholderCard,
@@ -41,6 +42,8 @@ const WHEEL_ROWS_PER_NOTCH = 0.75;
 const LOAD_DELAY_MS = 120;
 // Also load this many screens above and below the visible rows.
 const PREFETCH_SCREENS = 1;
+// Touch: the card in the middle of the screen plays its preview, switching as soon as another one gets there.
+const touch = Platform.OS === 'android';
 
 /**
  * The whole library as one grid, virtual in both senses: the list is as long as the library from the first page on
@@ -53,10 +56,13 @@ export function BrowseScreen({
   client,
   onPlay,
   onLogout,
+  previews,
 }: {
   client: CoveClient;
   onPlay: (video: Video) => void;
   onLogout: () => void;
+  // Off while the player is open over the grid.
+  previews: boolean;
 }) {
   // Measured, not useWindowDimensions: that one does not follow window resizes on Windows.
   const [width, setWidth] = useState(1000);
@@ -117,9 +123,23 @@ export function BrowseScreen({
 
   // --- Scrolling -----------------------------------------------------------------------------------------------
   const listRef = useRef<FlatList<number>>(null);
-  const [scroll, setScroll] = useState({ offset: 0, content: 0, viewport: 0 });
-  const scrollRef = useRef(scroll);
-  scrollRef.current = scroll;
+  // The scroll position lives in a ref: scroll events come at 60 Hz, and re-rendering the grid for each one kept
+  // the JS thread busy on slow devices. State changes only with the content height or the viewport (the scrollbar
+  // and the page loading need those).
+  const scrollRef = useRef({ offset: 0, content: 0, viewport: 0 });
+  const [scroll, setScrollState] = useState(scrollRef.current);
+  const setScroll = useCallback(
+    (next: Partial<typeof scrollRef.current>) => {
+      const prev = scrollRef.current;
+      scrollRef.current = { ...prev, ...next };
+      if (
+        scrollRef.current.content !== prev.content ||
+        scrollRef.current.viewport !== prev.viewport
+      )
+        setScrollState(scrollRef.current);
+    },
+    []
+  );
   // The first video in view, to keep it in view when the grid reflows (window resize, rotation).
   const anchor = useRef(0);
   const layout = useRef({ columns, rowHeight });
@@ -156,6 +176,34 @@ export function BrowseScreen({
     []
   );
 
+  // Touch: the card whose preview plays (the one in the middle of the screen), -1 for none. It stops as soon as it
+  // leaves the middle; the next one starts once scrolling rests.
+  // Kept in Selections, not state: when they change only the cards concerned re-render (see VideoCard).
+  const focus = useMemo(() => createSelection(-1), []);
+  const held = useMemo(() => createSelection<number | null>(null), []);
+  const previewsRef = useRef(previews);
+  previewsRef.current = previews;
+  const setFocused = useCallback(
+    (index: number) => focus.set(previewsRef.current ? index : -1),
+    [focus]
+  );
+  const centerCard = useCallback(() => {
+    if (total == null) return -1;
+    const { offset, viewport } = scrollRef.current;
+    const { columns: cols, rowHeight: rh } = layout.current;
+    const row = Math.max(0, Math.floor((offset + viewport / 2 - PADDING) / rh));
+    const index = row * cols + Math.floor((cols - 1) / 2);
+    return index < total ? index : -1;
+  }, [total]);
+  const updateFocus = useCallback(() => {
+    if (!touch) return;
+    setFocused(centerCard());
+  }, [centerCard, setFocused]);
+  // The first screen, once the list is there.
+  useEffect(() => {
+    updateFocus();
+  }, [updateFocus, scroll.viewport]);
+
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
       const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
@@ -169,8 +217,9 @@ export function BrowseScreen({
         Math.max(0, Math.floor((contentOffset.y - PADDING + rh / 2) / rh)) *
         cols;
       scheduleLoad();
+      updateFocus();
     },
-    [scheduleLoad]
+    [scheduleLoad, updateFocus]
   );
 
   // The first page tells the total; then the pages in view.
@@ -272,15 +321,26 @@ export function BrowseScreen({
   // Press and hold a card. It lasts while the finger is down, also when the finger goes on to scroll the list: the
   // content moves with the finger, so the card stays under it. The card's press ends when the list takes the
   // touch over, so then only the end of the drag (finger up) stops the preview.
-  const [heldId, setHeldId] = useState<number | null>(null);
+  // Previews off (the player is open over the grid): none playing; back on: the centred card again.
+  useEffect(() => {
+    if (!previews) {
+      focus.set(-1);
+      held.set(null);
+    } else {
+      updateFocus();
+    }
+  }, [previews, focus, held, updateFocus]);
   const dragging = useRef(false);
-  const onHold = useCallback((video: Video) => setHeldId(video.id), []);
+  const onHold = useCallback(
+    (video: Video) => held.set(previewsRef.current ? video.id : null),
+    [held]
+  );
   const onRelease = useCallback((video: Video) => {
     // The scroll drag, if this press turned into one, starts right after the press ends.
     setTimeout(() => {
-      if (!dragging.current) setHeldId((id) => (id === video.id ? null : id));
+      if (!dragging.current && held.get() === video.id) held.set(null);
     }, 80);
-  }, []);
+  }, [held]);
 
   const renderRow = useCallback(
     ({ item: row }: { item: number }) => {
@@ -301,7 +361,9 @@ export function BrowseScreen({
               width={cardWidth}
               height={cardHeight}
               onPress={onPlay}
-              held={video.id === heldId}
+              index={index}
+              focus={focus}
+              held={held}
               onHold={onHold}
               onRelease={onRelease}
             />
@@ -327,7 +389,8 @@ export function BrowseScreen({
       cardHeight,
       rowHeight,
       onPlay,
-      heldId,
+      focus,
+      held,
       onHold,
       onRelease,
     ]
@@ -386,19 +449,19 @@ export function BrowseScreen({
           }}
           onScrollEndDrag={() => {
             dragging.current = false;
-            setHeldId(null); // finger up
+            held.set(null); // finger up
           }}
           // RNW's native scrollbar hides itself for good once the content fits the viewport (as it does before
           // the first page arrives): only a change of this prop makes it check again. So it flips with the overflow.
           showsVerticalScrollIndicator={scroll.content > scroll.viewport}
           scrollEventThrottle={16}
           onContentSizeChange={(_, h) =>
-            setScroll((s) => ({ ...s, content: h }))
+            setScroll({ content: h })
           }
           onLayout={(e) => {
             // Read now: the event is released once the handler returns, before the updater runs.
             const viewport = e.nativeEvent.layout.height;
-            setScroll((s) => ({ ...s, viewport }));
+            setScroll({ viewport });
           }}
           CellRendererComponent={Platform.OS === 'windows' ? Cell : undefined}
           refreshing={refreshing}

@@ -1,5 +1,14 @@
-import { memo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { memo, useEffect, useRef, useState } from 'react';
+import {
+  Animated,
+  Easing,
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
 import {
@@ -10,6 +19,8 @@ import {
 } from '../format';
 import { colors } from './Controls';
 import { HoverPreview } from './HoverPreview';
+import { useIsSelected, type Selection } from './selection';
+
 
 /**
  * A grid card: the cover (or a placeholder until Cove's generate task has made one), duration and resolution
@@ -22,7 +33,9 @@ export const VideoCard = memo(function VideoCard({
   width,
   height,
   onPress,
-  held,
+  index,
+  focus,
+  held: heldSelection,
   onHold,
   onRelease,
 }: {
@@ -33,13 +46,25 @@ export const VideoCard = memo(function VideoCard({
   // Every card is this tall (the grid's rows have a fixed height, see BrowseScreen).
   height: number;
   onPress: (video: Video) => void;
-  // Touch: press and hold previews; the grid decides when it ends (the finger may go on to scroll the list).
-  held: boolean;
+  index: number; // in the grid
+  // Touch: the grid's previewing card (the one in the middle of the screen, by index) and the one pressed and
+  // held (by video id; the grid decides when that ends, as the finger may go on to scroll the list).
+  focus: Selection<number>;
+  held: Selection<number | null>;
   onHold: (video: Video) => void;
   onRelease: (video: Video) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const previewing = hovered;
+  const held = useIsSelected(heldSelection, video.id);
+  const autoplay = useIsSelected(focus, index);
+  const showPreview = previewing || held || autoplay;
+  // The loading bar runs from the preview being chosen until it plays (or turns out to have nothing to play).
+  const [previewState, setPreviewState] = useState<'loading' | 'playing' | 'none'>('loading');
+  useEffect(() => {
+    if (showPreview) setPreviewState('loading');
+  }, [showPreview]);
   const file = primaryFile(video);
   const duration = formatDuration(file?.duration);
   const resolution = resolutionLabel(video);
@@ -69,12 +94,23 @@ export const VideoCard = memo(function VideoCard({
             source={{ uri: imageUrl }}
             style={StyleSheet.absoluteFill}
             resizeMode="cover"
+            // Cove serves generated covers at the video's resolution (it ignores ?max= for them): a 4K cover is
+            // 33 MB decoded. Android decodes it downsampled to the card's size instead.
+            resizeMethod="resize"
             onError={() => setImageFailed(true)}
           />
         )}
-        {hovered || held ? (
-          <HoverPreview client={client} video={video} />
+        {showPreview ? (
+          <HoverPreview
+            client={client}
+            video={video}
+            onState={setPreviewState}
+            // The thumbnail, inside the card's 1 px border.
+            width={width - 2}
+            height={Math.round(((width - 2) * 9) / 16)}
+          />
         ) : null}
+        {showPreview && previewState === 'loading' ? <LoadingBar /> : null}
         {resolution ? (
           <Text style={[styles.badge, styles.badgeLeft]}>{resolution}</Text>
         ) : null}
@@ -154,6 +190,70 @@ const styles = StyleSheet.create({
     height: 16,
     marginTop: 3,
     marginHorizontal: 10,
+  },
+});
+
+/** A stripe sliding along the bottom of the thumbnail: this card's preview is starting. */
+function LoadingBar() {
+  const x = useRef(new Animated.Value(0)).current;
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.timing(x, {
+        toValue: 1,
+        duration: 900,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: Platform.OS !== 'windows',
+      })
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [x]);
+  const stripe = width * 0.35;
+  return (
+    <View
+      pointerEvents="none"
+      style={loadingStyles.track}
+      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+    >
+      {width > 0 ? (
+        <Animated.View
+          style={[
+            loadingStyles.stripe,
+            {
+              width: stripe,
+              transform: [
+                {
+                  translateX: x.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [-stripe, width],
+                  }),
+                },
+              ],
+            },
+          ]}
+        />
+      ) : null}
+    </View>
+  );
+}
+
+const loadingStyles = StyleSheet.create({
+  track: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 3,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  stripe: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: colors.accent,
   },
 });
 

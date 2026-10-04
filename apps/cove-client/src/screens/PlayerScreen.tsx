@@ -60,6 +60,9 @@ export function PlayerScreen({
   const [volume, setVolume] = useState(1);
   const [audioTrack, setAudioTrack] = useState(-1);
   const [time, setTime] = useState(0);
+  // The playing time, always current; `time` (what the controls show) follows it only while they are visible, so
+  // progress reports do not re-render the screen while the controls are hidden.
+  const timeRef = useRef(0);
   const [seeking, setSeeking] = useState(false);
   const [scrub, setScrub] = useState<number | null>(null);
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -120,6 +123,10 @@ export function PlayerScreen({
   // They stay up while nothing plays, or while the user scrubs.
   const pinned = !info || !!error || paused || ended || scrub !== null;
   const visible = controls || pinned;
+  // The controls come back showing the current time.
+  useEffect(() => {
+    if (visible) setTime(timeRef.current);
+  }, [visible]);
 
   const scheduleHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
@@ -155,6 +162,7 @@ export function PlayerScreen({
     (seconds: number) => {
       const t =
         clipStart + Math.min(Math.max(0, seconds), Math.max(0, duration));
+      timeRef.current = t;
       setTime(t);
       setSeeking(true);
       setEnded(false);
@@ -180,7 +188,7 @@ export function PlayerScreen({
   }, [ended, seekTo]);
 
   const skip = (seconds: number) => {
-    seekTo(position + seconds);
+    seekTo(Math.max(0, timeRef.current - clipStart) + seconds);
     showControls();
   };
 
@@ -207,7 +215,10 @@ export function PlayerScreen({
     const seconds =
       s && s.side === side && now < s.until ? s.seconds + SEEK_STEP : SEEK_STEP;
     streak.current = { until: now + SEEK_STREAK_MS, side, seconds };
-    seekTo(position + (side === 'left' ? -SEEK_STEP : SEEK_STEP));
+    seekTo(
+      Math.max(0, timeRef.current - clipStart) +
+        (side === 'left' ? -SEEK_STEP : SEEK_STEP)
+    );
     setFlash({ side, seconds });
     if (flashTimer.current) clearTimeout(flashTimer.current);
     flashTimer.current = setTimeout(() => setFlash(null), SEEK_STREAK_MS);
@@ -312,19 +323,23 @@ export function PlayerScreen({
         // Behind TLS-inspecting antivirus (Windows) or with a CA the user installed (Android), the player's own
         // TLS check fails; the app's fetch already checked this server at login.
         tlsVerify={false}
+        // Android: a hardware overlay, no GPU copy of every (4K) frame.
+        overlay
         onLoad={(e) => {
           setInfo(e.nativeEvent);
           if (clipStart > 0) player.current?.seek(clipStart);
         }}
         onProgress={(e) => {
           if (scrub !== null || seeking) return;
-          setTime(e.nativeEvent.currentTime);
+          timeRef.current = e.nativeEvent.currentTime;
+          if (visible) setTime(e.nativeEvent.currentTime);
           if (clipEnd != null && e.nativeEvent.currentTime >= clipEnd) {
             setPaused(true);
             setEnded(true);
           }
         }}
         onSeek={(e) => {
+          timeRef.current = e.nativeEvent.currentTime;
           setTime(e.nativeEvent.currentTime);
           setSeeking(false);
         }}
@@ -429,13 +444,10 @@ export function PlayerScreen({
             <Text style={styles.time}>{formatDuration(position)}</Text>
             {previewMounted && duration > 0 ? (
               <SeekPreview
-                client={client}
-                video={video}
                 sprite={sprite}
                 time={clipStart + (previewAt ?? 0) * duration}
                 label={(previewAt ?? 0) * duration}
                 left={TIME_WIDTH + ROW_GAP + (previewAt ?? 0) * barWidth}
-                aspect={info && info.height > 0 ? info.width / info.height : 0}
                 visible={previewAt !== null}
               />
             ) : null}

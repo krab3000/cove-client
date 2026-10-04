@@ -1,44 +1,32 @@
-import { useEffect, useRef, useState } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
-import { VideoView, type VideoViewHandle } from '../player';
-import type { CoveClient, SpriteSheet } from '../api/cove';
-import type { Video } from '../api/types';
+import { StyleSheet, Text, View } from 'react-native';
+import type { SpriteSheet } from '../api/cove';
 import { formatDuration } from '../format';
 import { colors } from './Controls';
+import { SpriteCell } from './SpriteCell';
 
 const WIDTH = 240;
-// The fallback player seeks at most this often while the pointer moves (plus once where it stops).
-const SEEK_INTERVAL_MS = 120;
 
 /**
- * The frame at a time on the seek bar: a cell of Cove's sprite sheet when the video has one, otherwise a paused
- * second player that seeks to the time (hardware decoding makes that quick enough to follow the pointer).
+ * The frame at a time on the seek bar: a cell of Cove's sprite sheet. A video without one gets the time only (a
+ * second player seeking along was too costly).
  */
 export function SeekPreview({
-  client,
-  video,
   sprite,
   time,
   label,
   left,
-  aspect,
   visible,
 }: {
-  client: CoveClient;
-  video: Video;
   sprite: SpriteSheet | null;
   time: number; // in the file
   label: number; // shown under the frame
   left: number; // centre of the popup, in the parent's coordinates
-  aspect: number; // width / height
-  // Kept mounted while hidden, so the fallback player stays open between hovers.
   visible: boolean;
 }) {
   const cue =
     sprite?.cues.find((c) => time >= c.start && time < c.end) ??
     sprite?.cues[sprite.cues.length - 1];
-  const frameAspect = cue ? cue.w / cue.h : aspect > 0 ? aspect : 16 / 9;
-  const height = Math.round(WIDTH / frameAspect);
+  const height = cue ? Math.round((WIDTH * cue.h) / cue.w) : 0;
 
   return (
     <View
@@ -49,81 +37,13 @@ export function SeekPreview({
         !visible && styles.hidden,
       ]}
     >
-      <View style={[styles.frame, { height }]}>
-        {sprite && cue ? (
-          <SpriteFrame sprite={sprite} cue={cue} width={WIDTH} />
-        ) : (
-          <PlayerFrame client={client} video={video} time={time} />
-        )}
-      </View>
+      {sprite && cue ? (
+        <View style={[styles.frame, { height }]}>
+          <SpriteCell sprite={sprite} cue={cue} width={WIDTH} height={height} />
+        </View>
+      ) : null}
       <Text style={styles.time}>{formatDuration(label)}</Text>
     </View>
-  );
-}
-
-function SpriteFrame({
-  sprite,
-  cue,
-  width,
-}: {
-  sprite: SpriteSheet;
-  cue: SpriteSheet['cues'][number];
-  width: number;
-}) {
-  const scale = width / cue.w;
-  return (
-    <Image
-      source={{ uri: sprite.url }}
-      style={{
-        position: 'absolute',
-        left: -cue.x * scale,
-        top: -cue.y * scale,
-        width: sprite.width * scale,
-        height: sprite.height * scale,
-      }}
-    />
-  );
-}
-
-function PlayerFrame({
-  client,
-  video,
-  time,
-}: {
-  client: CoveClient;
-  video: Video;
-  time: number;
-}) {
-  const player = useRef<VideoViewHandle>(null);
-  const [loaded, setLoaded] = useState(false);
-  const lastSeek = useRef(0);
-  const trailing = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    if (!loaded) return;
-    const seek = () => {
-      lastSeek.current = Date.now();
-      player.current?.seek(time);
-    };
-    if (trailing.current) clearTimeout(trailing.current);
-    const wait = SEEK_INTERVAL_MS - (Date.now() - lastSeek.current);
-    if (wait <= 0) seek();
-    else trailing.current = setTimeout(seek, wait);
-    return () => {
-      if (trailing.current) clearTimeout(trailing.current);
-    };
-  }, [time, loaded]);
-
-  return (
-    <VideoView
-      ref={player}
-      style={StyleSheet.absoluteFill}
-      source={client.streamUrl(video)}
-      paused
-      muted
-      tlsVerify={false}
-      onLoad={() => setLoaded(true)}
-    />
   );
 }
 

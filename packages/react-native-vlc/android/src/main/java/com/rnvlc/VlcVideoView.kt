@@ -1,12 +1,15 @@
 package com.rnvlc
 
 import android.content.Context
+import android.graphics.Matrix
 import android.graphics.SurfaceTexture
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.view.SurfaceView
 import android.view.TextureView
+import android.view.View
 import android.widget.FrameLayout
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableMap
@@ -19,6 +22,7 @@ import org.videolan.libvlc.Media
 import org.videolan.libvlc.MediaPlayer
 import org.videolan.libvlc.interfaces.IMedia
 import org.videolan.libvlc.interfaces.IVLCVout
+import java.util.Collections
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -31,15 +35,11 @@ import kotlin.math.roundToInt
  */
 private object Vlc {
   @Volatile private var instance: LibVLC? = null
-  private val insecureHosts: MutableSet<String> = java.util.Collections.synchronizedSet(mutableSetOf())
+  private val insecureHosts: MutableSet<String> = Collections.synchronizedSet(mutableSetOf())
 
   fun get(context: Context): LibVLC =
     instance ?: synchronized(this) {
-      instance ?: LibVLC(
-        context.applicationContext,
-        // VLC 4 remembers and restores where each media was left: playback here starts where the app says.
-        arrayListOf("--no-video-title-show", "--no-media-library", "--restore-playback-pos=0"),
-      ).also {
+      instance ?: LibVLC(context.applicationContext, arrayListOf("--no-video-title-show")).also {
         Dialog.setCallbacks(it, dialogs)
         instance = it
       }
@@ -70,8 +70,10 @@ private object Vlc {
 }
 
 /**
- * <VlcVideoView> on Android: libVLC (MediaCodec decoding) rendering into a TextureView, placed where VLC says
- * the picture goes inside this view (aspect fit). Props are applied after each Fabric update transaction.
+ * <VlcVideoView> on Android: libVLC 3 (MediaCodec decoding) rendering into a TextureView, placed aspect fit
+ * inside this view. Props are applied after each Fabric update transaction. (libVLC 4's early-access builds failed
+ * MediaCodec on older Exynos/OMX decoders and decoded in software; a Media3 ExoPlayer version of this view is kept
+ * in android/alternatives.)
  *
  * Each source gets its own player and TextureView. The TextureView stays transparent until VLC's first frame is
  * in it, so whatever is under this view (a cover image) shows until then, without a black frame. onSeek fires once
@@ -87,11 +89,13 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
   var hardwareDecoding = true
   var tlsVerify = true
   var audioTrack = -1
+  var overlay = false
 
   // What the session was opened with
   private var openedSource: String? = null
   private var openedHardwareDecoding = true
   private var openedLoop = false
+  private var openedOverlay = false
   private var openedAudioTrack = -1
   private var openedPaused = false
 
@@ -109,7 +113,8 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
 
   /** After a batch of prop changes. */
   fun applyProps() {
-    if (session == null || source != openedSource || hardwareDecoding != openedHardwareDecoding || loop != openedLoop) {
+    if (session == null || source != openedSource || hardwareDecoding != openedHardwareDecoding || loop != openedLoop ||
+      overlay != openedOverlay) {
       open()
       return
     }
@@ -140,12 +145,13 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     openedSource = source
     openedHardwareDecoding = hardwareDecoding
     openedLoop = loop
+    openedOverlay = overlay
     openedAudioTrack = audioTrack
     openedPaused = paused
     val src = source
     if (src.isNullOrEmpty())
       return
-    session = Session(src).also { it.start() }
+    session = Session(src, overlay).also { it.start() }
   }
 
   private fun emit(name: String, payload: WritableMap) {
@@ -153,16 +159,26 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     dispatcher.dispatchEvent(VlcEvent(UIManagerHelper.getSurfaceId(this), id, name, payload))
   }
 
-  /** One playback: a player and the TextureView it renders into. All on the main thread (libVLC posts events there). */
-  private inner class Session(private val src: String) :
+  /**
+   * One playback: a player and the view it renders into, all on the main thread (libVLC posts events there).
+   * Either a TextureView (transparent until the first frame, follows opacity) or, with overlay, a SurfaceView: a
+   * hardware overlay layer, no GPU copy of each frame (what browsers use for full-screen video), handed to libVLC
+   * as is (it creates and destroys the surface itself), inside a container that crops the decoder's padding.
+   */
+  private inner class Session(private val src: String, val overlay: Boolean) :
     TextureView.SurfaceTextureListener, IVLCVout.OnNewVideoLayoutListener, MediaPlayer.EventListener {
 
     val textureView = TextureView(reactContext)
+    val surfaceView: SurfaceView? = if (overlay) SurfaceView(reactContext) else null
+    val clip: FrameLayout? = if (overlay) FrameLayout(reactContext) else null
+    /** What this session adds to the view. */
+    private val content: View get() = clip ?: textureView
     private var player: MediaPlayer? = null
     private var disposed = false
-    // VLC renders with OpenGL into this; it must outlive the player (VLC asserts on GL errors when it deletes its
-    // output on a destroyed SurfaceTexture), so the TextureView does not release it (see onSurfaceTextureDestroyed).
+    // VLC renders into this; it must outlive the player, so the TextureView does not release it (see
+    // onSurfaceTextureDestroyed), and while no TextureView shows it its frames are drained (SurfaceDrain).
     private var surfaceTexture: SurfaceTexture? = null
+    private var drain: SurfaceDrain? = null
 
     private var started = false // reached Playing (or Paused)
     private var loaded = false // onLoad sent
@@ -176,41 +192,53 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     private val handler = Handler(Looper.getMainLooper())
     // Stepping to a frame while paused pauses on the frame reaching the TextureView, but a hidden view may never
     // get one: then it pauses once VLC reports the time moving, or after a while at the latest, so a paused player
-    // (the seek bar's preview) never keeps playing unseen.
+    // never keeps playing unseen.
     private val pauseNow = Runnable { stepDone() }
-    // Where VLC places the picture inside the window (this view), or 0 to fill it.
-    var placeWidth = 0
-    var placeHeight = 0
-    var placeX = 0
-    var placeY = 0
+
+    // The decoded frame (with the decoder's padding), its visible part and the pixel aspect ratio, from VLC
+    // (onNewVideoLayout); 0 until known.
+    var frameWidth = 0
+    var frameHeight = 0
+    var visibleWidth = 0
+    var visibleHeight = 0
+    var sar = 1.0
 
     fun updateAlpha() {
-      textureView.alpha = if (frameShown) opacity else 0f
+      if (!overlay) textureView.alpha = if (frameShown) opacity else 0f
     }
 
     fun start() {
+      if (overlay) {
+        clip!!.addView(surfaceView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        addView(clip, 0, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+        createPlayer(null) // libVLC waits for the SurfaceView's surface itself
+        return
+      }
       textureView.alpha = 0f
       textureView.surfaceTextureListener = this
       // Re-attached (back from the background): show the SurfaceTexture VLC still renders into.
       textureView.addOnAttachStateChangeListener(object : OnAttachStateChangeListener {
-        override fun onViewAttachedToWindow(v: android.view.View) {
+        override fun onViewAttachedToWindow(v: View) {
           val st = surfaceTexture ?: return
-          if (!disposed && textureView.surfaceTexture !== st)
+          if (!disposed && textureView.surfaceTexture !== st) {
+            drain?.finish() // the TextureView consumes it again
+            drain = null
             textureView.setSurfaceTexture(st)
+          }
         }
 
-        override fun onViewDetachedFromWindow(v: android.view.View) {}
+        override fun onViewDetachedFromWindow(v: View) {}
       })
       addView(textureView, 0, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
       // The player starts once the TextureView has its SurfaceTexture (onSurfaceTextureAvailable).
     }
 
-    private fun createPlayer(surface: SurfaceTexture) {
+    private fun createPlayer(surface: SurfaceTexture?) {
       val vlc = Vlc.get(reactContext)
       val p = MediaPlayer(vlc)
       p.setEventListener(this)
       val vout = p.vlcVout
-      vout.setVideoSurface(surface)
+      if (surfaceView != null) vout.setVideoView(surfaceView) else vout.setVideoSurface(surface)
       vout.attachViews(this)
       if (width > 0 && height > 0)
         vout.setWindowSize(width, height)
@@ -224,8 +252,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       media.addOption(":file-caching=300")
       if (loop)
         media.addOption(":input-repeat=65535")
-      if (!hardwareDecoding)
-        media.setHWDecoderEnabled(false, false)
+      media.setHWDecoderEnabled(hardwareDecoding, false)
       p.media = media
       media.release()
       player = p
@@ -306,33 +333,43 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       player?.vlcVout?.setWindowSize(w, h)
     }
 
+    /** The audio tracks (without libVLC's "Disable" entry), in the order onLoad reports them. */
+    private fun audioTracks(p: MediaPlayer): List<MediaPlayer.TrackDescription> =
+      p.audioTracks?.filter { it.id >= 0 } ?: emptyList()
+
     /** audioTrack is a position in the audio track list (the indices onLoad reports); -1 keeps VLC's choice. */
     fun selectAudioTrack(index: Int) {
       val p = player ?: return
       if (index < 0) return
-      val tracks = p.getTracks(IMedia.Track.Type.Audio) ?: return
-      tracks.getOrNull(index)?.takeIf { !it.selected }?.let { p.selectTrack(it.id) }
+      val track = audioTracks(p).getOrNull(index) ?: return
+      if (p.audioTrack != track.id) p.setAudioTrack(track.id)
     }
 
     fun dispose() {
       disposed = true
       handler.removeCallbacks(pauseNow)
-      removeView(textureView) // keeps the SurfaceTexture while the player has it (onSurfaceTextureDestroyed)
+      // TextureView: keeps the SurfaceTexture while the player has it (onSurfaceTextureDestroyed). SurfaceView:
+      // libVLC sees its surface go and lets go of it.
+      removeView(content)
       textureView.surfaceTextureListener = null
       val p = player
       val st = surfaceTexture
+      val d = drain
       player = null
       surfaceTexture = null
+      drain = null
       if (p == null) {
+        d?.finish()
         st?.release()
         return
       }
       p.setEventListener(null)
       // Stopping joins VLC's threads (demux, decoders, output), which can take a while on a network stream: off the
-      // main thread. VLC's output is gone after release(); only then the SurfaceTexture it rendered into.
+      // main thread. Only once the player is gone, the SurfaceTexture it rendered into.
       Thread {
         p.stop()
         p.release()
+        d?.finish()
         st?.release()
       }.start()
     }
@@ -340,23 +377,28 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     private fun tryLoad() {
       val p = player ?: return
       if (loaded || !started) return
-      val videos = p.getTracks(IMedia.Track.Type.Video) ?: emptyArray()
-      val video = videos.firstOrNull { it.selected } as? IMedia.VideoTrack
-      if (videos.isNotEmpty() && (video == null || video.width == 0))
+      val hasVideo = p.videoTracksCount > 0
+      val video = p.currentVideoTrack
+      if (hasVideo && (video == null || video.width == 0))
         return // the next track event tells
-      val audios = p.getTracks(IMedia.Track.Type.Audio) ?: emptyArray()
-      if (videos.isEmpty() && audios.isEmpty()) return
+      val audios = audioTracks(p)
+      if (!hasVideo && audios.isEmpty()) return
       loaded = true
+      // Codec, channels and rate are on the media's tracks (known once playing), matched by id.
+      val media = p.media
+      val mediaTracks = media?.let { m -> (0 until m.trackCount).mapNotNull { m.getTrack(it) } } ?: emptyList()
+      media?.release()
       val tracks = Arguments.createArray()
       var selectedAudio = -1
+      val current = p.audioTrack
       audios.forEachIndexed { i, t ->
-        val audio = t as? IMedia.AudioTrack
-        if (t.selected) selectedAudio = i
+        val audio = mediaTracks.firstOrNull { it.id == t.id } as? IMedia.AudioTrack
+        if (t.id == current) selectedAudio = i
         tracks.pushMap(Arguments.createMap().apply {
           putInt("index", i)
-          putString("language", t.language ?: "")
-          putString("title", t.description ?: t.name ?: "")
-          putString("codec", t.codec ?: "")
+          putString("language", audio?.language ?: "")
+          putString("title", t.name ?: audio?.description ?: "")
+          putString("codec", audio?.codec ?: "")
           putInt("channels", audio?.channels ?: 0)
           putInt("sampleRate", audio?.rate ?: 0)
         })
@@ -396,6 +438,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
           if (seekTargetMs >= 0 && abs(time - seekTargetMs) < 1500) {
             seekTargetMs = -1
             seekReached = true
+            if (overlay) emitSeekIfReached() // no frame callback from a SurfaceView
           }
           // Stepping to a frame: frames from here are being decoded; pause right after (see pauseNow).
           if (pauseOnFrame) {
@@ -425,15 +468,16 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       }
     }
 
-    // IVLCVout.OnNewVideoLayoutListener: where the picture goes in the window (aspect fit).
+    // IVLCVout.OnNewVideoLayoutListener: the frame VLC renders into the surface; this view places it (aspect fit).
     override fun onNewVideoLayout(
-      vlcVout: IVLCVout, displayWidth: Int, displayHeight: Int,
-      placeWidth: Int, placeHeight: Int, placeX: Int, placeY: Int,
+      vlcVout: IVLCVout, width: Int, height: Int,
+      visibleWidth: Int, visibleHeight: Int, sarNum: Int, sarDen: Int,
     ) {
-      this.placeWidth = placeWidth
-      this.placeHeight = placeHeight
-      this.placeX = placeX
-      this.placeY = placeY
+      frameWidth = width
+      frameHeight = height
+      this.visibleWidth = visibleWidth
+      this.visibleHeight = visibleHeight
+      sar = if (sarNum > 0 && sarDen > 0) sarNum.toDouble() / sarDen else 1.0
       requestLayout()
     }
 
@@ -447,8 +491,13 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
 
     override fun onSurfaceTextureSizeChanged(surface: SurfaceTexture, width: Int, height: Int) {}
 
-    // false: we release it, after the player (dispose).
-    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean = surface !== surfaceTexture && player == null
+    // Our SurfaceTexture outlives the TextureView while the player renders into it: false (we release it, after the
+    // player, see dispose), and its frames are drained meanwhile so VLC's output never blocks on a full queue.
+    override fun onSurfaceTextureDestroyed(surface: SurfaceTexture): Boolean {
+      if (surface !== surfaceTexture) return true
+      if (drain == null) drain = SurfaceDrain(surface).also { it.start() }
+      return false
+    }
 
     // A frame is in the TextureView.
     override fun onSurfaceTextureUpdated(surface: SurfaceTexture) {
@@ -483,11 +532,33 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     val s = session ?: return
     val w = r - l
     val h = b - t
-    val (x, y, vw, vh) =
-      if (s.placeWidth > 0 && s.placeHeight > 0) listOf(s.placeX, s.placeY, s.placeWidth, s.placeHeight)
-      else listOf(0, 0, w, h)
+    var vw = w
+    var vh = h
+    if (s.visibleWidth > 0 && s.visibleHeight > 0 && w > 0 && h > 0) {
+      val aspect = s.visibleWidth * s.sar / s.visibleHeight
+      if (w / aspect <= h) vh = (w / aspect).roundToInt() else vw = (h * aspect).roundToInt()
+    }
+    val x = (w - vw) / 2
+    val y = (h - vh) / 2
+    val clip = s.clip
+    if (clip != null) {
+      // The SurfaceView holds the whole decoded frame: sized so its visible part fills the clip, the padding beyond.
+      val sw = if (s.visibleWidth > 0) (vw.toLong() * s.frameWidth / s.visibleWidth).toInt() else vw
+      val sh = if (s.visibleHeight > 0) (vh.toLong() * s.frameHeight / s.visibleHeight).toInt() else vh
+      clip.measure(MeasureSpec.makeMeasureSpec(vw, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(vh, MeasureSpec.EXACTLY))
+      clip.layout(x, y, x + vw, y + vh)
+      s.surfaceView!!.measure(MeasureSpec.makeMeasureSpec(sw, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(sh, MeasureSpec.EXACTLY))
+      s.surfaceView.layout(0, 0, sw, sh)
+      return
+    }
     s.textureView.measure(MeasureSpec.makeMeasureSpec(vw, MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(vh, MeasureSpec.EXACTLY))
     s.textureView.layout(x, y, x + vw, y + vh)
+    // The surface holds the whole decoded frame; show its visible part only (the rest is the decoder's padding).
+    if (s.frameWidth > 0 && s.visibleWidth > 0) {
+      s.textureView.setTransform(Matrix().apply {
+        setScale(s.frameWidth.toFloat() / s.visibleWidth, s.frameHeight.toFloat() / s.visibleHeight)
+      })
+    }
   }
 }
 

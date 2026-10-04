@@ -17,6 +17,10 @@ export class CoveError extends Error {
   }
 }
 
+// Sprite sheets (seek-bar and card frames) are off for now: one is a 2880×1620 JPEG, 19 MB decoded, to show a
+// 300 px frame, which starves weak devices' memory and GPU. Turn back on once frames come cropped.
+const SPRITE_SHEETS = false;
+
 // How long the media token (thumbnail and stream URLs) lives.
 const MEDIA_TOKEN_HOURS = 24;
 
@@ -31,6 +35,10 @@ const MEDIA_TOKEN_HOURS = 24;
  */
 export class CoveClient {
   private refreshing: Promise<void> | null = null;
+  // Sprite sheets by video id: hovering a card again does not fetch its index again.
+  private sprites = new Map<number, Promise<SpriteSheet | null>>();
+  // Whether a video has a preview clip, by video id.
+  private previews = new Map<number, Promise<boolean>>();
   private mediaToken: string | null = null;
   private mediaTokenId: string | null = null;
 
@@ -106,28 +114,41 @@ export class CoveClient {
     );
   }
 
-  /** The short preview clip Cove's generate task makes; see previewAvailable. */
+  /** The short preview clip Cove's generate task makes (low resolution, a few seconds); see previewAvailable. */
   previewUrl(video: Video): string {
     return `${this.server}/api/stream/video/${video.id}/preview?access_token=${encodeURIComponent(this.mediaAccessToken)}`;
   }
 
-  async previewAvailable(video: Video): Promise<boolean> {
-    try {
-      const status = await this.request<{ available: boolean }>(
+  previewAvailable(video: Video): Promise<boolean> {
+    let available = this.previews.get(video.id);
+    if (!available) {
+      available = this.request<{ available: boolean }>(
         'GET',
         `stream/video/${video.id}/preview/status`
+      ).then(
+        (status) => status.available,
+        () => false
       );
-      return status.available;
-    } catch {
-      return false;
+      this.previews.set(video.id, available);
     }
+    return available;
   }
 
   /**
    * The seek-bar thumbnails Cove's generate task makes (a sprite sheet and a WebVTT index of its cells), or null
    * when the video has none yet.
    */
-  async spriteSheet(video: Video): Promise<SpriteSheet | null> {
+  spriteSheet(video: Video): Promise<SpriteSheet | null> {
+    if (!SPRITE_SHEETS) return Promise.resolve(null);
+    let sheet = this.sprites.get(video.id);
+    if (!sheet) {
+      sheet = this.fetchSpriteSheet(video);
+      this.sprites.set(video.id, sheet);
+    }
+    return sheet;
+  }
+
+  private async fetchSpriteSheet(video: Video): Promise<SpriteSheet | null> {
     let vtt: string;
     try {
       vtt = await this.request<string>(

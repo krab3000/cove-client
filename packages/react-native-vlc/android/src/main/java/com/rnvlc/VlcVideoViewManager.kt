@@ -50,6 +50,10 @@ class VlcVideoViewManager : SimpleViewManager<VlcVideoView>(), VlcVideoViewManag
     view.audioTrack = value
   }
 
+  override fun setOverlay(view: VlcVideoView, value: Boolean) {
+    view.overlay = value
+  }
+
   override fun seek(view: VlcVideoView, time: Double) {
     view.seek(time)
   }

@@ -56,6 +56,7 @@ repositories {
 
 dependencies {
   implementation "com.facebook.react:react-android"
-  // libVLC 4 (early access builds; 3.x lacks the libVLC 4 player the Windows side uses).
-  implementation "org.videolan.android:libvlc-all:4.0.0-eap29"
+  // libVLC 3: libVLC 4 (4.0.0-eap) failed MediaCodec on older OMX decoders (InsufficientResources, software fallback).
+  // (alternatives/VlcVideoView.exoplayer.kt.txt is a Media3 ExoPlayer version: androidx.media3:media3-exoplayer.)
+  implementation "org.videolan.android:libvlc-all:3.7.7"
 }
