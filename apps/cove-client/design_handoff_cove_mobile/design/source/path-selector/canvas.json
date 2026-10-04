@@ -1,0 +1,18 @@
+{
+  "v": 3,
+  "createdOnFiles": { "v": 1, "at": "2026-10-04T19:40:00Z" },
+  "title": "Cove Mobile — Path selector",
+  "launch": { "view": "canvas" },
+  "pages": [],
+  "boards": {
+    "Main.dc.html": { "x": 0, "y": 0, "w": 390, "h": 844, "title": "3a · Path condition", "radius": 42 },
+    "Browse.dc.html": { "x": 470, "y": 0, "w": 390, "h": 844, "title": "3b · Folder browser", "radius": 42, "is_interactive": true },
+    "Tree.dc.html": { "x": 940, "y": 0, "w": 390, "h": 844, "title": "3c · In the rule tree", "radius": 42 },
+    "Typed.dc.html": { "x": 1410, "y": 0, "w": 390, "h": 844, "title": "3d · Typing a path", "radius": 42, "is_interactive": true }
+  },
+  "order": ["Main.dc.html", "Browse.dc.html", "Tree.dc.html", "Typed.dc.html"],
+  "notes": {
+    "title": { "x": 0, "y": -260, "text": "3 · Path selector (Nocturne)", "kind": "title1", "maxW": 1800 }
+  },
+  "designSystems": []
+}

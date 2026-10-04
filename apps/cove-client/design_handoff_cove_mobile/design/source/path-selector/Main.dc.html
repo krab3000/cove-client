@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Path condition</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+@font-face{font-family:"Phosphor";src:url("/_blob/c1e911a4fba32fa878e58d81ba387962") format("truetype");font-display:block}
+@font-face{font-family:"Phosphor-Fill";src:url("/_blob/0767920c036d5365613a18ca28f65a30") format("truetype");font-display:block}
+.ph{font-family:"Phosphor";font-style:normal;font-weight:normal;line-height:1;display:inline-block}
+.phf{font-family:"Phosphor-Fill";font-style:normal;font-weight:normal;line-height:1;display:inline-block}
+button{font:inherit;color:inherit;cursor:pointer}
+a{color:#d2cefd}a:hover{color:#e7e5fe}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #161826; color: #e9e9ed; font-family: Inter, system-ui, sans-serif; display: flex; flex-direction: column">
+  <div style="height: 44px; flex: none"></div>
+  <div style="opacity: 0.3; display: flex; flex-direction: column">
+    <div style="padding: 4px 12px 0; display: flex; align-items: center; gap: 6px">
+      <span style="width: 44px; height: 44px; display: grid; place-items: center; font-size: 20px" class="ph">&#xe138;</span>
+      <span style="font-size: 17px; font-weight: 500">New filter</span>
+    </div>
+    <div style="padding: 8px 20px; font-size: 13.5px; line-height: 1.55; color: rgba(233,233,237,0.72)">Videos matching all of: tagged Drone · added in the last year.</div>
+    <div style="padding: 8px 16px; display: flex; flex-direction: column; gap: 6px">
+      <div style="height: 34px; width: 92px; border-radius: 8px; box-shadow: inset 0 0 0 1px #9184d9"></div>
+      <div style="margin-left: 16px; height: 52px; border-radius: 8px; background: #232532"></div>
+      <div style="margin-left: 16px; height: 68px; border-radius: 8px; background: #232532"></div>
+    </div>
+  </div>
+  <div style="position: absolute; inset: 0; background: rgba(41,43,49,0.6)"></div>
+  <div style="position: absolute; left: 0; right: 0; bottom: 0; background: #232532; border-radius: 22px 22px 0 0; display: flex; flex-direction: column">
+    <div style="width: 40px; height: 4px; border-radius: 2px; background: #595d6c; margin: 10px auto 6px"></div>
+    <div style="display: flex; align-items: center; padding: 0 8px">
+      <button aria-label="Back to fields" style="width: 44px; height: 44px; border: 0; background: transparent; display: grid; place-items: center; font-size: 18px"><span class="ph">&#xe138;</span></button>
+      <span style="font-size: 17px; font-weight: 500">Path</span>
+    </div>
+    <div style="padding: 0 16px 16px; display: flex; flex-direction: column">
+      <div style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(233,233,237,0.5); margin: 10px 0 8px">Match</div>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px">
+        <button style="height: 34px; padding: 0 12px; border-radius: 999px; border: 0; background: #423a6a; color: #f5f4ff; font-size: 13px; display: flex; align-items: center; gap: 6px"><span class="ph" style="font-size: 14px">&#xe24a;</span>In folder</button>
+        <button style="height: 34px; padding: 0 12px; border-radius: 999px; border: 0; background: transparent; box-shadow: inset 0 0 0 1px rgba(233,233,237,0.16); font-size: 13px">Not in folder</button>
+        <button style="height: 34px; padding: 0 12px; border-radius: 999px; border: 0; background: transparent; box-shadow: inset 0 0 0 1px rgba(233,233,237,0.16); font-size: 13px">Contains text</button>
+        <button style="height: 34px; padding: 0 12px; border-radius: 999px; border: 0; background: transparent; box-shadow: inset 0 0 0 1px rgba(233,233,237,0.16); font-size: 13px">Regex</button>
+      </div>
+      <div style="font-size: 11px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(233,233,237,0.5); margin: 18px 0 8px">Folder</div>
+      <a href="Browse.dc.html" style="text-decoration: none; color: inherit; display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 8px; background: color-mix(in srgb, #9184d9 9%, #232532); box-shadow: inset 0 0 0 1px #9184d9, 0 0 24px rgba(145,132,217,0.22)">
+        <span style="width: 40px; height: 40px; border-radius: 8px; background: rgba(145,132,217,0.14); display: grid; place-items: center; color: #9184d9; font-size: 20px; flex: none"><span class="phf">&#xe24a;</span></span>
+        <span style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px">
+          <span style="font-size: 15px; font-weight: 500; display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden">Videos <span class="ph" style="font-size: 11px; color: rgba(233,233,237,0.45)">&#xe13a;</span> Drone <span class="ph" style="font-size: 11px; color: rgba(233,233,237,0.45)">&#xe13a;</span> 2024</span>
+          <span style="font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: #d2cefd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">/mnt/nas/Videos/Drone/2024</span>
+        </span>
+        <span style="font-size: 13px; color: #d2cefd; flex: none">Change</span>
+      </a>
+      <div style="margin-top: 10px; display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; line-height: 1.5; color: rgba(233,233,237,0.55)">
+        <span class="ph" style="font-size: 15px; margin-top: 1px; color: rgba(233,233,237,0.45)">&#xe67c;</span>
+        <span>Includes everything inside it: 2024 and its 3 subfolders.</span>
+      </div>
+      <div style="margin-top: 14px; height: 1px; background: linear-gradient(to right, transparent, rgba(233,233,237,0.16) 48px, rgba(233,233,237,0.16) calc(100% - 48px), transparent)"></div>
+      <div style="margin-top: 12px; display: flex; align-items: baseline; justify-content: space-between">
+        <span style="font-size: 13px; color: rgba(233,233,237,0.55)">With this condition</span>
+        <span style="font-size: 15px; font-weight: 500; font-variant-numeric: tabular-nums">277 videos</span>
+      </div>
+    </div>
+    <div style="padding: 12px 16px 30px; box-shadow: 0 -1px 0 rgba(233,233,237,0.16)">
+      <button style="width: 100%; height: 50px; border-radius: 8px; border: 1px solid #9184d9; background: transparent; color: #e7e5fe; font-size: 15px; font-weight: 500">Add condition</button>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>
