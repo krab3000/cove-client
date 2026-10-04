@@ -195,6 +195,19 @@ export function BrowseScreen({
     loadMore();
   }, [loadMore]);
 
+  // Touch preview (press and hold a card). It lasts while the finger is down, also when the finger goes on to
+  // scroll the list: the content moves with the finger, so the card stays under it. The card's press ends when
+  // the list takes the touch over, so then only the end of the drag (finger up) stops the preview.
+  const [heldId, setHeldId] = useState<number | null>(null);
+  const dragging = useRef(false);
+  const onHold = useCallback((video: Video) => setHeldId(video.id), []);
+  const onRelease = useCallback((video: Video) => {
+    // The scroll drag, if this press turned into one, starts right after the press ends.
+    setTimeout(() => {
+      if (!dragging.current) setHeldId((id) => (id === video.id ? null : id));
+    }, 80);
+  }, []);
+
   const renderItem = useCallback(
     ({ item }: { item: Video }) => (
       <VideoCard
@@ -203,9 +216,12 @@ export function BrowseScreen({
         imageUrl={client.imageUrl(item)}
         width={cardWidth}
         onPress={onPlay}
+        held={item.id === heldId}
+        onHold={onHold}
+        onRelease={onRelease}
       />
     ),
-    [client, cardWidth, onPlay]
+    [client, cardWidth, onPlay, heldId, onHold, onRelease]
   );
 
   return (
@@ -236,6 +252,14 @@ export function BrowseScreen({
           columnWrapperStyle={columns > 1 ? styles.row : undefined}
           onEndReached={() => loadMore()}
           onScroll={onScroll}
+          onScrollBeginDrag={() => {
+            dragging.current = true;
+          }}
+          onScrollEndDrag={() => {
+            dragging.current = false;
+            setHeldId(null); // finger up
+          }}
+          extraData={heldId}
           scrollEventThrottle={16}
           onContentSizeChange={(_, h) =>
             setScroll((s) => ({ ...s, content: h }))

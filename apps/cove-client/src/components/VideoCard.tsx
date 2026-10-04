@@ -24,18 +24,23 @@ export const VideoCard = memo(function VideoCard({
   imageUrl,
   width,
   onPress,
+  held,
+  onHold,
+  onRelease,
 }: {
   client: CoveClient;
   video: Video;
   imageUrl: string;
   width: number;
   onPress: (video: Video) => void;
+  // Touch: press and hold previews; the grid decides when it ends (the finger may go on to scroll the list).
+  held: boolean;
+  onHold: (video: Video) => void;
+  onRelease: (video: Video) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const [previewing, setPreviewing] = useState(false);
-  // Touch: press and hold previews for as long as the finger stays down (a tap still opens the player).
-  const [held, setHeld] = useState(false);
   useEffect(() => {
     if (!hovered) {
       setPreviewing(false);
@@ -54,8 +59,8 @@ export const VideoCard = memo(function VideoCard({
       onHoverIn={() => setHovered(true)}
       onHoverOut={() => setHovered(false)}
       delayLongPress={300}
-      onLongPress={() => setHeld(true)}
-      onPressOut={() => setHeld(false)}
+      onLongPress={() => onHold(video)}
+      onPressOut={() => onRelease(video)}
       style={[styles.card, { width }, hovered && styles.cardHover]}
     >
       <View style={styles.thumb}>
