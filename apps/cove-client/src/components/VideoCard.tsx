@@ -47,6 +47,7 @@ export const VideoCard = memo(function VideoCard({
   showStudio,
   favorite,
   progress,
+  selected,
 }: {
   client: CoveClient;
   video: Video;
@@ -66,6 +67,8 @@ export const VideoCard = memo(function VideoCard({
   // The user's own: a favorite, and how far they got (0–1; 0 = not started)
   favorite: boolean;
   progress: number;
+  // Large screen: the video in the detail pane (accent ring, title in accent)
+  selected?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
@@ -100,7 +103,8 @@ export const VideoCard = memo(function VideoCard({
         style={[
           styles.thumb,
           { height: thumbHeight },
-          hovered && styles.thumbHover,
+          (hovered || selected) && styles.thumbHover,
+          selected && styles.thumbSelected,
         ]}
       >
         {imageFailed ? (
@@ -142,7 +146,10 @@ export const VideoCard = memo(function VideoCard({
         ) : null}
         {progress > 0 ? <ResumeBar progress={progress} height={2} /> : null}
       </View>
-      <Text style={styles.title} numberOfLines={1}>
+      <Text
+        style={[styles.title, selected && styles.titleSelected]}
+        numberOfLines={1}
+      >
         {videoTitle(video)}
       </Text>
       {showStudio ? (
@@ -191,6 +198,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   thumbHover: { borderColor: n.accent },
+  thumbSelected: { borderWidth: 2 },
+  titleSelected: { color: n.accent300 },
   placeholder: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',

@@ -14,7 +14,7 @@ import {
   type GestureResponderEvent,
 } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
-import type { Segment, Video } from '../api/types';
+import type { Engagement, Segment, Video } from '../api/types';
 import { Bar } from '../components/Controls';
 import { Icon, type IconName } from '../components/Icon';
 import { SeekTrack } from '../components/SeekTrack';
@@ -33,6 +33,7 @@ import {
   type LoadEvent,
   type VideoViewHandle,
 } from '../player';
+import { useSystemInsets } from '../systemInsets';
 
 const touch = Platform.OS === 'android';
 // Controls hide after this long without input while playing.
@@ -51,6 +52,12 @@ const RESUME_END_MARGIN_SEC = 15;
 const FRAME_REST_MS = 150;
 // Playback reports to Cove while playing (resume position, views).
 const REPORT_EVERY_MS = 10000;
+// A large screen (shorter side at least this) held sideways gets the tablet player (1m).
+const LARGE = 600;
+// 1m: the side panel's width, the space around the video, and the back row above it.
+const PANEL = 360;
+const TABLET_PAD = 24;
+const TABLET_BAR = 60;
 // Over the video: dark in both themes.
 const INK = '#e9e9ed';
 const INK_DIM = '#cfd3e5';
@@ -85,6 +92,7 @@ export function PlayerScreen({
   autoplay,
   onAutoplay,
   onClose,
+  startAt,
 }: {
   client: CoveClient;
   video: Video;
@@ -94,6 +102,8 @@ export function PlayerScreen({
   autoplay: boolean;
   onAutoplay: (on: boolean) => void;
   onClose: () => void;
+  // Start here (seconds in the file: a moment picked in the Library) instead of where the user left off
+  startAt?: number;
 }) {
   const player = useRef<VideoViewHandle>(null);
   const [info, setInfo] = useState<LoadEvent | null>(null);
@@ -124,7 +134,11 @@ export function PlayerScreen({
   const [savedForLater, setSavedForLater] = useState(false);
 
   const landscape = size.width > size.height;
-  const immersive = landscape || fullscreen || !touch;
+  const large = Math.min(size.width, size.height) >= LARGE;
+  // 1l: full screen (asked for, or a phone held sideways, or a small desktop window). 1m: a large screen held
+  // sideways (tablet, desktop window). 1k: upright (phone or tablet).
+  const immersive = fullscreen || (landscape && !large) || (!touch && !large);
+  const tablet = !immersive && large && landscape;
   const clipStart = video.parentVideoId ? (video.clipStartSec ?? 0) : 0;
   const clipEnd = video.parentVideoId ? video.clipEndSec : null;
   const fileDuration = info?.duration ?? primaryFile(video)?.duration ?? 0;
@@ -137,7 +151,15 @@ export function PlayerScreen({
   const scrubSeconds = scrub !== null ? scrub * duration : null;
 
   // --- Cove data: moments, Save for later, where the user left off -------------------------------------------------
-  const resumeAt = useRef<number | null>(null);
+  const resumeAt = useRef<number | null>(
+    startAt != null
+      ? startAt - (video.parentVideoId ? (video.clipStartSec ?? 0) : 0)
+      : null
+  );
+  const [engagement, setEngagement] = useState<Engagement | null>(null);
+  const [panelTab, setPanelTab] = useState<'moments' | 'next' | 'details'>(
+    'moments'
+  );
   const resumed = useRef(false);
   useEffect(() => {
     let alive = true;
@@ -149,7 +171,8 @@ export function PlayerScreen({
     client.engagement([video.id]).then(
       (list) => {
         if (!alive) return;
-        resumeAt.current = list[0]?.resumeTime ?? 0;
+        setEngagement(list[0] ?? null);
+        if (startAt == null) resumeAt.current = list[0]?.resumeTime ?? 0;
         tryResume();
       },
       () => {}
@@ -306,7 +329,8 @@ export function PlayerScreen({
     if (resumed.current || !info || resumeAt.current == null) return;
     resumed.current = true;
     const at = resumeAt.current;
-    if (at > RESUME_MIN_SEC && at < duration - RESUME_END_MARGIN_SEC)
+    if (startAt != null) seekTo(at);
+    else if (at > RESUME_MIN_SEC && at < duration - RESUME_END_MARGIN_SEC)
       seekTo(at);
   };
   useEffect(tryResume);
@@ -338,6 +362,13 @@ export function PlayerScreen({
   const cycleRate = () => {
     setRate((r) => RATES[(RATES.indexOf(r) + 1) % RATES.length] ?? 1);
     showControls();
+  };
+  const toggleFavorite = () => {
+    const on = !engagement?.isFavorite;
+    setEngagement((e) => (e ? { ...e, isFavorite: on } : e));
+    client
+      .setFavorite(video.id, on)
+      .catch(() => setEngagement((e) => (e ? { ...e, isFavorite: !on } : e)));
   };
   const toggleLater = () => {
     const on = !savedForLater;
@@ -422,12 +453,28 @@ export function PlayerScreen({
 
   // --- Layout --------------------------------------------------------------------------------------------------
   // Room for the system bars and the camera cutout on Android (drawn edge to edge, status bar hidden).
+  // 1m keeps its details and side panel above the navigation bar (a tablet's taskbar)
+  const barBottom = useSystemInsets()?.bottom ?? 0;
   const insets = touch
     ? landscape
       ? { top: 12, bottom: 18, side: 48 }
       : { top: 36, bottom: 40, side: 16 }
     : { top: 12, bottom: 14, side: 20 };
   const videoHeight = Math.round((size.width * 9) / 16);
+  // 1m: the video left of the side panel, under the back row
+  const tabletWidth = Math.max(1, size.width - PANEL - 2 * TABLET_PAD);
+  const tabletHeight = Math.round((tabletWidth * 9) / 16);
+  const tabletTop = insets.top + TABLET_BAR;
+  const box = immersive
+    ? { top: 0, left: 0, width: size.width, height: size.height }
+    : tablet
+      ? {
+          top: tabletTop,
+          left: TABLET_PAD,
+          width: tabletWidth,
+          height: tabletHeight,
+        }
+      : { top: insets.top, left: 0, width: size.width, height: videoHeight };
   const tracks = info?.audioTracks ?? [];
   const currentTrack =
     audioTrack === -1 ? (info?.audioTrack ?? -1) : audioTrack;
@@ -507,6 +554,88 @@ export function PlayerScreen({
       if (!pinned) scheduleHide();
     },
   };
+  const tabletChrome = (
+    <>
+      <Shade edge="bottom" />
+      {info && !error && !seeking ? (
+        <View style={styles.center} pointerEvents="box-none">
+          <View style={[styles.transport, styles.transportWide]}>
+            <IconButton
+              icon="clock-counter-clockwise"
+              size={32}
+              label="Back 10 seconds"
+              onPress={() => skip(-SEEK_STEP)}
+            />
+            <PlayButton
+              size={76}
+              icon={
+                ended ? 'arrow-counter-clockwise' : paused ? 'play' : 'pause'
+              }
+              onPress={() => {
+                togglePause();
+                showControls();
+              }}
+            />
+            <IconButton
+              icon="clock-clockwise"
+              size={32}
+              label="Forward 10 seconds"
+              onPress={() => skip(SEEK_STEP)}
+            />
+          </View>
+        </View>
+      ) : null}
+      <View style={styles.mBottom} {...hoverHandlers}>
+        {track(true)}
+        <View style={styles.lFooter}>
+          <Text style={styles.lTime}>
+            {formatDuration(shownPosition)}
+            <Text style={styles.lTimeDim}>
+              {'  / '}
+              {formatDuration(duration)}
+            </Text>
+            {current ? (
+              <Text style={styles.lTimeDim}>
+                {'  · ' + segmentLabel(current)}
+              </Text>
+            ) : null}
+          </Text>
+          <View style={styles.spacer} />
+          {!touch ? (
+            <>
+              <IconButton
+                icon={muted || volume === 0 ? 'speaker-slash' : 'speaker-high'}
+                size={18}
+                label={muted ? 'Unmute' : 'Mute'}
+                onPress={() => setMuted(!muted)}
+              />
+              <Bar
+                value={muted ? 0 : volume}
+                onChange={(v) => {
+                  setVolume(v);
+                  if (v > 0) setMuted(false);
+                }}
+                width={110}
+              />
+            </>
+          ) : null}
+          <Pressable
+            onPress={cycleRate}
+            accessibilityLabel={`Speed ${rate}×`}
+            style={styles.ratePill}
+          >
+            <Text style={styles.ratePillText}>{rate}×</Text>
+          </Pressable>
+          <IconButton
+            icon="corners-out"
+            size={20}
+            label="Full screen"
+            onPress={() => setFullscreen(true)}
+          />
+        </View>
+      </View>
+    </>
+  );
   const playIcon: IconName = ended
     ? 'arrow-counter-clockwise'
     : paused
@@ -530,12 +659,7 @@ export function PlayerScreen({
       <View
         // Only its place and size change between the layouts (same style keys): React then keeps the native video
         // view where it is. Moved, Android would destroy its surface, and the picture would go black.
-        style={[
-          styles.box,
-          immersive
-            ? { top: 0, height: size.height }
-            : { top: insets.top, height: videoHeight },
-        ]}
+        style={[styles.box, box]}
         onLayout={(e) => setVideoWidth(Math.max(1, e.nativeEvent.layout.width))}
       >
         <VideoView
@@ -634,7 +758,9 @@ export function PlayerScreen({
           style={[StyleSheet.absoluteFill, { opacity }]}
           pointerEvents={visible ? 'box-none' : 'none'}
         >
-          {immersive ? (
+          {tablet ? (
+            tabletChrome
+          ) : immersive ? (
             // --- 1l: over the whole screen ---------------------------------------------------------------------
             <>
               <Shade edge="top" />
@@ -848,10 +974,12 @@ export function PlayerScreen({
         </Animated.View>
 
         {/* 1k: the seek bar sits on the bottom edge of the video, always there (the thumb comes with the controls). */}
-        {!immersive ? <View style={styles.kTrack}>{track(false)}</View> : null}
+        {!immersive && !tablet ? (
+          <View style={styles.kTrack}>{track(false)}</View>
+        ) : null}
       </View>
 
-      {!immersive ? (
+      {!immersive && !tablet ? (
         <ScrollView
           style={[styles.details, { marginTop: insets.top + videoHeight }]}
           contentContainerStyle={styles.detailsContent}
@@ -1012,6 +1140,277 @@ export function PlayerScreen({
         </ScrollView>
       ) : null}
 
+      {tablet ? (
+        <>
+          <View
+            style={[styles.mBack, { top: insets.top + 10, left: TABLET_PAD }]}
+          >
+            <Pressable
+              onPress={onClose}
+              accessibilityLabel="Back to the Library"
+              style={styles.mBackButton}
+            >
+              <Icon name="caret-left" size={20} color={n.text} />
+            </Pressable>
+            <Text style={styles.mCrumb}>Library</Text>
+          </View>
+          <ScrollView
+            style={[
+              styles.mDetails,
+              {
+                top: tabletTop + tabletHeight + 16,
+                bottom: barBottom,
+                left: TABLET_PAD,
+                width: tabletWidth,
+              },
+            ]}
+            contentContainerStyle={styles.mDetailsContent}
+          >
+            <View style={styles.mTitleRow}>
+              <View style={styles.mTitleBlock}>
+                <Text style={styles.mTitle}>{videoTitle(video)}</Text>
+                <Text style={styles.meta}>
+                  {[
+                    meta,
+                    engagement?.playCount
+                      ? `watched ${engagement.playCount}×`
+                      : null,
+                    engagement?.rating
+                      ? `★ ${(Math.round(engagement.rating / 10) / 2).toFixed(1)}`
+                      : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              </View>
+              <View style={styles.mPills}>
+                <Pill
+                  icon="bookmark-simple"
+                  fill={savedForLater}
+                  on={savedForLater}
+                  label={savedForLater ? 'Saved for later' : 'Save for later'}
+                  onPress={toggleLater}
+                  large
+                />
+                <Pill
+                  icon="heart"
+                  fill={!!engagement?.isFavorite}
+                  on={!!engagement?.isFavorite}
+                  label="Favorite"
+                  onPress={toggleFavorite}
+                  large
+                />
+                <Pill
+                  icon="arrow-counter-clockwise"
+                  label="Start over"
+                  onPress={() => {
+                    seekTo(0);
+                    setPaused(false);
+                  }}
+                  large
+                />
+                {tracks.length > 1 ? (
+                  <Pill
+                    icon="waveform"
+                    label="Audio"
+                    onPress={() => setSheet('settings')}
+                    large
+                  />
+                ) : null}
+              </View>
+            </View>
+            {video.performers?.length || video.tags?.length ? (
+              <View style={styles.mChips}>
+                {(video.performers ?? []).map((p) => (
+                  <View key={`p${p.id}`} style={styles.mPerson}>
+                    <View style={styles.mAvatar}>
+                      <Text style={styles.mAvatarText}>{initials(p.name)}</Text>
+                    </View>
+                    <Text style={styles.mChipText}>{p.name}</Text>
+                  </View>
+                ))}
+                {(video.tags ?? []).map((t) => (
+                  <View key={`t${t.id}`} style={styles.mTag}>
+                    <Text style={styles.mChipText}>{t.name}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+          </ScrollView>
+          <View style={[styles.mPanel, { bottom: barBottom }]}>
+            <View style={[styles.mTabs, { marginTop: insets.top }]}>
+              {(
+                [
+                  ['moments', 'Moments'],
+                  ['next', 'Up next'],
+                  ['details', 'Details'],
+                ] as const
+              ).map(([key, label]) => (
+                <Pressable
+                  key={key}
+                  onPress={() => setPanelTab(key)}
+                  accessibilityRole="tab"
+                  accessibilityState={{ selected: panelTab === key }}
+                  style={[styles.mTab, panelTab === key && styles.mTabOn]}
+                >
+                  <Text
+                    style={[
+                      styles.mTabText,
+                      panelTab === key && styles.mTabTextOn,
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+            <ScrollView contentContainerStyle={styles.mPanelContent}>
+              {panelTab === 'moments' ? (
+                segments.length ? (
+                  segments.map((sg) => {
+                    const on = current?.id === sg.id;
+                    return (
+                      <Pressable
+                        key={sg.id}
+                        onPress={() => {
+                          seekTo(sg.startSec - clipStart);
+                          setPaused(false);
+                        }}
+                        style={({ pressed }) => [
+                          styles.mMoment,
+                          on && styles.mMomentOn,
+                          pressed && styles.pressedBg,
+                        ]}
+                      >
+                        <Image
+                          source={{ uri: client.frameUrl(video, sg.startSec) }}
+                          style={styles.mMomentThumb}
+                          resizeMethod="resize"
+                        />
+                        <View style={styles.mMomentText}>
+                          <Text
+                            style={[
+                              styles.mMomentLabel,
+                              on && styles.momentLabelOn,
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {segmentLabel(sg)}
+                          </Text>
+                          <Text style={styles.momentRowTime}>
+                            {formatDuration(sg.startSec - clipStart)}
+                          </Text>
+                        </View>
+                      </Pressable>
+                    );
+                  })
+                ) : (
+                  <Text style={styles.mEmpty}>This video has no moments.</Text>
+                )
+              ) : panelTab === 'next' ? (
+                <>
+                  <View style={styles.mNextHead}>
+                    <Text style={styles.mNote}>
+                      The Library&apos;s order, after this video
+                    </Text>
+                    <Pressable
+                      onPress={() => onAutoplay(!autoplay)}
+                      accessibilityRole="switch"
+                      accessibilityState={{ checked: autoplay }}
+                      style={styles.autoplay}
+                    >
+                      <Text style={styles.autoplayText}>Autoplay</Text>
+                      <View
+                        style={[styles.toggle, autoplay && styles.toggleOn]}
+                      >
+                        <View
+                          style={[styles.knob, autoplay && styles.knobOn]}
+                        />
+                      </View>
+                    </Pressable>
+                  </View>
+                  {upNext.length ? (
+                    upNext.slice(0, 20).map((v, i) => (
+                      <Pressable
+                        key={v.id}
+                        onPress={() => onPlayNext(v, upNext.slice(i + 1))}
+                        style={({ pressed }) => [
+                          styles.mNext,
+                          pressed && styles.pressedBg,
+                        ]}
+                      >
+                        <View style={styles.nextThumb}>
+                          <Image
+                            source={{ uri: client.imageUrl(v, 320) }}
+                            style={StyleSheet.absoluteFill}
+                            resizeMethod="resize"
+                          />
+                          <Text style={styles.nextDur}>
+                            {formatDuration(primaryFile(v)?.duration)}
+                          </Text>
+                        </View>
+                        <View style={styles.nextText}>
+                          <Text style={styles.nextTitle} numberOfLines={2}>
+                            {videoTitle(v)}
+                          </Text>
+                          {v.studioName ? (
+                            <Text style={styles.nextSub} numberOfLines={1}>
+                              {v.studioName}
+                            </Text>
+                          ) : null}
+                        </View>
+                      </Pressable>
+                    ))
+                  ) : (
+                    <Text style={styles.mEmpty}>Nothing after this video.</Text>
+                  )}
+                </>
+              ) : (
+                <View style={styles.mFacts}>
+                  {[
+                    [
+                      'Rating',
+                      engagement?.rating
+                        ? `★ ${(Math.round(engagement.rating / 10) / 2).toFixed(1)}`
+                        : 'Not rated',
+                    ],
+                    ['Date', video.date ? partialDate(video.date) : '—'],
+                    ['Studio', video.studioName ?? '—'],
+                    [
+                      'Group',
+                      video.groups?.[0]
+                        ? video.groups[0].videoIndex != null
+                          ? `${video.groups[0].name} · part ${video.groups[0].videoIndex + 1}`
+                          : video.groups[0].name
+                        : '—',
+                    ],
+                    [
+                      'Watched',
+                      [
+                        engagement?.playCount
+                          ? `${engagement.playCount} times`
+                          : 'Not yet',
+                        engagement?.resumeTime
+                          ? `resumes at ${formatDuration(engagement.resumeTime)}`
+                          : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · '),
+                    ],
+                    ['File', details || '—'],
+                  ].map(([k, v]) => (
+                    <View key={k} style={styles.mFact}>
+                      <Text style={styles.mFactKey}>{k}</Text>
+                      <Text style={styles.mFactValue}>{v}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </>
+      ) : null}
+
       {/* Settings: speed and audio track */}
       <Sheet visible={sheet === 'settings'} onClose={() => setSheet(null)}>
         <SheetHeading>Playback</SheetHeading>
@@ -1099,13 +1498,14 @@ export function PlayerScreen({
   );
 }
 
-// The design's shades are gradients (dark at the edge, clear by a third of the screen); without a gradient view,
-// steps of decreasing darkness.
-const SHADE_STEPS = Array.from(
-  { length: 16 },
-  (_, i) => 0.64 * (1 - i / 16) ** 1.6
-);
-const SHADE_STEP_HEIGHT = 9;
+// The design's shades: dark at the edge, easing out to clear. One gradient (stacked strips of decreasing darkness
+// showed seams wherever their edges fell between pixels, e.g. at 1.5x density).
+const SHADE_HEIGHT = 144;
+const SHADE_GRADIENT = `linear-gradient(to bottom, ${Array.from(
+  { length: 9 },
+  (_, i) =>
+    `rgba(10,11,18,${(0.64 * (1 - i / 8) ** 1.6).toFixed(3)}) ${(i * 12.5).toFixed(1)}%`
+).join(', ')})`;
 
 function Shade({ edge }: { edge: 'top' | 'bottom' }) {
   return (
@@ -1115,17 +1515,7 @@ function Shade({ edge }: { edge: 'top' | 'bottom' }) {
         styles.shade,
         edge === 'top' ? styles.shadeTop : styles.shadeBottom,
       ]}
-    >
-      {SHADE_STEPS.map((a, i) => (
-        <View
-          key={i}
-          style={{
-            height: SHADE_STEP_HEIGHT,
-            backgroundColor: `rgba(10,11,18,${a})`,
-          }}
-        />
-      ))}
-    </View>
+    />
   );
 }
 
@@ -1244,8 +1634,6 @@ const styles = StyleSheet.create({
   screen: { ...StyleSheet.absoluteFillObject, backgroundColor: n.bg },
   box: {
     position: 'absolute',
-    left: 0,
-    right: 0,
     backgroundColor: '#000',
     zIndex: 1,
   },
@@ -1466,8 +1854,152 @@ const styles = StyleSheet.create({
   pillTextLarge: { color: n.text, fontSize: 13 },
   pillTextOver: { color: INK, fontSize: 12 },
   pillTextOn: { color: n.accent },
+  // 1m
+  mBottom: { position: 'absolute', left: 20, right: 20, bottom: 12, gap: 2 },
+  mBack: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  mBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: n.divider,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mCrumb: { color: n.textAlpha(60), fontSize: 13, fontFamily: fonts.regular },
+  mDetails: { position: 'absolute', bottom: 0 },
+  mDetailsContent: { paddingBottom: 32, gap: 14 },
+  // The title and meta on the left, the buttons on the right of the same row (design 1m)
+  mTitleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 20 },
+  mTitleBlock: { flex: 1, minWidth: 0, gap: 4 },
+  mTitle: {
+    color: n.text,
+    fontSize: 24,
+    lineHeight: 30,
+    fontFamily: fonts.medium,
+  },
+  mPills: { flexDirection: 'row', flexShrink: 0, gap: 8 },
+  mChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  mPerson: {
+    height: 30,
+    paddingLeft: 3,
+    paddingRight: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: n.divider,
+  },
+  mAvatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: n.accent800,
+  },
+  mAvatarText: { color: n.accent100, fontSize: 10.5, fontFamily: fonts.medium },
+  mTag: {
+    height: 30,
+    paddingHorizontal: 11,
+    justifyContent: 'center',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: n.divider,
+  },
+  mChipText: { color: n.text, fontSize: 12.5, fontFamily: fonts.regular },
+  mPanel: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    width: PANEL,
+    backgroundColor: '#1e202e',
+  },
+  mTabs: { flexDirection: 'row', paddingHorizontal: 16, paddingTop: 16 },
+  mTab: {
+    flex: 1,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: n.divider,
+  },
+  mTabOn: { borderBottomWidth: 2, borderBottomColor: n.accent },
+  mTabText: {
+    color: n.textAlpha(60),
+    fontSize: 13.5,
+    fontFamily: fonts.regular,
+  },
+  mTabTextOn: { color: n.accent },
+  mPanelContent: { padding: 12, paddingBottom: 32, gap: 4 },
+  mMoment: {
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: n.radiusMd,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  mMomentOn: { backgroundColor: n.accentAlpha(10), borderColor: n.accent },
+  mMomentThumb: {
+    width: 120,
+    height: 67,
+    borderRadius: 6,
+    backgroundColor: n.bg,
+  },
+  mMomentText: { flex: 1, minWidth: 0, gap: 3 },
+  mMomentLabel: { color: n.text, fontSize: 14, fontFamily: fonts.medium },
+  mEmpty: {
+    padding: 12,
+    color: n.textAlpha(55),
+    fontSize: 13,
+    fontFamily: fonts.regular,
+  },
+  mNextHead: {
+    paddingHorizontal: 8,
+    paddingBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mNote: { color: n.textAlpha(60), fontSize: 12.5, fontFamily: fonts.regular },
+  mNext: {
+    padding: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: n.radiusMd,
+  },
+  mFacts: { padding: 8, gap: 10 },
+  mFact: { flexDirection: 'row', gap: 12 },
+  mFactKey: {
+    width: 84,
+    color: n.textAlpha(50),
+    fontSize: 13,
+    fontFamily: fonts.regular,
+  },
+  mFactValue: {
+    flex: 1,
+    color: n.text,
+    fontSize: 13,
+    fontFamily: fonts.regular,
+  },
   // 1l
-  shade: { position: 'absolute', left: 0, right: 0 },
+  shade: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: SHADE_HEIGHT,
+    experimental_backgroundImage: SHADE_GRADIENT,
+  },
   shadeTop: { top: 0 },
   // The same steps, the darkest at the bottom edge
   shadeBottom: { bottom: 0, transform: [{ scaleY: -1 }] },

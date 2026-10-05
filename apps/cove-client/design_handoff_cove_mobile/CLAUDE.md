@@ -15,12 +15,15 @@ A phone + tablet client for **Cove** (https://yourcove.net), a self-hosted, open
 
 ## Behaviors agreed in design review
 - Tablet library (1h): tap = select into detail pane; tap again / Play = open player; long-press = quick actions. Narrow/portrait: pane becomes a slide-in panel.
+  - The Library keeps the phone's header (search, title with count and Save, toolbar); the sidebar replaces the Show sheet (Watch = quick filters, Saved filters with counts) and holds the account (bottom row).
+  - Filter open (2d): the sidebar folds to the icon rail, the rule tree takes a column, the results keep the same header (Filter pressed); the filter's sentence heads the column; saving, sort and view stay in the header.
+  - Player (1m): the 1k/1l controls (speed pill, no captions), Save for later / Favorite / Start over, side panel Moments / Up next (Autoplay) / Details (Cove's fields).
 - Phone Library = **one screen, three views**: 2 columns / 3 columns (default) / list, picked with an icon switch in the toolbar. 1f = dense grid, 1g = the same screen in list view. Dark for now.
   - A saved filter brings its view along, and Save stores it.
   - The list view is not called "Feed": that name belongs to the vertical Feed tab (1i).
 - Library header (all views, turn 6): search field (Cove's search, like the web UI) + avatar (account sheet: Refresh, Log out); the title says what is shown (All videos / Videos / the saved filter's name) and opens the Show sheet (all videos, saved filters, Unwatched / In progress, Save as new filter); the count line under it (Edited at its start when a saved filter changed); Save / Save as… only when there is something to save.
   - Sticky toolbar: Filter with its count (→ 2a) · Added · Shuffle · Play all (round) · view switch.
-  - No condition chips on phones, upright or sideways (the editor lists them); large screens (shorter side ≥ 600 px) show them on the toolbar.
+  - The filter's content (conditions, its sentence) appears only in the filter editor (2a / 2b; the tablet's column, 2d) — never on the Library, on any screen size. The Library shows the name, Filter the number of conditions.
   - Phone sideways (6f–6h): one header row (search · title with count · Save · Filter · sort · Shuffle · Play all · views · avatar), an icon rail instead of the tab bar, two list cards per row.
 - List view (1g): tapping a person or tag on a card adds it to the filter. Cards show Cove's rating, studio, date, play count, Save for later, Favorite and group.
 - Moments (Cove markers) appear as ticks on every timeline and as a tappable list that seeks.

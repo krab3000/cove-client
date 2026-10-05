@@ -63,6 +63,7 @@ export function FilterScreen({
   onPlayAll,
   onClose,
   title,
+  docked,
 }: {
   client: CoveClient;
   tree: Group;
@@ -74,6 +75,11 @@ export function FilterScreen({
   onClose: () => void;
   /** The saved filter being edited, if any */
   title?: string;
+  /**
+   * Tablet (design 2d): a column beside the results instead of a screen over them. "Filter · N conditions" and
+   * close on top; no Show / Play all footer, as the results beside it follow the tree as it changes.
+   */
+  docked?: boolean;
 }) {
   const wire = useMemo(() => toWire(tree), [tree]);
   const wireJson = JSON.stringify(wire);
@@ -385,8 +391,37 @@ export function FilterScreen({
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
+    <View style={docked ? styles.docked : styles.screen}>
+      {docked ? (
+        <View style={styles.dockedHeader}>
+          {atRoot ? null : (
+            <Pressable
+              onPress={up}
+              style={styles.back}
+              hitSlop={4}
+              accessibilityLabel="Up one level"
+            >
+              <Icon name="caret-left" size={20} color={n.text} />
+            </Pressable>
+          )}
+          <Text style={styles.dockedTitle}>Filter</Text>
+          <Text style={styles.dockedCount}>
+            {conditionCount(tree) === 1
+              ? '1 condition'
+              : `${conditionCount(tree)} conditions`}
+          </Text>
+          <View style={styles.dockedSpacer} />
+          <Pressable
+            onPress={onClose}
+            style={styles.back}
+            hitSlop={4}
+            accessibilityLabel="Close the filter"
+          >
+            <Icon name="x" size={18} color={n.text} />
+          </Pressable>
+        </View>
+      ) : null}
+      <View style={[styles.header, docked && styles.hidden]}>
         <Pressable
           onPress={atRoot ? onClose : up}
           style={styles.back}
@@ -557,7 +592,7 @@ export function FilterScreen({
         </View>
       ) : null}
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, docked && styles.hidden]}>
         <Pressable
           onPress={() => onPlayAll(wire)}
           style={({ pressed }) => [
@@ -1122,6 +1157,25 @@ const styles = StyleSheet.create({
     paddingBottom: INSET_BOTTOM,
     backgroundColor: n.bg,
   },
+  // Docked (tablet, 2d): fills its column
+  docked: { flex: 1, backgroundColor: '#1e202e' },
+  dockedHeader: {
+    paddingTop: 16,
+    paddingLeft: 18,
+    paddingRight: 8,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  dockedTitle: { color: n.text, fontSize: 17, fontFamily: fonts.medium },
+  dockedCount: {
+    color: n.textAlpha(55),
+    fontSize: 12.5,
+    fontFamily: fonts.regular,
+  },
+  dockedSpacer: { flex: 1 },
+  hidden: { display: 'none' },
   header: {
     paddingTop: 4,
     paddingHorizontal: 12,

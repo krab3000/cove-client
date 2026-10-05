@@ -6,19 +6,25 @@ import { colors } from './components/Controls';
 import { BrowseScreen } from './screens/BrowseScreen';
 import { LoginScreen } from './screens/LoginScreen';
 import { PlayerScreen } from './screens/PlayerScreen';
+import { useSystemInsets } from './systemInsets';
 
 export default function App() {
   const [client, setClient] = useState<CoveClient | null>(null);
   const window = useWindowDimensions();
+  const bars = useSystemInsets();
   const sideways = window.width > window.height;
+  // A phone held sideways has its camera cutout on a side; a tablet's is in the bezel.
+  const phone = Math.min(window.width, window.height) < 600;
   // The video playing and the ones after it (the player's Up next); Autoplay plays the next one at the end.
   const [playing, setPlaying] = useState<{
     video: Video;
     upNext: Video[];
+    startAt?: number;
   } | null>(null);
   const [autoplay, setAutoplay] = useState(true);
   const play = useCallback(
-    (video: Video, upNext: Video[]) => setPlaying({ video, upNext }),
+    (video: Video, upNext: Video[], startAt?: number) =>
+      setPlaying({ video, upNext, startAt }),
     []
   );
 
@@ -34,8 +40,19 @@ export default function App() {
       <View
         style={[
           styles.content,
-          Platform.OS === 'android' &&
-            (sideways ? styles.androidSideways : styles.androidUpright),
+          bars
+            ? {
+                paddingTop: bars.top,
+                paddingRight: bars.right,
+                paddingBottom: bars.bottom,
+                paddingLeft: bars.left,
+              }
+            : Platform.OS === 'android' &&
+              (!sideways
+                ? styles.androidUpright
+                : phone
+                  ? styles.androidSideways
+                  : styles.androidTablet),
         ]}
       >
         {!client ? (
@@ -63,6 +80,7 @@ export default function App() {
           autoplay={autoplay}
           onAutoplay={setAutoplay}
           onClose={closePlayer}
+          startAt={playing.startAt}
         />
       ) : null}
     </View>
@@ -72,8 +90,9 @@ export default function App() {
 const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: colors.background },
   content: { flex: 1 },
-  // Android 15 draws edge to edge: keep clear of the status and navigation bars, and sideways of the camera cutout
-  // (on either side, depending on which way the phone turned).
+  // Android draws edge to edge: the content keeps clear of the system bars and the camera cutout by their measured
+  // sizes. Guesses for a build without the module that measures them.
   androidUpright: { paddingTop: 36, paddingBottom: 48 },
   androidSideways: { paddingTop: 28, paddingBottom: 12, paddingHorizontal: 40 },
+  androidTablet: { paddingTop: 28, paddingBottom: 16 },
 });

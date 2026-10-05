@@ -33,7 +33,7 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 <div class="dv-thd"><a class="dv-tid" href="#t6">6</a><span class="dv-tname">Library header: search, saved filters in the title, the account behind an avatar</span></div>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;max-width:1100px;margin:0 0 48px;font-size:13px;line-height:1.55;color:var(--color-neutral-300)">
 <div><div style="color:var(--color-text);font-weight:500;margin-bottom:4px">Each control in one place</div>Search on top, like Cove's web UI. The avatar holds the account (Refresh, Log out). The title picks what to show: all videos, a saved filter, a quick filter.</div>
-<div><div style="color:var(--color-text);font-weight:500;margin-bottom:4px">No chips on a phone</div>The filter's conditions aren't listed on the Library: Filter shows how many, and the editor (2a / 2b) lists them. Wide screens can list them on the toolbar.</div>
+<div><div style="color:var(--color-text);font-weight:500;margin-bottom:4px">The filter's content only in its editor</div>No screen lists the filter's conditions but the editor (2a / 2b, the tablet's column in 2d): the Library shows the filter's name, Filter shows how many conditions, the count follows. On every screen size.</div>
 <div><div style="color:var(--color-text);font-weight:500;margin-bottom:4px">Save when there is something to save</div>"Save as…" for an unnamed filter or a search; Edited and "Save" for a changed saved filter. Nothing for all videos or an unchanged saved filter.</div>
 </div>
 <div class="dv-opts">
@@ -1202,21 +1202,21 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </div>
 </div></div></div>
 
-<div class="dv-opt" id="2d"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#2d">2d</a>Tablet: the rule tree stays open in a side column, and results update beside it. The group pills share their state with <a class="dv-oid" href="#2b">2b</a>. The saved filter's sort and view travel with it, and you can play the results.</div>
+<div class="dv-opt" id="2d"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#2d">2d</a>Tablet, Filter open: the Library of 1h with the rule tree in a column. The sidebar folds to the icon rail (the tree needs the width), the detail pane gives way, and the results keep the same header: the title with Edited and Save, the count, the toolbar. The filter's content — its plain-language sentence and the tree — is only in the column, the editor. Filter (pressed) closes the column; the group pills share their state with 2b, and the count and sentence follow them.</div>
 <div style="width:1208px;padding:14px;border-radius:40px;background:#08090e;box-shadow:0 0 0 1px var(--color-neutral-800),0 30px 60px rgba(0,0,0,.5)">
 <div style="position:relative;width:1180px;height:820px;border-radius:26px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:76px 380px minmax(0,1fr)">
-<nav style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px 0;background:color-mix(in srgb,var(--color-surface) 55%,var(--color-bg))">
+<nav style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:20px 0 16px;background:color-mix(in srgb,var(--color-surface) 55%,var(--color-bg))">
 <span style="width:22px;height:22px;border-radius:7px;border:1.5px solid var(--color-accent);box-shadow:0 0 10px var(--color-accent);margin-bottom:22px"></span>
-<span style="width:52px;height:52px;display:grid;place-items:center;font-size:22px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><i class="ph ph-house"></i></span>
-<span style="width:52px;height:52px;border-radius:var(--radius-lg);display:grid;place-items:center;font-size:22px;color:var(--color-accent);background:color-mix(in srgb,var(--color-accent) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-accent) 50%,transparent)"><i class="ph-fill ph-squares-four"></i></span>
-<span style="width:52px;height:52px;display:grid;place-items:center;font-size:22px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><i class="ph ph-film-strip"></i></span>
-<span style="width:52px;height:52px;display:grid;place-items:center;font-size:22px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><i class="ph ph-magnifying-glass"></i></span>
+<span aria-label="Home" style="width:52px;height:52px;border-radius:var(--radius-lg);display:grid;place-items:center;font-size:22px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><i class="ph ph-house"></i></span>
+<span aria-label="Library" style="width:52px;height:52px;border-radius:var(--radius-lg);display:grid;place-items:center;font-size:22px;color:var(--color-accent);background:color-mix(in srgb,var(--color-accent) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-accent) 50%,transparent)"><i class="ph-fill ph-squares-four"></i></span>
+<span aria-label="Feed" style="width:52px;height:52px;border-radius:var(--radius-lg);display:grid;place-items:center;font-size:22px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><i class="ph ph-film-strip"></i></span>
+<span aria-label="Search" style="width:52px;height:52px;border-radius:var(--radius-lg);display:grid;place-items:center;font-size:22px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><i class="ph ph-magnifying-glass"></i></span>
+<div style="flex:1"></div>
+<span aria-label="Account" style="width:36px;height:36px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:500;background:var(--color-accent-800);color:var(--color-accent-100)">M</span>
 </nav>
 <aside style="display:flex;flex-direction:column;min-height:0;background:color-mix(in srgb,var(--color-surface) 60%,var(--color-bg))">
-<div style="padding:20px 18px 12px;display:flex;flex-direction:column;gap:10px">
-<div style="display:flex;align-items:center;gap:8px;height:42px;padding:0 12px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-divider)"><i class="ph ph-bookmarks-simple" style="color:var(--color-accent-300)"></i><span style="flex:1;font-size:14px;font-weight:500">Northern evenings</span><span style="font-size:11px;padding:2px 8px;border-radius:6px;background:var(--color-accent-800);color:var(--color-accent-100)">Edited</span><i class="ph ph-caret-down" style="font-size:12px"></i></div>
-<div style="display:flex;gap:6px"><span style="flex:1;height:34px;display:grid;place-items:center;border-radius:var(--radius-md);font-size:13px;box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent)">Save</span><span style="flex:1;height:34px;display:grid;place-items:center;border-radius:var(--radius-md);font-size:13px;box-shadow:inset 0 0 0 1px var(--color-divider)">Save as new</span><span style="width:34px;height:34px;display:grid;place-items:center;border-radius:var(--radius-md);font-size:15px;box-shadow:inset 0 0 0 1px var(--color-divider)"><i class="ph ph-arrow-counter-clockwise"></i></span></div>
-</div>
+<div style="padding:20px 10px 10px 18px;display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:500">Filter</span><span style="font-size:12.5px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">5 conditions</span><span style="flex:1"></span><button aria-label="Close the filter" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:40px;height:40px;border-radius:var(--radius-md);display:grid;place-items:center;font-size:18px;color:var(--color-text)" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="ph ph-x"></i></button></div>
+<p style="margin:0;padding:0 18px 12px;font-size:13px;line-height:1.55;color:color-mix(in srgb,var(--color-text) 65%,transparent);text-wrap:pretty">{{ summary }}</p>
 <div class="hscroll" style="flex:1;overflow-y:auto;padding:4px 18px 18px">
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><span onClick="{{ cyc0 }}" style="height:32px;padding:0 11px;display:flex;align-items:center;gap:6px;border-radius:var(--radius-md);font-size:13px;font-weight:500;cursor:pointer;user-select:none;color:var(--color-accent-200);box-shadow:inset 0 0 0 1px var(--color-accent),0 0 12px color-mix(in srgb,var(--color-accent) 25%,transparent)">{{ op0 }}<i class="ph ph-caret-up-down"></i></span></div>
 <div style="position:relative;padding-left:16px;display:flex;flex-direction:column;gap:6px">
@@ -1234,23 +1234,32 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 <div style="position:relative;padding-left:16px"><div style="position:absolute;left:5px;top:0;bottom:18px;width:1px;background:var(--color-divider)"></div><div style="padding:8px 12px;border-radius:var(--radius-md);background:var(--color-surface)"><div style="font-size:11px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">Tag</div><div style="font-size:13.5px"><span style="color:color-mix(in srgb,var(--color-text) 55%,transparent)">includes</span> Archive</div></div></div>
 <div style="display:flex;gap:4px;margin-top:4px"><span style="height:34px;padding:0 10px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--color-accent-300)"><i class="ph ph-plus"></i>Condition</span><span style="height:34px;padding:0 10px;display:flex;align-items:center;gap:6px;font-size:13px;color:var(--color-accent-300)"><i class="ph ph-brackets-curly"></i>Subgroup</span></div>
 </div>
-<div style="height:1px;margin:18px 0 14px;background:linear-gradient(to right,transparent,var(--color-divider) 48px,var(--color-divider) calc(100% - 48px),transparent)"></div>
-<div style="display:grid;grid-template-columns:72px 1fr;gap:10px 12px;align-items:center;font-size:13px">
-<span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Sort</span><span style="height:34px;padding:0 10px;display:flex;align-items:center;justify-content:space-between;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-divider)">Date, newest first<i class="ph ph-caret-down" style="font-size:11px"></i></span>
-<span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Open as</span><span style="display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden"><span style="height:32px;display:grid;place-items:center;color:var(--color-accent);box-shadow:inset 0 0 0 1px var(--color-accent);border-radius:var(--radius-md)">Grid</span><span style="height:32px;display:grid;place-items:center">Feed</span><span style="height:32px;display:grid;place-items:center">Vertical</span></span>
-</div>
 </div>
 </aside>
-<main class="hscroll" style="overflow-y:auto;padding:22px 24px">
-<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:24px">
-<div style="max-width:440px"><div style="font-size:26px;font-weight:500;letter-spacing:-.015em">{{ treeCount }} videos</div><p style="margin:6px 0 0;font-size:13px;line-height:1.55;color:color-mix(in srgb,var(--color-text) 65%,transparent);text-wrap:pretty">{{ summary }}</p></div>
-<div style="display:flex;gap:8px;flex:none"><button style="height:42px;padding:0 14px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 13.5px var(--font-body);display:flex;align-items:center;gap:6px"><i class="ph ph-shuffle"></i>Shuffle</button><button style="height:42px;padding:0 16px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 13.5px var(--font-body);display:flex;align-items:center;gap:6px" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)"><i class="ph-fill ph-play"></i>Play all</button></div>
+<main class="hscroll" style="overflow-y:auto;padding:20px 24px 24px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<label style="height:40px;padding:0 4px 0 14px;display:flex;align-items:center;gap:10px;border-radius:999px;background:var(--color-surface);box-shadow:{{ td.searchRing }}"><i class="ph ph-magnifying-glass" style="font-size:17px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"></i><input aria-label="Search" value="{{ td.q }}" onInput="{{ td.setQ }}" placeholder="Search videos, tags, performers…" style="flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--color-text);font:400 14.5px var(--font-body)"><sc-if value="{{ td.hasQ }}"><button onClick="{{ td.clearQ }}" aria-label="Clear search" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:34px;height:34px;border-radius:50%;color:color-mix(in srgb,var(--color-text) 60%,transparent);display:grid;place-items:center;font-size:14px"><i class="ph ph-x"></i></button></sc-if></label>
+<div style="display:flex;align-items:flex-end;gap:12px">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:8px;min-width:0"><sc-if value="{{ td.saved }}"><i class="ph-fill ph-bookmarks-simple" style="flex:none;font-size:19px;color:var(--color-accent-300)"></i></sc-if><span style="font:500 26px/1.2 var(--font-body);letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ td.title }}</span></div>
+<div style="display:flex;align-items:center;gap:6px;font:400 12.5px var(--font-body);font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--color-text) 55%,transparent)"><sc-if value="{{ td.edited }}"><span style="font-size:11px;line-height:17px;padding:0 6px;border-radius:5px;background:var(--color-accent-800);color:var(--color-accent-100)">Edited</span></sc-if><span>{{ treeCount }} videos</span></div>
 </div>
-<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 14px;margin-top:22px">
+<sc-if value="{{ td.canSave }}"><button onClick="{{ td.save }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;height:36px;padding:0 14px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent-200);font:500 13px var(--font-body)" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">{{ td.saveLabel }}</button></sc-if>
+</div>
+<div style="display:flex;align-items:center;gap:4px">
+<button aria-label="Close the filter" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;height:36px;padding:0 10px 0 11px;display:flex;align-items:center;gap:6px;border-radius:999px;font:500 13.5px var(--font-body);color:{{ td.btnInk }};background:color-mix(in srgb,var(--color-accent) 22%,transparent);box-shadow:{{ td.btnRing }}"><i class="ph-fill ph-funnel-simple" style="font-size:17px"></i>Filter<sc-if value="{{ td.any }}"><span style="min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:999px;display:grid;place-items:center;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;background:var(--color-accent-800);color:var(--color-accent-100)">{{ td.badge }}</span></sc-if></button>
+<span style="flex:1"></span>
+<button aria-label="Sort: added, newest first" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;height:36px;padding:0 8px;display:flex;align-items:center;gap:6px;font-size:13px;color:color-mix(in srgb,var(--color-text) 75%,transparent)"><i class="ph ph-sort-descending" style="font-size:16px"></i>Added</button>
+<button aria-label="Shuffle" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;width:36px;height:36px;display:grid;place-items:center;font-size:17px;color:color-mix(in srgb,var(--color-text) 75%,transparent)"><i class="ph ph-shuffle"></i></button>
+<button aria-label="Play all" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;width:36px;height:36px;margin-right:4px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent-200);display:grid;place-items:center;font-size:14px" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)"><i class="ph-fill ph-play"></i></button>
+<span style="flex:none;display:flex;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden"><sc-for list="{{ td.views }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" aria-label="{{ o.label }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:32px;height:32px;display:grid;place-items:center;font-size:16px;border-radius:var(--radius-md);color:{{ o.ink }};box-shadow:{{ o.ring }}"><i class="{{ o.icon }}"></i></button></sc-for></span>
+</div>
+</div>
+<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 14px;margin-top:16px">
 <sc-for list="{{ treeGrid }}" as="v" hint-placeholder-count="6">
-<div style="display:flex;flex-direction:column;gap:7px;min-width:0">
-<div style="position:relative;aspect-ratio:16/9;border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)"><img src="{{ v.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /><span style="position:absolute;right:5px;bottom:5px;font-size:10.5px;font-weight:500;padding:1px 5px;border-radius:4px;background:rgba(10,11,18,.72);color:#e9e9ed">{{ v.dur }}</span></div>
-<div style="display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.title }}</span><span style="font-size:11.5px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">{{ v.src }} · {{ v.res }}</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;min-width:0">
+<div style="position:relative;aspect-ratio:16/9;border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)"><img src="{{ v.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /><sc-if value="{{ v.fav }}"><span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:rgba(10,11,18,.6);color:#d2cefd"><i class="ph-fill ph-heart"></i></span></sc-if><span style="position:absolute;right:5px;bottom:5px;font-size:10.5px;font-weight:500;font-variant-numeric:tabular-nums;padding:1px 5px;border-radius:4px;background:rgba(10,11,18,.72);color:#e9e9ed">{{ v.badge }}</span><sc-if value="{{ v.hasProg }}"><div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(233,233,237,.22)"><div style="height:100%;width:{{ v.progPct }};background:var(--color-accent);box-shadow:0 0 6px var(--color-accent)"></div></div></sc-if></div>
+<div style="display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ v.title }}</span><span style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:color-mix(in srgb,var(--color-text) 50%,transparent)">{{ v.src }}</span></div>
 </div>
 </sc-for>
 </div>
@@ -1632,54 +1641,77 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </div></div></sc-if>
 </div></div></div>
 
-<div class="dv-opt" id="1h"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#1h">1h</a>Tablet: sidebar nav, grid, and a detail pane on the right. Tap a video to preview its moments and people, then Play.</div>
+<div class="dv-opt" id="1h"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#1h">1h</a>Tablet Library: the sidebar, the Library, and a detail pane. The Library has the phone's header (turn 6) on a large screen: search, the title with its count and Save, and the toolbar. As everywhere outside the filter editor, the filter's conditions aren't listed: Filter shows how many. The sidebar does the Show sheet's job: Watch (quick filters) and your saved filters, with counts; the account is its bottom row. Tap a video to preview it in the pane, again (or Play) to play; tap a sidebar row or the view switch.</div>
 <div style="width:1208px;padding:14px;border-radius:40px;background:#08090e;box-shadow:0 0 0 1px var(--color-neutral-800),0 30px 60px rgba(0,0,0,.5)">
 <div style="position:relative;width:1180px;height:820px;border-radius:26px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:232px minmax(0,1fr) 360px">
-<aside style="display:flex;flex-direction:column;gap:2px;padding:20px 12px;background:color-mix(in srgb,var(--color-surface) 55%,var(--color-bg))">
+<aside class="hscroll" style="overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding:20px 12px 14px;background:color-mix(in srgb,var(--color-surface) 55%,var(--color-bg))">
 <div style="display:flex;align-items:center;gap:8px;font-size:17px;font-weight:500;padding:6px 10px 14px"><span style="width:20px;height:20px;border-radius:6px;border:1.5px solid var(--color-accent);box-shadow:0 0 10px var(--color-accent)"></span>Cove</div>
 <div style="display:flex;align-items:center;gap:8px;margin:0 4px 14px;padding:8px 10px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-divider);font-size:12.5px"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);box-shadow:0 0 6px var(--color-accent)"></span><span style="flex:1">Living Room NAS</span><i class="ph ph-caret-up-down"></i></div>
-<sc-for list="{{ sideMain }}" as="n" hint-placeholder-count="4">
-<div style="height:42px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:var(--radius-md);font-size:14px;color:{{ n.ink }};background:{{ n.bg }}"><i class="{{ n.icon }}" style="font-size:20px"></i>{{ n.label }}</div>
-</sc-for>
+<sc-for list="{{ th.sideMain }}" as="n" hint-placeholder-count="4"><button onClick="{{ n.pick }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:100%;height:42px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:var(--radius-md);text-align:left;color:{{ n.ink }};background:{{ n.bg }};font-size:14px" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="{{ n.icon }}" style="font-size:20px"></i><span style="flex:1">{{ n.label }}</span><span style="font-size:11.5px;font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--color-text) 45%,transparent)">{{ n.meta }}</span></button></sc-for>
 <div style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:color-mix(in srgb,var(--color-text) 45%,transparent);padding:18px 12px 6px">Watch</div>
-<sc-for list="{{ sideWatch }}" as="n" hint-placeholder-count="3">
-<div style="height:38px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:var(--radius-md);font-size:13.5px;color:color-mix(in srgb,var(--color-text) 75%,transparent)" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="{{ n.icon }}" style="font-size:18px"></i>{{ n.label }}</div>
-</sc-for>
-<div style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:color-mix(in srgb,var(--color-text) 45%,transparent);padding:18px 12px 6px">Saved searches</div>
-<div style="height:36px;display:flex;align-items:center;gap:12px;padding:0 12px;font-size:13.5px;color:color-mix(in srgb,var(--color-text) 75%,transparent)"><i class="ph ph-bookmarks-simple" style="font-size:18px"></i>Drone · 4K</div>
-<div style="height:36px;display:flex;align-items:center;gap:12px;padding:0 12px;font-size:13.5px;color:color-mix(in srgb,var(--color-text) 75%,transparent)"><i class="ph ph-bookmarks-simple" style="font-size:18px"></i>Short &amp; unwatched</div>
-<div style="flex:1"></div>
-<div style="display:flex;align-items:center;gap:10px;padding:8px 10px"><span style="width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:500;background:var(--color-accent-800);color:var(--color-accent-100)">M</span><span style="font-size:13.5px;flex:1">Maya</span><i class="ph ph-gear" style="font-size:18px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"></i></div>
+<sc-for list="{{ th.sideWatch }}" as="n" hint-placeholder-count="4"><button onClick="{{ n.pick }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:100%;height:38px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:var(--radius-md);text-align:left;color:{{ n.ink }};background:{{ n.bg }};font-size:13.5px" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="{{ n.icon }}" style="font-size:18px"></i><span style="flex:1">{{ n.label }}</span></button></sc-for>
+<div style="font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:color-mix(in srgb,var(--color-text) 45%,transparent);padding:18px 12px 6px">Saved filters</div>
+<sc-for list="{{ th.sideSaved }}" as="n" hint-placeholder-count="3"><button onClick="{{ n.pick }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:100%;height:38px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:var(--radius-md);text-align:left;color:{{ n.ink }};background:{{ n.bg }};font-size:13.5px" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="{{ n.icon }}" style="font-size:18px"></i><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ n.label }}</span><span style="font-size:11.5px;font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--color-text) 45%,transparent)">{{ n.meta }}</span></button></sc-for>
+<sc-if value="{{ th.canSaveNew }}"><button style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:100%;height:38px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:var(--radius-md);font-size:13.5px;color:var(--color-accent-200)" style-hover="background:color-mix(in srgb,var(--color-accent) 10%,transparent)"><i class="ph ph-plus" style="font-size:18px"></i>Save as new filter…</button></sc-if>
+<div style="flex:1;min-height:12px"></div>
+<button aria-label="Account" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:100%;display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--radius-md);color:var(--color-text);text-align:left" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><span style="width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:13px;font-weight:500;background:var(--color-accent-800);color:var(--color-accent-100)">M</span><span style="flex:1;font-size:13.5px">Maya</span><i class="ph ph-caret-up-down" style="font-size:16px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"></i></button>
 </aside>
-<main class="hscroll" style="overflow-y:auto;padding:20px 22px">
-<div style="display:flex;align-items:center;gap:12px">
-<h2 style="font-size:26px;margin:0;flex:1">Library</h2>
-<div style="width:260px;height:38px;display:flex;align-items:center;gap:8px;padding:0 12px;border-radius:var(--radius-md);background:var(--color-surface);box-shadow:inset 0 0 0 1px var(--color-divider);font-size:13.5px;color:color-mix(in srgb,var(--color-text) 45%,transparent)"><i class="ph ph-magnifying-glass" style="font-size:16px"></i>Search titles, people, tags</div>
-<span style="height:38px;padding:0 12px;display:flex;align-items:center;gap:6px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-divider);font-size:13px"><i class="ph ph-sort-descending"></i>Recent</span>
+<main class="hscroll" style="overflow-y:auto;padding:20px 22px 24px">
+<div style="display:flex;flex-direction:column;gap:12px">
+<label style="height:40px;padding:0 4px 0 14px;display:flex;align-items:center;gap:10px;border-radius:999px;background:var(--color-surface);box-shadow:{{ th.searchRing }}"><i class="ph ph-magnifying-glass" style="font-size:17px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"></i><input aria-label="Search" value="{{ th.q }}" onInput="{{ th.setQ }}" placeholder="Search videos, tags, performers…" style="flex:1;min-width:0;border:0;outline:none;background:transparent;color:var(--color-text);font:400 14.5px var(--font-body)"><sc-if value="{{ th.hasQ }}"><button onClick="{{ th.clearQ }}" aria-label="Clear search" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:34px;height:34px;border-radius:50%;color:color-mix(in srgb,var(--color-text) 60%,transparent);display:grid;place-items:center;font-size:14px"><i class="ph ph-x"></i></button></sc-if></label>
+<div style="display:flex;align-items:flex-end;gap:12px">
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px">
+<div style="display:flex;align-items:center;gap:8px;min-width:0"><sc-if value="{{ th.saved }}"><i class="ph-fill ph-bookmarks-simple" style="flex:none;font-size:19px;color:var(--color-accent-300)"></i></sc-if><span style="font:500 26px/1.2 var(--font-body);letter-spacing:-.015em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ th.title }}</span></div>
+<div style="display:flex;align-items:center;gap:6px;font:400 12.5px var(--font-body);font-variant-numeric:tabular-nums;color:color-mix(in srgb,var(--color-text) 55%,transparent)"><sc-if value="{{ th.edited }}"><span style="font-size:11px;line-height:17px;padding:0 6px;border-radius:5px;background:var(--color-accent-800);color:var(--color-accent-100)">Edited</span></sc-if><span>{{ th.count }}</span></div>
 </div>
-<div style="display:flex;gap:6px;padding:14px 0 16px">
-<span style="height:30px;padding:0 12px;display:flex;align-items:center;border-radius:999px;font-size:12.5px;background:var(--color-accent-800);color:var(--color-accent-100)">All videos</span>
-<span style="height:30px;padding:0 12px;display:flex;align-items:center;border-radius:999px;font-size:12.5px;box-shadow:inset 0 0 0 1px var(--color-divider)">Unwatched</span>
-<span style="height:30px;padding:0 12px;display:flex;align-items:center;border-radius:999px;font-size:12.5px;box-shadow:inset 0 0 0 1px var(--color-divider)">4K</span>
-<span style="height:30px;padding:0 12px;display:flex;align-items:center;border-radius:999px;font-size:12.5px;box-shadow:inset 0 0 0 1px var(--color-divider)">Drone</span>
-<span style="height:30px;padding:0 12px;display:flex;align-items:center;border-radius:999px;font-size:12.5px;box-shadow:inset 0 0 0 1px var(--color-divider)">Archive</span>
+<sc-if value="{{ th.canSave }}"><button onClick="{{ th.save }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;height:36px;padding:0 14px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent-200);font:500 13px var(--font-body)" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">{{ th.saveLabel }}</button></sc-if>
 </div>
-<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px 14px">
+<div style="display:flex;align-items:center;gap:4px">
+<button aria-label="{{ th.filterLabel }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;height:36px;padding:0 10px 0 11px;display:flex;align-items:center;gap:6px;border-radius:999px;font:500 13.5px var(--font-body);color:{{ th.btnInk }};background:{{ th.btnBg }};box-shadow:{{ th.btnRing }}"><i class="ph ph-funnel-simple" style="font-size:17px"></i>Filter<sc-if value="{{ th.any }}"><span style="min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:999px;display:grid;place-items:center;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;background:var(--color-accent-800);color:var(--color-accent-100)">{{ th.badge }}</span></sc-if></button>
+<span style="flex:1"></span>
+<button aria-label="Sort: added, newest first" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;height:36px;padding:0 8px;display:flex;align-items:center;gap:6px;font-size:13px;color:color-mix(in srgb,var(--color-text) 75%,transparent)"><i class="ph ph-sort-descending" style="font-size:16px"></i>Added</button>
+<button aria-label="Shuffle" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;width:36px;height:36px;display:grid;place-items:center;font-size:17px;color:color-mix(in srgb,var(--color-text) 75%,transparent)"><i class="ph ph-shuffle"></i></button>
+<button aria-label="Play all" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);flex:none;width:36px;height:36px;margin-right:4px;border-radius:50%;box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent-200);display:grid;place-items:center;font-size:14px" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)"><i class="ph-fill ph-play"></i></button>
+<span style="flex:none;display:flex;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden"><sc-for list="{{ th.views }}" as="o" hint-placeholder-count="3"><button onClick="{{ o.pick }}" aria-label="{{ o.label }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:32px;height:32px;display:grid;place-items:center;font-size:16px;border-radius:var(--radius-md);color:{{ o.ink }};box-shadow:{{ o.ring }}"><i class="{{ o.icon }}"></i></button></sc-for></span>
+</div>
+</div>
+<sc-if value="{{ th.isGrid }}"><div style="display:grid;grid-template-columns:repeat({{ th.cols }},minmax(0,1fr));gap:{{ th.gap }};margin-top:14px">
 <sc-for list="{{ vids }}" as="v" hint-placeholder-count="12">
-<div onClick="{{ v.select }}" style="display:flex;flex-direction:column;gap:7px;cursor:pointer;min-width:0">
-<div style="position:relative;aspect-ratio:16/9;border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface);box-shadow:{{ v.selRing }}"><img src="{{ v.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /><span style="position:absolute;right:5px;bottom:5px;font-size:10.5px;font-weight:500;padding:1px 5px;border-radius:4px;background:rgba(10,11,18,.72);color:#e9e9ed">{{ v.dur }}</span><sc-if value="{{ v.hasProg }}"><div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(233,233,237,.22)"><div style="height:100%;width:{{ v.progPct }};background:var(--color-accent);box-shadow:0 0 8px var(--color-accent)"></div></div></sc-if></div>
-<div style="display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ v.selInk }}">{{ v.title }}</span><span style="font-size:11.5px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">{{ v.src }}</span></div>
+<div style="display:flex;flex-direction:column;gap:6px;min-width:0;cursor:pointer" onClick="{{ v.select }}">
+<div style="position:relative;aspect-ratio:16/9;border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface);box-shadow:{{ v.selRing }}"><img src="{{ v.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /><sc-if value="{{ v.fav }}"><span style="position:absolute;right:5px;top:5px;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;background:rgba(10,11,18,.6);color:#d2cefd"><i class="ph-fill ph-heart"></i></span></sc-if><span style="position:absolute;right:5px;bottom:5px;font-size:10.5px;font-weight:500;font-variant-numeric:tabular-nums;padding:1px 5px;border-radius:4px;background:rgba(10,11,18,.72);color:#e9e9ed">{{ v.badge }}</span><sc-if value="{{ v.hasProg }}"><div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(233,233,237,.22)"><div style="height:100%;width:{{ v.progPct }};background:var(--color-accent);box-shadow:0 0 6px var(--color-accent)"></div></div></sc-if></div>
+<div style="display:flex;flex-direction:column;gap:1px;min-width:0"><span style="font-size:13.5px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:{{ v.selInk }}">{{ v.title }}</span><span style="font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:color-mix(in srgb,var(--color-text) 50%,transparent)">{{ v.src }}</span></div>
 </div>
 </sc-for>
+</div></sc-if>
+<sc-if value="{{ th.isList }}"><div style="display:flex;flex-direction:column;gap:28px;padding:4px 0 0">
+<sc-for list="{{ th.cards }}" as="v" hint-placeholder-count="4">
+<div style="display:flex;flex-direction:column;gap:10px">
+<div style="position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;background:var(--color-surface)"><img src="{{ v.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /><sc-if value="{{ v.rated }}"><span style="position:absolute;left:8px;top:8px;height:22px;padding:0 7px;display:flex;align-items:center;gap:4px;border-radius:5px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(10,11,18,.66);color:#e9e9ed"><i class="ph-fill ph-star" style="font-size:11px;color:#d2cefd"></i>{{ v.stars }}</span></sc-if><span style="position:absolute;right:8px;bottom:8px;font-size:11.5px;font-weight:500;font-variant-numeric:tabular-nums;padding:2px 7px;border-radius:5px;background:rgba(10,11,18,.72);color:#e9e9ed">{{ v.badge }}</span><sc-if value="{{ v.hasProg }}"><div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(233,233,237,.25)"><div style="height:100%;width:{{ v.progPct }};background:var(--color-accent);box-shadow:0 0 8px var(--color-accent)"></div></div></sc-if></div>
+<div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start">
+<div style="display:flex;flex-direction:column;gap:3px;min-width:0"><span style="font-size:17px;font-weight:500">{{ v.title }}</span><span style="font-size:12.5px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ v.meta }}</span></div>
+<span style="flex:none;display:flex;gap:4px">
+<button onClick="{{ v.toggleLater }}" aria-label="Save for later" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:20px;color:{{ v.laterInk }};box-shadow:{{ v.laterRing }}"><i class="{{ v.laterIcon }}"></i></button>
+<button onClick="{{ v.toggleFav }}" aria-label="Favorite" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:20px;color:{{ v.favInk }};box-shadow:{{ v.favRing }}"><i class="{{ v.favIcon }}"></i></button>
+</span>
 </div>
+<div style="display:flex;flex-wrap:wrap;gap:6px">
+<sc-for list="{{ v.people }}" as="q"><button onClick="{{ q.add }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);height:28px;padding:0 10px 0 3px;display:flex;align-items:center;gap:6px;border-radius:999px;font:12px var(--font-body);background:var(--color-surface);color:var(--color-text);box-shadow:inset 0 0 0 1px var(--color-divider)"><span style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:10px;background:var(--color-accent-700);color:var(--color-accent-100)">{{ q.ini }}</span>{{ q.name }}</button></sc-for>
+<sc-for list="{{ v.tags }}" as="t"><button onClick="{{ t.add }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);height:28px;padding:0 10px;display:flex;align-items:center;border-radius:6px;font:12px var(--font-body);background:var(--color-surface);color:var(--color-text);box-shadow:inset 0 0 0 1px var(--color-divider)">{{ t.name }}</button></sc-for>
+</div>
+<sc-if value="{{ v.hasGroup }}"><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"><i class="ph ph-stack" style="font-size:14px;color:var(--color-accent-300)"></i>{{ v.group }}</span></sc-if>
+</div>
+</sc-for>
+</div></sc-if>
+
 </main>
 <aside class="hscroll" style="overflow-y:auto;padding:20px 20px 24px;background:color-mix(in srgb,var(--color-surface) 70%,var(--color-bg));display:flex;flex-direction:column;gap:14px">
-<div style="position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;flex:none"><img src="{{ sel.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /><span style="position:absolute;inset:0;display:grid;place-items:center"><span style="width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:rgba(14,15,24,.5);backdrop-filter:blur(8px);color:#e9e9ed;box-shadow:0 0 0 1px rgba(233,233,237,.3)"><i class="ph-fill ph-play"></i></span></span>
-<div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(233,233,237,.2)"><sc-for list="{{ markers }}" as="m"><div style="position:absolute;left:{{ m.left }};top:0;width:2px;height:3px;background:var(--color-accent-200)"></div></sc-for></div></div>
-<div><h3 style="font-size:21px;margin:0 0 4px">{{ sel.title }}</h3><div style="font-size:12.5px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ sel.src }} · {{ sel.res }} · {{ sel.dur }}</div></div>
+<div style="position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;flex:none"><img src="{{ sel.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /><sc-if value="{{ sel.rated }}"><span style="position:absolute;left:8px;top:8px;height:22px;padding:0 7px;display:flex;align-items:center;gap:4px;border-radius:5px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(10,11,18,.66);color:#e9e9ed"><i class="ph-fill ph-star" style="font-size:11px;color:#d2cefd"></i>{{ sel.stars }}</span></sc-if><span style="position:absolute;inset:0;display:grid;place-items:center"><span style="width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:rgba(14,15,24,.5);backdrop-filter:blur(8px);color:#e9e9ed;box-shadow:0 0 0 1px rgba(233,233,237,.3)"><i class="ph-fill ph-play"></i></span></span><span style="position:absolute;right:8px;bottom:9px;font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;padding:1px 6px;border-radius:4px;background:rgba(10,11,18,.72);color:#e9e9ed">{{ sel.badge }}</span>
+<div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(233,233,237,.2)"><sc-if value="{{ sel.hasProg }}"><div style="height:100%;width:{{ sel.progPct }};background:#9184d9;box-shadow:0 0 8px #9184d9"></div></sc-if><sc-for list="{{ markers }}" as="m"><div style="position:absolute;left:{{ m.left }};top:-3px;width:2px;height:9px;border-radius:1px;background:#d2cefd"></div></sc-for></div></div>
+<div><h3 style="font-size:21px;margin:0 0 4px">{{ sel.title }}</h3><div style="font-size:12.5px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ sel.meta }}</div></div>
 <div style="display:flex;gap:8px">
-<button style="flex:1;height:44px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent);font:500 14px var(--font-body);display:flex;align-items:center;justify-content:center;gap:8px" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)"><i class="ph-fill ph-play"></i>{{ sel.playLabel }}</button>
-<button style="width:44px;height:44px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font-size:18px;display:grid;place-items:center"><i class="ph ph-bookmark-simple"></i></button>
+<button style="flex:1;height:44px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)"><i class="ph-fill ph-play"></i>{{ sel.playLabel }}</button>
+<button aria-label="Save for later" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:44px;height:44px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-divider);color:var(--color-text);font-size:19px;display:grid;place-items:center"><i class="ph ph-bookmark-simple"></i></button>
+<button aria-label="Favorite" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:44px;height:44px;border-radius:var(--radius-md);box-shadow:{{ sel.favRing }};color:{{ sel.favInk }};font-size:19px;display:grid;place-items:center"><i class="{{ sel.favIcon }}"></i></button>
 </div>
 <div style="height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 48px,var(--color-divider) calc(100% - 48px),transparent)"></div>
 <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--color-text) 50%,transparent)">Moments</div>
@@ -1690,9 +1722,10 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </div>
 <div style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--color-text) 50%,transparent);margin-top:4px">People &amp; tags</div>
 <div style="display:flex;flex-wrap:wrap;gap:6px">
-<sc-for list="{{ sel.people }}" as="p"><span style="height:28px;padding:0 10px 0 3px;display:flex;align-items:center;gap:6px;border-radius:999px;font-size:12.5px;box-shadow:inset 0 0 0 1px var(--color-divider)"><span style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:10px;background:var(--color-accent-800);color:var(--color-accent-100)">{{ p.ini }}</span>{{ p.name }}</span></sc-for>
-<sc-for list="{{ sel.tags }}" as="t"><span style="height:28px;padding:0 10px;display:flex;align-items:center;border-radius:6px;font-size:12px;background:var(--color-neutral-800);color:var(--color-neutral-100)">{{ t }}</span></sc-for>
+<sc-for list="{{ sel.people }}" as="p"><button style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);height:28px;padding:0 10px 0 3px;display:flex;align-items:center;gap:6px;border-radius:999px;font-size:12.5px;color:var(--color-text);box-shadow:inset 0 0 0 1px var(--color-divider)"><span style="width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:10px;background:var(--color-accent-700);color:var(--color-accent-100)">{{ p.ini }}</span>{{ p.name }}</button></sc-for>
+<sc-for list="{{ sel.tags }}" as="t"><button style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);height:28px;padding:0 10px;display:flex;align-items:center;border-radius:6px;font-size:12px;color:var(--color-text);box-shadow:inset 0 0 0 1px var(--color-divider)">{{ t }}</button></sc-for>
 </div>
+<sc-if value="{{ sel.hasGroup }}"><span style="display:flex;align-items:center;gap:6px;font-size:12.5px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"><i class="ph ph-stack" style="font-size:14px;color:var(--color-accent-300)"></i>{{ sel.group }}</span></sc-if>
 </aside>
 </div></div></div>
 </div>
@@ -1755,7 +1788,7 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </div></div>
 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
 <div><div style="font-size:22px;font-weight:500">{{ f.title }}</div><div style="font-size:13px;margin-top:2px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ f.src }} · {{ f.res }}</div></div>
-<div style="display:flex;gap:8px"><span style="height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-divider);font-size:13px"><i class="ph ph-bookmark-simple"></i>Later</span><span style="height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent);font-size:13px"><i class="ph ph-arrow-square-out"></i>Open</span></div>
+<div style="display:flex;gap:8px"><span style="height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-divider);font-size:13px"><i class="ph ph-bookmark-simple"></i>Save for later</span><span style="height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent);font-size:13px"><i class="ph ph-arrow-square-out"></i>Open</span></div>
 </div>
 <div style="display:flex;gap:6px"><sc-for list="{{ f.tags }}" as="t"><span style="font-size:12px;padding:3px 10px;border-radius:6px;background:var(--color-accent-800);color:var(--color-accent-100)">{{ t }}</span></sc-for></div>
 </div>
@@ -1857,11 +1890,11 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </div>
 </div></div></div>
 
-<div class="dv-opt" id="1m"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#1m">1m</a>Tablet player: video plus a side panel with Moments, Up next and Details tabs (tabs work). The current moment is highlighted as playback moves.</div>
+<div class="dv-opt" id="1m"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#1m">1m</a>Tablet player: the video with the controls of 1k / 1l (the speed pill; no captions), Save for later, Favorite and Start over under it, and a side panel: Moments (the current one highlighted as playback moves; tap to seek), Up next (the Library's order, with Autoplay) and Details (Cove's fields). Tabs work.</div>
 <div style="width:1208px;padding:14px;border-radius:40px;background:#08090e;box-shadow:0 0 0 1px var(--color-neutral-800),0 30px 60px rgba(0,0,0,.5)">
 <div style="position:relative;width:1180px;height:820px;border-radius:26px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:minmax(0,1fr) 360px">
 <div class="hscroll" style="overflow-y:auto;padding:22px 24px">
-<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><span style="width:40px;height:40px;display:grid;place-items:center;font-size:20px;border-radius:10px;color:var(--color-text);box-shadow:inset 0 0 0 1px var(--color-divider)"><i class="ph ph-caret-left"></i></span>Library<i class="ph ph-caret-right" style="font-size:11px"></i>Drone</div>
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;font-size:13px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><span style="width:40px;height:40px;display:grid;place-items:center;font-size:20px;border-radius:10px;color:var(--color-text);box-shadow:inset 0 0 0 1px var(--color-divider)"><i class="ph ph-caret-left"></i></span>Library<i class="ph ph-caret-right" style="font-size:11px"></i>Northern evenings</div>
 <div onClick="{{ toggleChrome }}" style="position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;background:#0a0b12;color:#e9e9ed;cursor:pointer;box-shadow:var(--shadow-md)">
 <img src="{{ player.wide }}" style="width:100%;height:100%;object-fit:cover;display:block" />
 <div style="position:absolute;inset:0;opacity:{{ chromeOp }};transition:opacity .25s;background:linear-gradient(to bottom,rgba(10,11,18,.4),transparent 25%,transparent 65%,rgba(10,11,18,.8))">
@@ -1876,13 +1909,13 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 <sc-if value="{{ showMarkers }}"><sc-for list="{{ markers }}" as="m"><div style="position:absolute;left:{{ m.left }};top:-3px;width:3px;height:10px;border-radius:2px;background:#d2cefd"></div></sc-for></sc-if>
 <div style="position:absolute;left:{{ curPct }};top:50%;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:#e7e5fe;box-shadow:0 0 12px #9184d9"></div>
 </div>
-<div style="display:flex;align-items:center;gap:16px;font-size:12.5px;font-variant-numeric:tabular-nums"><span>{{ cur }} <span style="opacity:.6">/ {{ player.dur }}</span></span><span style="opacity:.75">· {{ curMarker }}</span><span style="flex:1"></span><i class="ph ph-speaker-high" style="font-size:20px"></i><i class="ph ph-closed-captioning" style="font-size:20px"></i><span style="font-size:13px">1×</span><i class="ph ph-picture-in-picture" style="font-size:20px"></i><i class="ph ph-corners-out" style="font-size:20px"></i></div>
+<div style="display:flex;align-items:center;gap:16px;font-size:12.5px;font-variant-numeric:tabular-nums"><span>{{ cur }} <span style="opacity:.6">/ {{ player.dur }}</span></span><span style="opacity:.75">· {{ curMarker }}</span><span style="flex:1"></span><i class="ph ph-speaker-high" style="font-size:20px"></i><span style="height:28px;padding:0 9px;display:flex;align-items:center;border-radius:6px;font-size:12.5px;box-shadow:inset 0 0 0 1px rgba(233,233,237,.35)">1×</span><i class="ph ph-picture-in-picture" style="font-size:20px"></i><i class="ph ph-corners-out" style="font-size:20px"></i></div>
 </div>
 </div>
 </div>
 <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:20px;padding:18px 2px 0">
-<div><h3 style="font-size:24px;margin:0 0 4px">{{ player.title }}</h3><div style="font-size:13px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ player.src }} · {{ player.res }} · {{ player.dur }} · added {{ player.added }} ago</div></div>
-<div style="display:flex;gap:8px;flex:none"><span style="height:42px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent);font-size:13.5px"><i class="ph-fill ph-bookmark-simple"></i>Watch later</span><span style="width:42px;height:42px;display:grid;place-items:center;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-divider);font-size:18px"><i class="ph ph-dots-three"></i></span></div>
+<div><h3 style="font-size:24px;margin:0 0 4px">{{ player.title }}</h3><div style="font-size:13px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ player.src }} · {{ player.res }} · {{ player.dateLabel }} · watched {{ player.plays }}× · <span style="color:var(--color-accent-300)">★ 4.5</span></div></div>
+<div style="display:flex;gap:8px;flex:none"><span style="height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:999px;font-size:13px;box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent)"><i class="ph-fill ph-bookmark-simple"></i>Saved for later</span><span style="height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:999px;font-size:13px;box-shadow:inset 0 0 0 1px var(--color-accent);color:var(--color-accent)"><i class="ph-fill ph-heart"></i>Favorite</span><span style="height:40px;padding:0 14px;display:flex;align-items:center;gap:6px;border-radius:999px;font-size:13px;box-shadow:inset 0 0 0 1px var(--color-divider);color:var(--color-text)"><i class="ph ph-arrow-counter-clockwise"></i>Start over</span></div>
 </div>
 <div style="display:flex;flex-wrap:wrap;gap:6px;padding:14px 2px 0">
 <sc-for list="{{ cast }}" as="p"><span style="height:30px;padding:0 12px 0 3px;display:flex;align-items:center;gap:7px;border-radius:999px;font-size:13px;box-shadow:inset 0 0 0 1px var(--color-divider)"><span style="width:24px;height:24px;border-radius:50%;display:grid;place-items:center;font-size:10.5px;background:var(--color-accent-800);color:var(--color-accent-100)">{{ p.ini }}</span>{{ p.name }}</span></sc-for>
@@ -1900,12 +1933,13 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </sc-for>
 </sc-if>
 <sc-if value="{{ tabNext }}">
+<div style="display:flex;align-items:center;justify-content:space-between;padding:4px 8px 10px"><span style="font-size:12.5px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">The Library's order, after this video</span><span style="display:flex;align-items:center;gap:8px;font-size:12px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Autoplay<span style="width:32px;height:20px;border-radius:999px;background:color-mix(in srgb,var(--color-accent) 30%,transparent);box-shadow:inset 0 0 0 1px var(--color-accent);position:relative"><span style="position:absolute;right:3px;top:3px;width:14px;height:14px;border-radius:50%;background:var(--color-accent-200)"></span></span></span></div>
 <sc-for list="{{ queue }}" as="v"><div style="display:flex;gap:12px;align-items:center;padding:8px;border-radius:var(--radius-md)" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><div style="position:relative;width:120px;flex:none;aspect-ratio:16/9;border-radius:6px;overflow:hidden"><img src="{{ v.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /><span style="position:absolute;right:4px;bottom:4px;font-size:10px;font-weight:500;padding:0 4px;border-radius:3px;background:rgba(10,11,18,.72);color:#e9e9ed">{{ v.dur }}</span></div><div style="min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:14px;font-weight:500">{{ v.title }}</span><span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ v.src }}</span></div></div></sc-for>
 </sc-if>
 <sc-if value="{{ tabDetails }}">
 <div style="display:flex;flex-direction:column;gap:14px;padding:8px;font-size:13.5px">
 <p style="margin:0;line-height:1.6;color:color-mix(in srgb,var(--color-text) 80%,transparent)">Sunrise flight along Nærøyfjord, shot in one continuous battery from the harbor to the village at the far end.</p>
-<div style="display:grid;grid-template-columns:96px 1fr;gap:8px 12px;font-size:13px"><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Group</span><span>Northern Trips · part 3</span><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Studio</span><span>Field Recordings</span><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">File</span><span>3840×2160 · HEVC · 6.2 GB</span><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Watched</span><span>3 times · last Friday</span></div>
+<div style="display:grid;grid-template-columns:96px 1fr;gap:8px 12px;font-size:13px"><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Rating</span><span>★ 4.5</span><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Date</span><span>Jun 12, 2024</span><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Studio</span><span>Drone · Norway</span><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Group</span><span>Northern Trips · part 3</span><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">Watched</span><span>3 times · last Friday · resumes at 14:22</span><span style="color:color-mix(in srgb,var(--color-text) 50%,transparent)">File</span><span>3840×2160 · HEVC · 6.2 GB</span></div>
 </div>
 </sc-if>
 </div>
@@ -1959,7 +1993,9 @@ class Component extends DCLogic {
     ue: { conds: [], saved: null, edited: false, view: 3, q: '', sheet: 'account' },
     la: { conds: [], saved: null, edited: false, view: 3, q: '', sheet: null },
     lb: { conds: ['tag:Drone', 'grp', 'nArchive'], saved: 'Northern evenings', edited: true, view: 2, q: '', sheet: null },
-    lc: { conds: [], saved: null, edited: false, view: 'list', q: 'drone', sheet: null }
+    lc: { conds: [], saved: null, edited: false, view: 'list', q: 'drone', sheet: null },
+    th: { conds: ['tag:Drone', 'added', 'grp', 'nArchive'], saved: 'Northern evenings', edited: false, view: 3, q: '', sheet: null },
+    td: { conds: ['tag:Drone', 'added', 'grp', 'nArchive', 'unw'], saved: 'Northern evenings', edited: true, view: 3, q: '', sheet: null }
   }, marks: {} };
   componentDidMount() {
     if (this.props.startPlaying === false) this.setState({ playing: false });
@@ -2027,7 +2063,11 @@ class Component extends DCLogic {
         bg: s.homeTab === i ? 'color-mix(in srgb,var(--color-accent) 12%,transparent)' : 'transparent' })),
       homeGrid: order.map(i => vids[i]),
       groups: [g('Northern Trips', '14 videos', 0, 9, 10), g('Archive Reels', '38 videos', 11, 3, 6), g('Timelapses', '22 videos', 2, 9, 7)],
-      sel: { ...sel, playLabel: sel.hasProg ? 'Resume · ' + sel.left : 'Play' },
+      sel: { ...sel, playLabel: sel.hasProg ? 'Resume · ' + sel.left : 'Play',
+        rated: sel.rating > 0, stars: (Math.round(sel.rating / 10) / 2).toFixed(1), hasGroup: !!sel.group,
+        meta: sel.src + ' · ' + sel.dateLabel + ' · ' + (sel.plays ? 'watched\u00a0' + sel.plays + '×' : 'unwatched'),
+        favIcon: (sel.fav ? 'ph-fill' : 'ph') + ' ph-heart', favInk: sel.fav ? 'var(--color-accent)' : 'var(--color-text)',
+        favRing: sel.fav ? 'inset 0 0 0 1px var(--color-accent)' : 'inset 0 0 0 1px var(--color-divider)' },
       sideMain: [sideItem('Home', 'ph-house'), sideItem('Library', 'ph-squares-four', true), sideItem('Feed', 'ph-film-strip'), sideItem('Search', 'ph-magnifying-glass')],
       sideWatch: [{ label: 'Continue watching', icon: 'ph ph-play-circle' }, { label: 'Watch later', icon: 'ph ph-bookmark-simple' }, { label: 'History', icon: 'ph ph-clock-counter-clockwise' }],
       feed: [7, 9, 4, 1].map((i, k) => ({ ...vids[i], p: fp[k] })),
@@ -2109,7 +2149,36 @@ class Component extends DCLogic {
         cards
       };
     };
-    return { lf: bar('lf', [0, 1, 4, 9, 5, 3]), lg: bar('lg', [0, 7, 10, 9]), ua: bar('ua', [0, 1, 4]), ub: bar('ub', [0, 7, 10]),
+    // Tablet (1h, 2d): the sidebar does the Show sheet's job, and the toolbar lists the conditions as chips.
+    const WORDS = { unw: 'Unwatched', prog: 'In progress', '4k': '4K and up', added: 'added in the last year', short: 'under 10 min', inTl: 'in Timelapses', grp: 'any of 2', nArchive: 'Archive' };
+    const TINT = { in: ['var(--color-accent-800)', 'var(--color-accent-100)'], ex: ['var(--color-neutral-800)', 'var(--color-neutral-300)'],
+      group: ['color-mix(in srgb,var(--color-accent) 14%,transparent)', 'var(--color-accent-200)'] };
+    const kind = k => k === 'grp' ? 'group' : k === 'nArchive' ? 'ex' : 'in';
+    const word = k => k.startsWith('tag:') ? 'tagged ' + k.slice(4) : k.startsWith('per:') ? 'with ' + k.slice(4) : WORDS[k];
+    const tablet = p => {
+      const b = bar(p, [0, 7, 10, 9]);
+      const st = s.lib[p];
+      const set = patch => this.setState(x => ({ lib: { ...x.lib, [p]: { ...x.lib[p], ...patch } } }));
+      const on = x => ({ ink: x ? 'var(--color-accent)' : 'color-mix(in srgb,var(--color-text) 78%,transparent)', bg: x ? 'color-mix(in srgb,var(--color-accent) 13%,transparent)' : 'transparent' });
+      const quick = list => !st.saved && list.join() === st.conds.join();
+      return { ...b,
+        chips: st.conds.map(k => ({ label: word(k), icon: k === 'grp' ? 'ph ph-brackets-curly' : k === 'nArchive' ? 'ph ph-minus' : '', group: kind(k) === 'group',
+          bg: TINT[kind(k)][0], ink: TINT[kind(k)][1], deco: kind(k) === 'ex' ? 'line-through' : 'none',
+          remove: () => set(st.conds.length > 1 ? { conds: st.conds.filter(x => x !== k), edited: true } : { conds: [], saved: null, edited: false }) })),
+        clear: () => set({ conds: [], saved: null, edited: false, q: '' }),
+        sideMain: [['Home', 'ph-house'], ['Library', 'ph-squares-four'], ['Feed', 'ph-film-strip'], ['Search', 'ph-magnifying-glass']].map(([label, icon]) => {
+          const all = label === 'Library' && !st.saved && !st.conds.length && !st.q.trim();
+          return { label, icon: (label === 'Library' ? 'ph-fill ' : 'ph ') + icon, meta: label === 'Library' ? '4,812' : '',
+            pick: () => label === 'Library' && set({ conds: [], saved: null, edited: false, q: '' }),
+            ...(label === 'Library' ? { ink: 'var(--color-accent)', bg: all ? 'color-mix(in srgb,var(--color-accent) 13%,transparent)' : 'transparent' } : on(false)) };
+        }),
+        sideWatch: [['Continue watching', 'ph ph-play-circle', ['prog']], ['Unwatched', 'ph ph-eye-slash', ['unw']], ['Save for later', 'ph ph-bookmark-simple', null], ['History', 'ph ph-clock-counter-clockwise', null]]
+          .map(([label, icon, list]) => ({ label, icon, ...on(!!list && quick(list)), pick: () => list && set({ conds: list, saved: null, edited: false }) })),
+        sideSaved: SAVED.map(([name, list, count, v]) => ({ label: name, icon: (st.saved === name ? 'ph-fill' : 'ph') + ' ph-bookmarks-simple', meta: fmtN(count), ...on(st.saved === name),
+          pick: () => set({ conds: list, saved: name, edited: false, view: v, q: '' }) })),
+        canSaveNew: !!(st.conds.length || st.q.trim()) };
+    };
+    return { th: tablet('th'), td: tablet('td'), lf: bar('lf', [0, 1, 4, 9, 5, 3]), lg: bar('lg', [0, 7, 10, 9]), ua: bar('ua', [0, 1, 4]), ub: bar('ub', [0, 7, 10]),
       uc: bar('uc', [0, 7, 10]), ud: bar('ud', [0, 1, 4]), ue: bar('ue', [0, 1, 4]),
       la: bar('la', [0, 1, 4]), lb: bar('lb', [0, 7, 10]), lc: bar('lc', [0, 7, 10, 9]) };
   }

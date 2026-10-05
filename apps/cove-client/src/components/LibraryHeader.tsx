@@ -1,23 +1,8 @@
-import {
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { fonts, nocturne as n } from '../filter/theme';
 import { Icon, type IconName } from './Icon';
 
 export type LibraryView = 'grid2' | 'grid3' | 'list';
-
-/** A condition of the filter as a chip (wide screens only). */
-export interface FilterChip {
-  id: string;
-  label: string;
-  // An include, an exclude (struck through), a subgroup (a token), or what the app can't show
-  kind: 'in' | 'ex' | 'group' | 'more';
-}
 
 const VIEWS: { view: LibraryView; icon: IconName; label: string }[] = [
   { view: 'grid2', icon: 'squares-four', label: '2 columns' },
@@ -29,8 +14,9 @@ const VIEWS: { view: LibraryView; icon: IconName; label: string }[] = [
  * The Library's header (design turn 6), the same over all three views. Each control has one place: the search field
  * (Cove's search) and the avatar (the account) on top; the title, which says what is shown and opens the Show sheet,
  * with the count line under it and Save / Save as… when there is something to save; then the toolbar: Filter with its
- * count, the sort, Shuffle, Play all and the view switch. A phone lists no conditions (the editor does); a large
- * screen shows them as chips on the toolbar. A phone held sideways (compact, design 6f–6h) gets all of it in one row.
+ * count, the sort, Shuffle, Play all and the view switch. No screen lists the filter's conditions (only the editor
+ * does). A phone held sideways (compact, design 6f–6h) gets all of it in one row; on a large screen (large, 1h) the
+ * sidebar holds the account and the saved filters, so there is no avatar and the title picks nothing.
  */
 export function LibraryHeader({
   query,
@@ -52,10 +38,8 @@ export function LibraryHeader({
   onPlayAll,
   view,
   onView,
-  chips,
-  onOpenChip,
-  onRemoveChip,
   compact,
+  large,
 }: {
   query: string;
   onQuery: (q: string) => void;
@@ -78,12 +62,10 @@ export function LibraryHeader({
   onPlayAll: () => void;
   view: LibraryView;
   onView: (view: LibraryView) => void;
-  // Wide screens only
-  chips: FilterChip[] | null;
-  onOpenChip: (id: string) => void;
-  onRemoveChip: (id: string) => void;
   // A phone held sideways: one row
   compact: boolean;
+  // A large screen (tablet, desktop): the sidebar has the account and the saved filters
+  large: boolean;
 }) {
   const active = filterCount > 0;
   if (compact)
@@ -275,22 +257,25 @@ export function LibraryHeader({
             </Pressable>
           ) : null}
         </View>
-        <Pressable
-          onPress={onOpenAccount}
-          accessibilityLabel="Account"
-          style={styles.avatarButton}
-        >
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{avatar}</Text>
-          </View>
-        </Pressable>
+        {large ? null : (
+          <Pressable
+            onPress={onOpenAccount}
+            accessibilityLabel="Account"
+            style={styles.avatarButton}
+          >
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{avatar}</Text>
+            </View>
+          </Pressable>
+        )}
       </View>
 
       <View style={styles.titleRow}>
         <Pressable
-          onPress={onOpenShow}
-          accessibilityRole="button"
-          accessibilityLabel={`Show: ${title}`}
+          onPress={large ? undefined : onOpenShow}
+          disabled={large}
+          accessibilityRole={large ? 'header' : 'button'}
+          accessibilityLabel={large ? title : `Show: ${title}`}
           style={({ pressed }) => [
             styles.titleButton,
             pressed && styles.pressedBg,
@@ -305,10 +290,15 @@ export function LibraryHeader({
                 color={n.accent300}
               />
             ) : null}
-            <Text style={styles.title} numberOfLines={1}>
+            <Text
+              style={[styles.title, large && styles.titleLarge]}
+              numberOfLines={1}
+            >
               {title}
             </Text>
-            <Icon name="caret-down" size={14} color={n.textAlpha(55)} />
+            {large ? null : (
+              <Icon name="caret-down" size={14} color={n.textAlpha(55)} />
+            )}
           </View>
           <View style={styles.countLine}>
             {edited ? <Text style={styles.edited}>Edited</Text> : null}
@@ -367,25 +357,7 @@ export function LibraryHeader({
             color={shuffled ? n.accent : n.textAlpha(75)}
           />
         </Pressable>
-        {chips ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={styles.chipScroll}
-            contentContainerStyle={styles.chips}
-          >
-            {chips.map((c) => (
-              <Chip
-                key={c.id}
-                chip={c}
-                onOpen={() => onOpenChip(c.id)}
-                onRemove={() => onRemoveChip(c.id)}
-              />
-            ))}
-          </ScrollView>
-        ) : (
-          <View style={styles.spacer} />
-        )}
+        <View style={styles.spacer} />
         <Pressable
           onPress={onPlayAll}
           accessibilityLabel="Play all"
@@ -414,61 +386,6 @@ export function LibraryHeader({
     </View>
   );
 }
-
-function Chip({
-  chip,
-  onOpen,
-  onRemove,
-}: {
-  chip: FilterChip;
-  onOpen: () => void;
-  onRemove: () => void;
-}) {
-  const look = CHIP_LOOK[chip.kind];
-  return (
-    <Pressable
-      onPress={onOpen}
-      style={[styles.chip, { backgroundColor: look.bg }]}
-    >
-      {chip.kind === 'ex' ? (
-        <Icon name="minus" size={13} color={look.ink} />
-      ) : chip.kind === 'group' ? (
-        <Icon name="brackets-curly" size={13} color={look.ink} />
-      ) : null}
-      <Text
-        style={[
-          styles.chipText,
-          { color: look.ink },
-          chip.kind === 'ex' && styles.struck,
-        ]}
-      >
-        {chip.label}
-      </Text>
-      {chip.kind === 'group' ? (
-        <Icon name="caret-right" size={10} color={look.ink} />
-      ) : null}
-      {chip.kind === 'more' ? (
-        <View style={styles.chipEnd} />
-      ) : (
-        <Pressable
-          onPress={onRemove}
-          accessibilityLabel={`Remove ${chip.label}`}
-          hitSlop={6}
-          style={styles.chipX}
-        >
-          <Icon name="x" size={12} color={look.ink} />
-        </Pressable>
-      )}
-    </Pressable>
-  );
-}
-
-const CHIP_LOOK: Record<FilterChip['kind'], { bg: string; ink: string }> = {
-  in: { bg: n.accent800, ink: n.accent100 },
-  ex: { bg: n.neutral800, ink: n.neutral300 },
-  group: { bg: n.accentAlpha(14), ink: n.accent200 },
-  more: { bg: 'transparent', ink: n.textAlpha(60) },
-};
 
 const styles = StyleSheet.create({
   // Compact: a phone held sideways, one row
@@ -609,6 +526,7 @@ const styles = StyleSheet.create({
   },
   pressedBg: { backgroundColor: n.textAlpha(6) },
   titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  titleLarge: { fontSize: 26, lineHeight: 32 },
   title: {
     flexShrink: 1,
     color: n.text,

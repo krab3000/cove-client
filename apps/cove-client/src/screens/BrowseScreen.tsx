@@ -28,11 +28,12 @@ import type {
   SavedFilter,
   Video,
 } from '../api/types';
+import { LibraryHeader, type LibraryView } from '../components/LibraryHeader';
 import {
-  LibraryHeader,
-  type FilterChip,
-  type LibraryView,
-} from '../components/LibraryHeader';
+  LibrarySidebar,
+  type SidebarActive,
+} from '../components/LibrarySidebar';
+import { VideoDetail } from '../components/VideoDetail';
 import {
   Sheet,
   SheetHeading,
@@ -41,14 +42,10 @@ import {
   SheetSection,
 } from '../components/Sheet';
 import {
-  GROUP_LABELS,
   appendTo,
-  conditionCount,
-  describeCondition,
   emptyTree,
   fieldById,
   newId,
-  removeNode,
   toWire,
   type Condition,
   type Group,
@@ -107,21 +104,15 @@ const touch = Platform.OS === 'android';
 const UP_NEXT = 20;
 // The search applies once typing pauses this long.
 const SEARCH_DELAY_MS = 400;
-// A large screen (tablet, desktop: the shorter side at least this) lists the filter's conditions as chips on the
-// toolbar; a phone doesn't (the editor does).
+// A large screen (tablet, desktop): the shorter side of the window at least this. It gets the sidebar, the detail pane
+// and the docked filter (design 1h, 2d). No screen lists the filter's conditions; only the editor does.
 const LARGE = 600;
+// A large screen this wide shows the detail pane beside the Library; narrower, the pane slides in over it.
+const WIDE_PANE = 1100;
+// The docked filter (2d) applies to the results once editing pauses this long.
+const DOCKED_APPLY_MS = 500;
 // A phone held sideways: the list view's cards get this narrow, two in a row (one would be taller than the screen).
 const LIST_TARGET_COMPACT = 320;
-
-// Negative conditions show as struck-through chips (without their "not").
-const NEGATIVE = [
-  'excludes',
-  'excludesAll',
-  'notEquals',
-  'notBetween',
-  'notMatchesRegex',
-  'notUnderPath',
-];
 
 const condition = (
   field: string,
@@ -158,22 +149,6 @@ const BUILT_IN: {
   },
 ];
 
-function chipOf(node: Node): FilterChip {
-  if (node.kind === 'group')
-    return {
-      id: node.id,
-      label: `${GROUP_LABELS[node.op].toLowerCase()} ${conditionCount(node)}`,
-      kind: 'group',
-    };
-  const negative =
-    NEGATIVE.includes(node.modifier) ||
-    (fieldById(node.field).type === 'bool' && node.value === false);
-  const label = describeCondition(node);
-  return negative
-    ? { id: node.id, label: label.replace(/^not /, ''), kind: 'ex' }
-    : { id: node.id, label, kind: 'in' };
-}
-
 function formatSize(bytes: number): string {
   if (bytes >= 1e12) return `${(bytes / 1e12).toFixed(1)} TB`;
   if (bytes >= 1e9) return `${Math.round(bytes / 1e9)} GB`;
@@ -195,8 +170,8 @@ export function BrowseScreen({
   previews: previewsAllowed,
 }: {
   client: CoveClient;
-  // The video, and the ones after it in the Library's order (the player's Up next)
-  onPlay: (video: Video, upNext: Video[]) => void;
+  // The video, the ones after it in the Library's order (the player's Up next), and where to start (a moment)
+  onPlay: (video: Video, upNext: Video[], startAt?: number) => void;
   onLogout: () => void;
   // Off while the player is open over the grid.
   previews: boolean;
@@ -239,8 +214,17 @@ export function BrowseScreen({
   // Measured, not useWindowDimensions: that one does not follow window resizes on Windows.
   const [width, setWidth] = useState(1000);
   const [height, setHeight] = useState(800);
-  // A phone held sideways (design 6f–6h): the header in one row, two list cards in a row.
-  const compact = width > height && height < LARGE;
+  // A large screen (design 1h): sidebar, Library, detail pane. A phone held sideways (6f–6h): the header in one row,
+  // two list cards in a row. Both from the window's own size, so split screen, rotation and resizing just work.
+  const large = Math.min(width, height) >= LARGE;
+  const compact = !large && width > height;
+  const paneBeside = large && width >= WIDE_PANE;
+  // The Library column's width (the grid's), measured: on a large screen the sidebar, pane and filter take the rest.
+  const [mainWidth, setMainWidth] = useState(0);
+  const listWidth = mainWidth || width;
+  // The video picked on a large screen (the detail pane), and whether the pane is slid in (narrow large screens).
+  const [selected, setSelected] = useState<Video | null>(null);
+  const [paneOpen, setPaneOpen] = useState(false);
   const spec = useMemo(
     () =>
       view === 'list' && compact
@@ -250,10 +234,12 @@ export function BrowseScreen({
   );
   const columns = Math.max(
     spec.min,
-    Math.floor((width - 2 * spec.padX + spec.gapX) / (spec.target + spec.gapX))
+    Math.floor(
+      (listWidth - 2 * spec.padX + spec.gapX) / (spec.target + spec.gapX)
+    )
   );
   const cardWidth = Math.floor(
-    (width - 2 * spec.padX - spec.gapX * (columns - 1)) / columns
+    (listWidth - 2 * spec.padX - spec.gapX * (columns - 1)) / columns
   );
   const cardHeight =
     view === 'list'
@@ -317,6 +303,7 @@ export function BrowseScreen({
         );
         if (gen !== generation.current) return; // refreshed meanwhile
         pages.current.set(page, result.items);
+        if (page === 0) setSelected((v) => v ?? result.items[0] ?? null);
         setTotal(result.totalCount);
         setError('');
         loadPersonal(result.items);
@@ -563,6 +550,8 @@ export function BrowseScreen({
     wheelTarget.current = null;
     focus.set(NO_RANGE);
     held.set(null);
+    setSelected(null);
+    setPaneOpen(false);
     refresh();
   }, [refresh, focus, held]);
   const applyFilter = useCallback(
@@ -759,7 +748,7 @@ export function BrowseScreen({
   );
   // A card's video, with the loaded videos after it as Up next.
   const playVideo = useCallback(
-    (video: Video) => {
+    (video: Video, startAt?: number) => {
       const after: Video[] = [];
       let found = false;
       const keys = [...pages.current.keys()].sort((a, b) => a - b);
@@ -771,9 +760,25 @@ export function BrowseScreen({
         }
         if (after.length >= UP_NEXT) break;
       }
-      onPlay(video, after);
+      onPlay(video, after, startAt);
     },
     [onPlay]
+  );
+  // Large screen: a tap picks the video (the detail pane), a tap on the picked one plays it. Elsewhere it plays.
+  const largeRef = useRef(large);
+  largeRef.current = large;
+  const selectedRef = useRef(selected);
+  selectedRef.current = selected;
+  const pressVideo = useCallback(
+    (video: Video) => {
+      if (!largeRef.current || selectedRef.current?.id === video.id)
+        playVideo(video);
+      else {
+        setSelected(video);
+        setPaneOpen(true);
+      }
+    },
+    [playVideo]
   );
   const playFirst = useCallback(
     (filter: FilterExpression | null) => {
@@ -807,6 +812,18 @@ export function BrowseScreen({
     setFilterOpen(true);
   }, [appliedTree]);
   const closeFilter = useCallback(() => setFilterOpen(false), []);
+  const docked = large && filterOpen;
+  useEffect(() => {
+    if (!docked) return;
+    const wire = toWire(filterTree);
+    if (JSON.stringify(wire) === JSON.stringify(appliedRef.current)) return;
+    const timer = setTimeout(() => {
+      setAppliedTree(filterTree);
+      if (!filterTree.children.length) setSaved(null);
+      applyFilter(wire);
+    }, DOCKED_APPLY_MS);
+    return () => clearTimeout(timer);
+  }, [docked, filterTree, applyFilter]);
 
   // A person or tag from a list card: one more condition, unless the filter has it already.
   const addEntity = useCallback(
@@ -918,17 +935,6 @@ export function BrowseScreen({
     setSheetError('');
     setSheet('saveAs');
   }, []);
-  const chips = useMemo(() => {
-    if (Math.min(width, height) < LARGE) return null;
-    const list = appliedTree.children.map(chipOf);
-    if (hidden)
-      list.push({ id: 'more', label: `+ ${hidden} more`, kind: 'more' });
-    return list;
-  }, [width, height, appliedTree, hidden]);
-  const removeChip = useCallback(
-    (id: string) => commit(removeNode(appliedTree, id)),
-    [appliedTree, commit]
-  );
   const showAll = useCallback(() => {
     setSheet(null);
     setSaved(null);
@@ -945,7 +951,7 @@ export function BrowseScreen({
   );
   // The Show sheet's counts: all videos, and each saved filter as it runs (with its search).
   useEffect(() => {
-    if (sheet !== 'show') return;
+    if (sheet !== 'show' && !large) return;
     let alive = true;
     const counted = (key: string, num: number) =>
       alive && setSheetCounts((c) => ({ ...c, [key]: num }));
@@ -963,7 +969,7 @@ export function BrowseScreen({
     return () => {
       alive = false;
     };
-  }, [sheet, client, savedFilters]);
+  }, [sheet, large, client, savedFilters]);
   const quickOn = (c: Condition) =>
     !saved &&
     conditions === 1 &&
@@ -1039,7 +1045,7 @@ export function BrowseScreen({
               imageUrl={client.imageUrl(video)}
               width={cardWidth}
               personal={mine}
-              onPress={playVideo}
+              onPress={pressVideo}
               onAddTag={onAddTag}
               onAddPerformer={onAddPerformer}
               onToggleFavorite={onToggleFavorite}
@@ -1058,7 +1064,8 @@ export function BrowseScreen({
               imageUrl={client.imageUrl(video, view === 'grid3' ? 320 : 640)}
               width={cardWidth}
               height={cardHeight}
-              onPress={playVideo}
+              onPress={pressVideo}
+              selected={large && selected?.id === video.id}
               index={index}
               focus={focus}
               held={held}
@@ -1099,7 +1106,9 @@ export function BrowseScreen({
       cardWidth,
       cardHeight,
       rowHeight,
-      playVideo,
+      pressVideo,
+      large,
+      selected,
       focus,
       held,
       onHold,
@@ -1120,95 +1129,186 @@ export function BrowseScreen({
     [rowHeight]
   );
 
+  // The sidebar's mark: what the Library shows
+  const quickKey = BUILT_IN.find((q) => quickOn(q.make()))?.key;
+  const active: SidebarActive = saved
+    ? { kind: 'saved', id: saved.filter.id }
+    : quickKey
+      ? { kind: 'quick', key: quickKey }
+      : !conditions && !searched
+        ? { kind: 'all' }
+        : { kind: 'other' };
+  const savedCounts = Object.fromEntries(
+    savedFilters.map((f) => [f.id, sheetCounts[`saved-${f.id}`]])
+  ) as Record<number, number>;
+
   return (
     <View
-      style={styles.screen}
+      style={[styles.screen, large && styles.screenLarge]}
       onLayout={(e) => {
         setWidth(Math.round(e.nativeEvent.layout.width));
         setHeight(Math.round(e.nativeEvent.layout.height));
       }}
     >
-      <LibraryHeader
-        query={query}
-        onQuery={onQuery}
-        onSubmitQuery={() => applySearch(query)}
-        avatar={(client.username[0] ?? '?').toUpperCase()}
-        onOpenAccount={() => setSheet('account')}
-        title={title}
-        savedFilter={!!saved}
-        countLine={countLine}
-        edited={edited}
-        saveLabel={saveLabel}
-        onSave={saved ? save : openSaveAs}
-        onOpenShow={() => setSheet('show')}
-        filterCount={conditions + hidden}
-        onOpenFilter={openFilter}
-        shuffled={seed != null}
-        onShuffle={shuffle}
-        onPlayAll={() => playFirst(applied)}
-        view={view}
-        onView={setView}
-        chips={chips}
-        onOpenChip={openFilter}
-        onRemoveChip={removeChip}
-        compact={compact}
-      />
-      {error ? (
-        <View style={styles.errorRow}>
-          <Text style={styles.error} numberOfLines={2}>
-            {error}
-          </Text>
-          <Pressable onPress={retry} hitSlop={8}>
-            <Text style={styles.retry}>Retry</Text>
-          </Pressable>
+      {large ? (
+        <LibrarySidebar
+          rail={filterOpen}
+          server={client.server}
+          username={client.username}
+          allCount={sheetCounts.all ?? null}
+          active={active}
+          quick={[
+            {
+              key: 'progress',
+              label: 'Continue watching',
+              icon: 'play-circle',
+            },
+            { key: 'unwatched', label: 'Unwatched', icon: 'eye-slash' },
+          ]}
+          saved={savedFilters}
+          savedCounts={savedCounts}
+          canSaveNew={!saved && !!(conditions || searched)}
+          onAll={showAll}
+          onQuick={(key) => {
+            const q = BUILT_IN.find((b) => b.key === key);
+            if (q) showQuick(q.make);
+          }}
+          onSaved={loadSaved}
+          onSaveNew={openSaveAs}
+          onAccount={() => setSheet('account')}
+        />
+      ) : null}
+      {docked ? (
+        <View style={styles.filterColumn}>
+          <FilterScreen
+            docked
+            client={client}
+            tree={filterTree}
+            onChange={setFilterTree}
+            applied={applied}
+            onApply={showFilter}
+            onPlayAll={playFilter}
+            onClose={closeFilter}
+            title={saved?.filter.name}
+          />
         </View>
       ) : null}
-      <View style={styles.listArea}>
-        {total == null && !error ? (
-          <View style={styles.center}>
-            <ActivityIndicator color={n.accent} />
-          </View>
-        ) : null}
-        {total === 0 ? (
-          <View style={styles.center}>
-            <Text style={styles.empty}>No videos match this filter.</Text>
-          </View>
-        ) : null}
-        <FlatList
-          ref={listRef}
-          data={rows}
-          keyExtractor={(row) => String(row)}
-          renderItem={renderRow}
-          getItemLayout={getItemLayout}
-          extraData={version}
-          contentContainerStyle={styles.content}
-          onScroll={onScroll}
-          onScrollBeginDrag={() => {
-            dragging.current = true;
-          }}
-          onScrollEndDrag={() => {
-            dragging.current = false;
-            held.set(null); // finger up
-          }}
-          // RNW's native scrollbar hides itself for good once the content fits the viewport (as it does before
-          // the first page arrives): only a change of this prop makes it check again. So it flips with the overflow.
-          showsVerticalScrollIndicator={scroll.content > scroll.viewport}
-          scrollEventThrottle={16}
-          onContentSizeChange={(_, h) => setScroll({ content: h })}
-          onLayout={(e) => {
-            // Read now: the event is released once the handler returns, before the updater runs.
-            const viewport = e.nativeEvent.layout.height;
-            setScroll({ viewport });
-          }}
-          CellRendererComponent={Platform.OS === 'windows' ? Cell : undefined}
-          refreshing={refreshing}
-          onRefresh={refresh}
-          initialNumToRender={4}
-          maxToRenderPerBatch={4}
-          windowSize={5}
+      <View
+        style={styles.main}
+        onLayout={(e) => setMainWidth(Math.round(e.nativeEvent.layout.width))}
+      >
+        <LibraryHeader
+          query={query}
+          onQuery={onQuery}
+          onSubmitQuery={() => applySearch(query)}
+          avatar={(client.username[0] ?? '?').toUpperCase()}
+          onOpenAccount={() => setSheet('account')}
+          title={title}
+          savedFilter={!!saved}
+          countLine={countLine}
+          edited={edited}
+          saveLabel={saveLabel}
+          onSave={saved ? save : openSaveAs}
+          onOpenShow={() => setSheet('show')}
+          filterCount={conditions + hidden}
+          onOpenFilter={filterOpen ? closeFilter : openFilter}
+          shuffled={seed != null}
+          onShuffle={shuffle}
+          onPlayAll={() => playFirst(applied)}
+          view={view}
+          onView={setView}
+          compact={compact}
+          large={large}
         />
+        {error ? (
+          <View style={styles.errorRow}>
+            <Text style={styles.error} numberOfLines={2}>
+              {error}
+            </Text>
+            <Pressable onPress={retry} hitSlop={8}>
+              <Text style={styles.retry}>Retry</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        <View style={styles.listArea}>
+          {total == null && !error ? (
+            <View style={styles.center}>
+              <ActivityIndicator color={n.accent} />
+            </View>
+          ) : null}
+          {total === 0 ? (
+            <View style={styles.center}>
+              <Text style={styles.empty}>No videos match this filter.</Text>
+            </View>
+          ) : null}
+          <FlatList
+            ref={listRef}
+            data={rows}
+            keyExtractor={(row) => String(row)}
+            renderItem={renderRow}
+            getItemLayout={getItemLayout}
+            extraData={version}
+            contentContainerStyle={styles.content}
+            onScroll={onScroll}
+            onScrollBeginDrag={() => {
+              dragging.current = true;
+            }}
+            onScrollEndDrag={() => {
+              dragging.current = false;
+              held.set(null); // finger up
+            }}
+            // RNW's native scrollbar hides itself for good once the content fits the viewport (as it does before
+            // the first page arrives): only a change of this prop makes it check again. So it flips with the overflow.
+            showsVerticalScrollIndicator={scroll.content > scroll.viewport}
+            scrollEventThrottle={16}
+            onContentSizeChange={(_, h) => setScroll({ content: h })}
+            onLayout={(e) => {
+              // Read now: the event is released once the handler returns, before the updater runs.
+              const viewport = e.nativeEvent.layout.height;
+              setScroll({ viewport });
+            }}
+            CellRendererComponent={Platform.OS === 'windows' ? Cell : undefined}
+            refreshing={refreshing}
+            onRefresh={refresh}
+            initialNumToRender={4}
+            maxToRenderPerBatch={4}
+            windowSize={5}
+          />
+        </View>
       </View>
-      {filterOpen ? (
+      {paneBeside && !filterOpen && selected ? (
+        <VideoDetail
+          client={client}
+          video={selected}
+          personal={personal.current.get(selected.id) ?? null}
+          onPlay={playVideo}
+          onToggleFavorite={onToggleFavorite}
+          onToggleLater={onToggleLater}
+          onAddTag={onAddTag}
+          onAddPerformer={onAddPerformer}
+        />
+      ) : null}
+      {large && !paneBeside && !filterOpen && paneOpen && selected ? (
+        // Narrow large screen: the pane slides in over the Library; a tap beside it closes it.
+        <View style={styles.paneOver}>
+          <Pressable
+            style={styles.paneScrim}
+            onPress={() => setPaneOpen(false)}
+            accessibilityLabel="Close the details"
+          />
+          <VideoDetail
+            client={client}
+            video={selected}
+            personal={personal.current.get(selected.id) ?? null}
+            onPlay={playVideo}
+            onToggleFavorite={onToggleFavorite}
+            onToggleLater={onToggleLater}
+            onAddTag={onAddTag}
+            onAddPerformer={onAddPerformer}
+          />
+        </View>
+      ) : null}
+      {filterOpen && !large ? (
         <FilterScreen
           client={client}
           tree={filterTree}
@@ -1365,6 +1465,11 @@ export function BrowseScreen({
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: n.bg },
+  screenLarge: { flexDirection: 'row' },
+  main: { flex: 1, minWidth: 0 },
+  filterColumn: { width: 380 },
+  paneOver: { ...StyleSheet.absoluteFillObject, flexDirection: 'row' },
+  paneScrim: { flex: 1, backgroundColor: n.scrim },
   listArea: { flex: 1 },
   center: {
     ...StyleSheet.absoluteFillObject,
