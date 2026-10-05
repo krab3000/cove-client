@@ -14,7 +14,7 @@ A phone + tablet client for **Cove** (https://yourcove.net), a self-hosted, open
 - Hit targets ≥ 44px. Inter font, Phosphor icons.
 
 ## Behaviors agreed in design review
-- Tablet library (1h): tap = select into detail pane; tap again / Play = open player; long-press = quick actions. Narrow/portrait: pane becomes a slide-in panel.
+- Tablet library (1h): the Library is full width; tap = open the preview drawer (floating, near-opaque, slides in from the right) on that video; tap again / Play = open player; ✕ / tap outside / swipe right closes; long-press = quick actions.
   - The Library keeps the phone's header (search, title with count and Save, toolbar); the sidebar replaces the Show sheet (Watch = quick filters, Saved filters with counts) and holds the account (bottom row).
   - Filter open (2d): the sidebar folds to the icon rail, the rule tree takes a column, the results keep the same header (Filter pressed); the filter's sentence heads the column; saving, sort and view stay in the header.
   - Player (1m): the 1k/1l controls (speed pill, no captions), Save for later / Favorite / Start over, side panel Moments / Up next (Autoplay) / Details (Cove's fields).

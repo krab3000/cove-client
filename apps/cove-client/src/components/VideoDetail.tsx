@@ -16,7 +16,7 @@ import { ResumeBar } from './VideoCard';
 import { partialDate, type Personal } from './VideoRow';
 
 /**
- * The tablet Library's detail pane (design 1h): the video picked in the grid — its cover with the rating, the resume
+ * The tablet Library's preview (design 1h, in a Drawer): the video picked in the grid — a header with ✕; its cover with the rating, the resume
  * bar and a tick per segment; title and meta; Resume / Play, Save for later, Favorite; the moments (Cove's segments,
  * each plays from there); people and tags (a tap adds one to the filter); the group.
  */
@@ -29,6 +29,7 @@ export function VideoDetail({
   onToggleLater,
   onAddTag,
   onAddPerformer,
+  onClose,
 }: {
   client: CoveClient;
   video: Video;
@@ -39,6 +40,7 @@ export function VideoDetail({
   onToggleLater: (video: Video) => void;
   onAddTag: (tag: { id: number; name: string }) => void;
   onAddPerformer: (performer: { id: number; name: string }) => void;
+  onClose: () => void;
 }) {
   const [segments, setSegments] = useState<Segment[]>([]);
   useEffect(() => {
@@ -77,6 +79,20 @@ export function VideoDetail({
 
   return (
     <ScrollView style={styles.pane} contentContainerStyle={styles.content}>
+      <View style={styles.header}>
+        <Text style={styles.section}>PREVIEW</Text>
+        <Pressable
+          onPress={onClose}
+          accessibilityLabel="Close the preview"
+          hitSlop={6}
+          style={({ pressed }) => [
+            styles.close,
+            pressed && styles.closePressed,
+          ]}
+        >
+          <Icon name="x" size={16} color={n.text} />
+        </Pressable>
+      </View>
       <Pressable
         onPress={() => onPlay(video)}
         accessibilityLabel={`Play ${videoTitle(video)}`}
@@ -255,9 +271,24 @@ function Toggle({
 const SCRIM = 'rgba(10,11,18,0.72)';
 
 const styles = StyleSheet.create({
-  // A fixed column: a ScrollView grows by default (flexGrow 1), and would take half of the row.
-  pane: { width: 360, flexGrow: 0, flexShrink: 0, backgroundColor: '#202230' },
-  content: { padding: 20, paddingBottom: 28, gap: 14 },
+  pane: { flex: 1 },
+  content: { padding: 20, paddingTop: 14, paddingBottom: 28, gap: 14 },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginRight: -8,
+    marginBottom: -4,
+  },
+  close: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: n.textAlpha(8),
+  },
+  closePressed: { backgroundColor: n.textAlpha(14) },
   cover: {
     aspectRatio: 16 / 9,
     borderRadius: 14,

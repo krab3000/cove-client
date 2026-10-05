@@ -8,6 +8,7 @@ import {
 } from 'react';
 import {
   ActivityIndicator,
+  BackHandler,
   FlatList,
   Platform,
   Pressable,
@@ -33,6 +34,7 @@ import {
   LibrarySidebar,
   type SidebarActive,
 } from '../components/LibrarySidebar';
+import { Drawer } from '../components/Drawer';
 import { VideoDetail } from '../components/VideoDetail';
 import {
   Sheet,
@@ -104,11 +106,9 @@ const touch = Platform.OS === 'android';
 const UP_NEXT = 20;
 // The search applies once typing pauses this long.
 const SEARCH_DELAY_MS = 400;
-// A large screen (tablet, desktop): the shorter side of the window at least this. It gets the sidebar, the detail pane
-// and the docked filter (design 1h, 2d). No screen lists the filter's conditions; only the editor does.
+// A large screen (tablet, desktop): the shorter side of the window at least this. It gets the sidebar, the preview
+// drawer and the docked filter (design 1h, 2d). No screen lists the filter's conditions; only the editor does.
 const LARGE = 600;
-// A large screen this wide shows the detail pane beside the Library; narrower, the pane slides in over it.
-const WIDE_PANE = 1100;
 // The docked filter (2d) applies to the results once editing pauses this long.
 const DOCKED_APPLY_MS = 500;
 // A phone held sideways: the list view's cards get this narrow, two in a row (one would be taller than the screen).
@@ -214,17 +214,25 @@ export function BrowseScreen({
   // Measured, not useWindowDimensions: that one does not follow window resizes on Windows.
   const [width, setWidth] = useState(1000);
   const [height, setHeight] = useState(800);
-  // A large screen (design 1h): sidebar, Library, detail pane. A phone held sideways (6f–6h): the header in one row,
+  // A large screen (design 1h): sidebar and Library, a preview drawer over it. A phone held sideways (6f–6h): the header in one row,
   // two list cards in a row. Both from the window's own size, so split screen, rotation and resizing just work.
   const large = Math.min(width, height) >= LARGE;
   const compact = !large && width > height;
-  const paneBeside = large && width >= WIDE_PANE;
-  // The Library column's width (the grid's), measured: on a large screen the sidebar, pane and filter take the rest.
+  // The Library column's width (the grid's), measured: on a large screen the sidebar and the filter take the rest.
   const [mainWidth, setMainWidth] = useState(0);
   const listWidth = mainWidth || width;
-  // The video picked on a large screen (the detail pane), and whether the pane is slid in (narrow large screens).
+  // The video picked on a large screen, and whether its preview drawer is open (only after a tap on a video).
   const [selected, setSelected] = useState<Video | null>(null);
-  const [paneOpen, setPaneOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const closeDrawer = useCallback(() => setDrawerOpen(false), []);
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      setDrawerOpen(false);
+      return true;
+    });
+    return () => sub.remove();
+  }, [drawerOpen]);
   const spec = useMemo(
     () =>
       view === 'list' && compact
@@ -303,7 +311,6 @@ export function BrowseScreen({
         );
         if (gen !== generation.current) return; // refreshed meanwhile
         pages.current.set(page, result.items);
-        if (page === 0) setSelected((v) => v ?? result.items[0] ?? null);
         setTotal(result.totalCount);
         setError('');
         loadPersonal(result.items);
@@ -551,7 +558,7 @@ export function BrowseScreen({
     focus.set(NO_RANGE);
     held.set(null);
     setSelected(null);
-    setPaneOpen(false);
+    setDrawerOpen(false);
     refresh();
   }, [refresh, focus, held]);
   const applyFilter = useCallback(
@@ -764,18 +771,19 @@ export function BrowseScreen({
     },
     [onPlay]
   );
-  // Large screen: a tap picks the video (the detail pane), a tap on the picked one plays it. Elsewhere it plays.
+  // Large screen: a tap opens the preview drawer on the video (or switches it), a tap on the one it shows plays it.
+  // Elsewhere a tap plays.
   const largeRef = useRef(large);
   largeRef.current = large;
-  const selectedRef = useRef(selected);
-  selectedRef.current = selected;
+  const shownRef = useRef<Video | null>(null);
+  shownRef.current = drawerOpen ? selected : null;
   const pressVideo = useCallback(
     (video: Video) => {
-      if (!largeRef.current || selectedRef.current?.id === video.id)
+      if (!largeRef.current || shownRef.current?.id === video.id)
         playVideo(video);
       else {
         setSelected(video);
-        setPaneOpen(true);
+        setDrawerOpen(true);
       }
     },
     [playVideo]
@@ -810,6 +818,7 @@ export function BrowseScreen({
   const openFilter = useCallback(() => {
     setFilterTree(appliedTree);
     setFilterOpen(true);
+    setDrawerOpen(false);
   }, [appliedTree]);
   const closeFilter = useCallback(() => setFilterOpen(false), []);
   const docked = large && filterOpen;
@@ -1065,7 +1074,7 @@ export function BrowseScreen({
               width={cardWidth}
               height={cardHeight}
               onPress={pressVideo}
-              selected={large && selected?.id === video.id}
+              selected={large && drawerOpen && selected?.id === video.id}
               index={index}
               focus={focus}
               held={held}
@@ -1108,6 +1117,7 @@ export function BrowseScreen({
       rowHeight,
       pressVideo,
       large,
+      drawerOpen,
       selected,
       focus,
       held,
@@ -1196,6 +1206,9 @@ export function BrowseScreen({
       <View
         style={styles.main}
         onLayout={(e) => setMainWidth(Math.round(e.nativeEvent.layout.width))}
+        // A tap on the Library outside a video (and its controls) closes the preview
+        onStartShouldSetResponder={() => drawerOpen}
+        onResponderRelease={closeDrawer}
       >
         <LibraryHeader
           query={query}
@@ -1275,39 +1288,22 @@ export function BrowseScreen({
             windowSize={5}
           />
         </View>
+        {large && selected ? (
+          <Drawer open={drawerOpen && !filterOpen} onClose={closeDrawer}>
+            <VideoDetail
+              client={client}
+              video={selected}
+              personal={personal.current.get(selected.id) ?? null}
+              onPlay={playVideo}
+              onToggleFavorite={onToggleFavorite}
+              onToggleLater={onToggleLater}
+              onAddTag={onAddTag}
+              onAddPerformer={onAddPerformer}
+              onClose={closeDrawer}
+            />
+          </Drawer>
+        ) : null}
       </View>
-      {paneBeside && !filterOpen && selected ? (
-        <VideoDetail
-          client={client}
-          video={selected}
-          personal={personal.current.get(selected.id) ?? null}
-          onPlay={playVideo}
-          onToggleFavorite={onToggleFavorite}
-          onToggleLater={onToggleLater}
-          onAddTag={onAddTag}
-          onAddPerformer={onAddPerformer}
-        />
-      ) : null}
-      {large && !paneBeside && !filterOpen && paneOpen && selected ? (
-        // Narrow large screen: the pane slides in over the Library; a tap beside it closes it.
-        <View style={styles.paneOver}>
-          <Pressable
-            style={styles.paneScrim}
-            onPress={() => setPaneOpen(false)}
-            accessibilityLabel="Close the details"
-          />
-          <VideoDetail
-            client={client}
-            video={selected}
-            personal={personal.current.get(selected.id) ?? null}
-            onPlay={playVideo}
-            onToggleFavorite={onToggleFavorite}
-            onToggleLater={onToggleLater}
-            onAddTag={onAddTag}
-            onAddPerformer={onAddPerformer}
-          />
-        </View>
-      ) : null}
       {filterOpen && !large ? (
         <FilterScreen
           client={client}
@@ -1468,8 +1464,6 @@ const styles = StyleSheet.create({
   screenLarge: { flexDirection: 'row' },
   main: { flex: 1, minWidth: 0 },
   filterColumn: { width: 380 },
-  paneOver: { ...StyleSheet.absoluteFillObject, flexDirection: 'row' },
-  paneScrim: { flex: 1, backgroundColor: n.scrim },
   listArea: { flex: 1 },
   center: {
     ...StyleSheet.absoluteFillObject,

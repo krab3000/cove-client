@@ -1641,9 +1641,9 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </div></div></sc-if>
 </div></div></div>
 
-<div class="dv-opt" id="1h"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#1h">1h</a>Tablet Library: the sidebar, the Library, and a detail pane. The Library has the phone's header (turn 6) on a large screen: search, the title with its count and Save, and the toolbar. As everywhere outside the filter editor, the filter's conditions aren't listed: Filter shows how many. The sidebar does the Show sheet's job: Watch (quick filters) and your saved filters, with counts; the account is its bottom row. Tap a video to preview it in the pane, again (or Play) to play; tap a sidebar row or the view switch.</div>
+<div class="dv-opt" id="1h"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#1h">1h</a>Tablet Library: the sidebar and the Library, full width; a tap on a video slides its preview in as a drawer. The Library has the phone's header (turn 6) on a large screen: search, the title with its count and Save, and the toolbar. As everywhere outside the filter editor, the filter's conditions aren't listed: Filter shows how many. The sidebar does the Show sheet's job: Watch (quick filters) and your saved filters, with counts; the account is its bottom row. The preview is a drawer floating over the Library — inset, rounded, opaque, lifted by a deep shadow: a temporary view, not a column. Tap a video to open it (or switch to another), again (or Play) to play; ✕, a tap outside it or a swipe right closes it. Open here so it can be reviewed.</div>
 <div style="width:1208px;padding:14px;border-radius:40px;background:#08090e;box-shadow:0 0 0 1px var(--color-neutral-800),0 30px 60px rgba(0,0,0,.5)">
-<div style="position:relative;width:1180px;height:820px;border-radius:26px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:232px minmax(0,1fr) 360px">
+<div style="position:relative;width:1180px;height:820px;border-radius:26px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:232px minmax(0,1fr)">
 <aside class="hscroll" style="overflow-y:auto;display:flex;flex-direction:column;gap:2px;padding:20px 12px 14px;background:color-mix(in srgb,var(--color-surface) 55%,var(--color-bg))">
 <div style="display:flex;align-items:center;gap:8px;font-size:17px;font-weight:500;padding:6px 10px 14px"><span style="width:20px;height:20px;border-radius:6px;border:1.5px solid var(--color-accent);box-shadow:0 0 10px var(--color-accent)"></span>Cove</div>
 <div style="display:flex;align-items:center;gap:8px;margin:0 4px 14px;padding:8px 10px;border-radius:var(--radius-md);box-shadow:inset 0 0 0 1px var(--color-divider);font-size:12.5px"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);box-shadow:0 0 6px var(--color-accent)"></span><span style="flex:1">Living Room NAS</span><i class="ph ph-caret-up-down"></i></div>
@@ -1704,7 +1704,8 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </div></sc-if>
 
 </main>
-<aside class="hscroll" style="overflow-y:auto;padding:20px 20px 24px;background:color-mix(in srgb,var(--color-surface) 70%,var(--color-bg));display:flex;flex-direction:column;gap:14px">
+<aside class="hscroll" style="position:absolute;top:12px;right:12px;bottom:12px;width:360px;box-sizing:border-box;overflow-y:auto;padding:14px 20px 24px;border-radius:22px;background:var(--color-surface);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-text) 10%,transparent),-12px 0 48px rgba(0,0,0,.5),0 24px 60px rgba(0,0,0,.4);display:flex;flex-direction:column;gap:14px;transform:{{ drawerX }};opacity:{{ drawerOp }};pointer-events:{{ drawerPe }};transition:transform .34s cubic-bezier(.2,.8,.2,1),opacity .24s">
+<div style="display:flex;align-items:center;justify-content:space-between;margin:0 -8px -4px 0"><span style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:color-mix(in srgb,var(--color-text) 50%,transparent)">Preview</span><button onClick="{{ closeDrawer }}" aria-label="Close the preview" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:16px;color:var(--color-text);background:color-mix(in srgb,var(--color-text) 8%,transparent)" style-hover="background:color-mix(in srgb,var(--color-text) 14%,transparent)"><i class="ph ph-x"></i></button></div>
 <div style="position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;flex:none"><img src="{{ sel.thumb }}" style="width:100%;height:100%;object-fit:cover;display:block" /><sc-if value="{{ sel.rated }}"><span style="position:absolute;left:8px;top:8px;height:22px;padding:0 7px;display:flex;align-items:center;gap:4px;border-radius:5px;font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;background:rgba(10,11,18,.66);color:#e9e9ed"><i class="ph-fill ph-star" style="font-size:11px;color:#d2cefd"></i>{{ sel.stars }}</span></sc-if><span style="position:absolute;inset:0;display:grid;place-items:center"><span style="width:56px;height:56px;border-radius:50%;display:grid;place-items:center;font-size:22px;background:rgba(14,15,24,.5);backdrop-filter:blur(8px);color:#e9e9ed;box-shadow:0 0 0 1px rgba(233,233,237,.3)"><i class="ph-fill ph-play"></i></span></span><span style="position:absolute;right:8px;bottom:9px;font-size:11px;font-weight:500;font-variant-numeric:tabular-nums;padding:1px 6px;border-radius:4px;background:rgba(10,11,18,.72);color:#e9e9ed">{{ sel.badge }}</span>
 <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(233,233,237,.2)"><sc-if value="{{ sel.hasProg }}"><div style="height:100%;width:{{ sel.progPct }};background:#9184d9;box-shadow:0 0 8px #9184d9"></div></sc-if><sc-for list="{{ markers }}" as="m"><div style="position:absolute;left:{{ m.left }};top:-3px;width:2px;height:9px;border-radius:1px;background:#d2cefd"></div></sc-for></div></div>
 <div><h3 style="font-size:21px;margin:0 0 4px">{{ sel.title }}</h3><div style="font-size:12.5px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ sel.meta }}</div></div>
@@ -1983,7 +1984,7 @@ const TOTAL = toSec('42:16');
 const MUTED = 'color-mix(in srgb,var(--color-text) 60%,transparent)';
 
 class Component extends DCLogic {
-  state = { server: 0, profile: 0, sel: 0, playing: true, playingL: false, chrome: true, t: 0.34, ptab: 0, homeTab: 0, fTags: { Drone: 1, Archive: 2 }, fWatch: 1, fDur: 0, gOps: [0, 1, 3], mMode: 0, mAny: false, distinct: false, sTokens: ['drone'], pPath: [0, 0], pSel: null, pQ: '', pText: '/mnt/nas/Videos/Dr', lib: {
+  state = { server: 0, profile: 0, sel: 0, drawer: true, playing: true, playingL: false, chrome: true, t: 0.34, ptab: 0, homeTab: 0, fTags: { Drone: 1, Archive: 2 }, fWatch: 1, fDur: 0, gOps: [0, 1, 3], mMode: 0, mAny: false, distinct: false, sTokens: ['drone'], pPath: [0, 0], pSel: null, pQ: '', pText: '/mnt/nas/Videos/Dr', lib: {
     lf: { conds: [], saved: null, edited: false, view: 3, q: '', sheet: null },
     lg: { conds: ['tag:Drone','added','grp','nArchive'], saved: 'Northern evenings', edited: false, view: 'list', q: '', sheet: null },
     ua: { conds: ['unw','tag:Drone','4k'], saved: null, edited: false, view: 3, q: '', sheet: null },
@@ -2012,9 +2013,9 @@ class Component extends DCLogic {
         badge: res + ' · ' + dur, fav, rating, plays, group, dateLabel: fmtDate(date),
         thumb: img(seed, 640, 360), tall: img(seed, 780, 1688), wide: img(seed, 1600, 900),
         hasProg: prog > 0, progPct: Math.round(prog * 100) + '%', left: `${left} min left`,
-        select: () => this.setState({ sel: i }),
-        selRing: s.sel === i ? '0 0 0 2px var(--color-accent),0 0 16px color-mix(in srgb,var(--color-accent) 45%,transparent)' : 'none',
-        selInk: s.sel === i ? 'var(--color-accent-300)' : 'inherit' };
+        select: () => this.setState({ sel: i, drawer: true }),
+        selRing: s.drawer && s.sel === i ? '0 0 0 2px var(--color-accent),0 0 16px color-mix(in srgb,var(--color-accent) 45%,transparent)' : 'none',
+        selInk: s.drawer && s.sel === i ? 'var(--color-accent-300)' : 'inherit' };
     });
     const servers = [
       { name: 'Living Room NAS', addr: '192.168.1.24:9999', meta: '4,812 videos · v1.8' },
@@ -2068,6 +2069,8 @@ class Component extends DCLogic {
         meta: sel.src + ' · ' + sel.dateLabel + ' · ' + (sel.plays ? 'watched\u00a0' + sel.plays + '×' : 'unwatched'),
         favIcon: (sel.fav ? 'ph-fill' : 'ph') + ' ph-heart', favInk: sel.fav ? 'var(--color-accent)' : 'var(--color-text)',
         favRing: sel.fav ? 'inset 0 0 0 1px var(--color-accent)' : 'inset 0 0 0 1px var(--color-divider)' },
+      drawerX: s.drawer ? 'translateX(0)' : 'translateX(calc(100% + 24px))', drawerOp: s.drawer ? 1 : 0,
+      drawerPe: s.drawer ? 'auto' : 'none', closeDrawer: () => this.setState({ drawer: false }),
       sideMain: [sideItem('Home', 'ph-house'), sideItem('Library', 'ph-squares-four', true), sideItem('Feed', 'ph-film-strip'), sideItem('Search', 'ph-magnifying-glass')],
       sideWatch: [{ label: 'Continue watching', icon: 'ph ph-play-circle' }, { label: 'Watch later', icon: 'ph ph-bookmark-simple' }, { label: 'History', icon: 'ph ph-clock-counter-clockwise' }],
       feed: [7, 9, 4, 1].map((i, k) => ({ ...vids[i], p: fp[k] })),
