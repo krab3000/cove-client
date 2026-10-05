@@ -8,13 +8,13 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { CoveError, type CoveClient } from '../api/cove';
-import type { FilterExpression, LibraryFolder } from '../api/types';
-import { folderChain, type FolderRef } from '../filter/model';
-import { fonts, nocturne as n } from '../theme/tokens';
-import { Icon } from '../ui/Icon';
-import { Button } from '../ui/Button';
-import { BackButton } from '../ui/IconButton';
+import { CoveError, type CoveClient } from '../../../api/cove';
+import type { FilterExpression, LibraryFolder } from '../../../api/types';
+import { folderChain, type FolderRef } from '../model';
+import { fonts, nocturne as n } from '../../../theme/tokens';
+import { Icon } from '../../../ui/Icon';
+import { Button } from '../../../ui/Button';
+import { BackButton } from '../../../ui/IconButton';
 
 /** What a folder pick hands back: the folders from the library root down to it, and its subfolder count. */
 export interface FolderPick {

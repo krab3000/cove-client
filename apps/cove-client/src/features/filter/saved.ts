@@ -3,7 +3,11 @@
 // the UI's SCREAMING_CASE ("INCLUDES_ALL", "JUST_ONE"); uiOptions has the display mode. This reads them into the rule
 // tree of filter/model and writes the tree back the same way, so the web UI keeps reading what the app saves.
 
-import type { FilterExpression, FilterNode, SavedFilter } from '../api/types';
+import type {
+  FilterExpression,
+  FilterNode,
+  SavedFilter,
+} from '../../api/types';
 import {
   FIELDS,
   newId,

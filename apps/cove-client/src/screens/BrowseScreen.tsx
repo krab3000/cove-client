@@ -47,15 +47,15 @@ import {
   type Condition,
   type Group,
   type Node,
-} from '../filter/model';
+} from '../features/filter/model';
 import {
   loadSavedFilter,
   newSavedFilter,
   savedFilterChange,
   type LoadedFilter,
-} from '../filter/saved';
+} from '../features/filter/saved';
 import { fonts, nocturne as n } from '../theme/tokens';
-import { FilterScreen } from './FilterScreen';
+import { FilterScreen } from '../features/filter/FilterScreen';
 import { createSelection, NO_RANGE, type IndexRange } from '../lib/selection';
 import { tileTextHeight } from '../components/VideoCard';
 import { listCardHeight } from '../components/VideoRow';

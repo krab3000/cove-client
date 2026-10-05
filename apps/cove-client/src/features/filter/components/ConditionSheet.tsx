@@ -8,8 +8,8 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import type { CoveClient } from '../api/cove';
-import type { NamedEntity } from '../api/types';
+import type { CoveClient } from '../../../api/cove';
+import type { NamedEntity } from '../../../api/types';
 import {
   FIELDS,
   FIELD_SECTIONS,
@@ -25,13 +25,13 @@ import {
   validate,
   type Condition,
   type Modifier,
-} from '../filter/model';
-import { fonts, nocturne as n } from '../theme/tokens';
+} from '../model';
+import { fonts, nocturne as n } from '../../../theme/tokens';
 import { FolderBrowser, TypedPath, type FolderPick } from './FolderBrowser';
-import { Icon } from '../ui/Icon';
-import { useSafeInsets } from '../platform/insets';
-import { Button } from '../ui/Button';
-import { ErrorText } from '../ui/Text';
+import { Icon } from '../../../ui/Icon';
+import { useSafeInsets } from '../../../platform/insets';
+import { Button } from '../../../ui/Button';
+import { ErrorText } from '../../../ui/Text';
 
 const QUICK_DATES = ['-7d', '-1m', '-1y', '0d'];
 

@@ -1,12 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ComponentRef,
-  createContext,
-  useContext,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import {
   Animated,
   Easing,
@@ -18,51 +10,49 @@ import {
   Text,
   View,
 } from 'react-native';
-import type { CoveClient } from '../api/cove';
-import type { FilterExpression } from '../api/types';
-import { ConditionSheet } from '../components/ConditionSheet';
-import { formatCount } from '../lib/format';
-import { Button } from '../ui/Button';
-import { Icon, type IconName } from '../ui/Icon';
-import { BackButton, IconButton, MoreButton } from '../ui/IconButton';
-import { PanelHeader } from '../ui/PanelHeader';
+import type { CoveClient } from '../../api/cove';
+import type { FilterExpression } from '../../api/types';
+import { ConditionSheet } from './components/ConditionSheet';
+import { formatCount } from '../../lib/format';
+import { Button } from '../../ui/Button';
+import { Icon } from '../../ui/Icon';
+import { BackButton, IconButton, MoreButton } from '../../ui/IconButton';
+import { PanelHeader } from '../../ui/PanelHeader';
 import {
   GROUP_LABELS,
   appendTo,
-  canPaste,
   conditionCount,
-  contains,
   findChain,
   findNode,
-  findParent,
   groupPhrase,
   newId,
   nextOp,
   outline,
   paste,
-  removeNode,
   replaceNode,
-  rowText,
   runsText,
-  simplifiable,
-  simplify,
   summary,
   toWire,
-  ungroup,
-  wrapNode,
   type Clipboard,
   type Condition,
   type Group,
   type Node,
-  type SummaryRun,
-} from '../filter/model';
-import { fonts, nocturne as n } from '../theme/tokens';
-import { useSafeInsets } from '../platform/insets';
-import { EditedTag } from '../ui/Chip';
-import { MenuSheet } from '../ui/Menu';
-import { Layer, useBackHandler } from '../app/back';
-import { useVideoCount } from '../data/library';
-import { useDebouncedValue } from '../lib/timers';
+} from './model';
+import { fonts, nocturne as n } from '../../theme/tokens';
+import { useSafeInsets } from '../../platform/insets';
+import { EditedTag } from '../../ui/Chip';
+import { MenuSheet } from '../../ui/Menu';
+import { Layer, useBackHandler } from '../../app/back';
+import { useVideoCount } from '../../data/library';
+import { useDebouncedValue } from '../../lib/timers';
+import { Raised } from './raised';
+import { Breadcrumbs } from './components/Breadcrumbs';
+import { Runs } from './components/RuleRows';
+import { Subgroup } from './components/RuleRows';
+import { AddRow } from './components/RuleRows';
+import { CutTag } from './components/RuleRows';
+import { ConditionRow } from './components/RuleRows';
+import { addActions, menuActions, type ActionContext } from './actions';
 
 /**
  * Design 2b (design_handoff_cove_mobile, "Rule tree as an outline"), for phones: a Cove filter as an outline of
@@ -229,143 +219,6 @@ export function FilterScreen({
     else onClose();
   }, Layer.editor);
 
-  // Design 4a / 4c: what an item's ⋮ offers, only what applies there.
-  type Action = {
-    icon: IconName;
-    label: string;
-    detail?: string;
-    run: () => void;
-  };
-  const menuActions = (node: Node): (Action | 'rule')[] => {
-    const isRoot = node.id === tree.id;
-    const actions: (Action | 'rule')[] = [];
-    if (node.kind === 'group' && node.id !== focus.id)
-      actions.push({
-        icon: 'arrow-square-in',
-        label: 'Open',
-        run: () => open(node),
-      });
-    if (node.kind === 'condition')
-      actions.push({
-        icon: 'pencil-simple',
-        label: 'Edit condition',
-        run: () => setEditing({ groupId: tree.id, condition: node }),
-      });
-    if (!isRoot)
-      actions.push({
-        icon: 'scissors',
-        label: 'Cut',
-        run: () => setClipboard({ node, mode: 'cut' }),
-      });
-    actions.push({
-      icon: 'copy',
-      label: 'Copy',
-      run: () => setClipboard({ node, mode: 'copy' }),
-    });
-    if (!isRoot && canPaste(clipboard, node.id)) {
-      actions.push(
-        {
-          icon: 'arrow-line-up',
-          label: 'Paste before',
-          run: () => pasteBeside(node.id, 'before'),
-        },
-        {
-          icon: 'arrow-line-down',
-          label: 'Paste after',
-          run: () => pasteBeside(node.id, 'after'),
-        }
-      );
-    }
-    actions.push({
-      icon: 'brackets-curly',
-      label: 'Wrap in group',
-      detail: isRoot ? 'Put the whole filter in a new All of group' : undefined,
-      run: () => onChange(wrapNode(tree, node.id)),
-    });
-    if (node.kind === 'group' && !isRoot) {
-      const parent = findParent(tree, node.id)?.parent;
-      const items = node.children.length;
-      const allConditions = node.children.every((c) => c.kind === 'condition');
-      const noun = allConditions ? 'condition' : 'item';
-      actions.push({
-        icon: 'arrow-elbow-up-left',
-        label: 'Ungroup',
-        detail: items
-          ? `Move its ${items} ${noun}${items === 1 ? '' : 's'} into ${parent ? GROUP_LABELS[parent.op] : 'its parent'}`
-          : 'Remove the empty group',
-        run: () => onChange(ungroup(tree, node.id)),
-      });
-    }
-    // Design 5f: groups that change nothing, merged into their parent
-    const merges = isRoot ? simplifiable(tree) : 0;
-    if (merges)
-      actions.push({
-        icon: 'magic-wand',
-        label: 'Simplify',
-        detail: `Merge ${merges} group${merges === 1 ? '' : 's'} that don't change the result`,
-        run: () => onChange(simplify(tree)),
-      });
-    actions.push('rule');
-    if (isRoot) {
-      actions.push({
-        icon: 'eraser',
-        label: 'Clear all',
-        run: () => {
-          onChange({ ...tree, children: [] });
-          setClipboard(null);
-        },
-      });
-    } else if (node.kind === 'group') {
-      const inside = conditionCount(node);
-      actions.push({
-        icon: 'trash',
-        label: inside
-          ? `Remove group and its ${inside} condition${inside === 1 ? '' : 's'}`
-          : 'Remove group',
-        run: () => {
-          onChange(removeNode(tree, node.id));
-          if (cutId && contains(node, cutId)) setClipboard(null);
-        },
-      });
-    } else {
-      actions.push({
-        icon: 'trash',
-        label: 'Remove condition',
-        run: () => {
-          onChange(removeNode(tree, node.id));
-          if (cutId === node.id) setClipboard(null);
-        },
-      });
-    }
-    return actions;
-  };
-
-  // Design 5e: what "+ Add" offers in a group
-  const addActions = (group: Group): (Action | 'rule')[] => {
-    const actions: (Action | 'rule')[] = [
-      {
-        icon: 'plus',
-        label: 'Condition',
-        detail: 'A rule on one field',
-        run: () => setEditing({ groupId: group.id }),
-      },
-      {
-        icon: 'brackets-curly',
-        label: 'Subgroup',
-        detail: 'A new Any of group inside this one',
-        run: () => addSubgroup(group.id),
-      },
-    ];
-    if (clipboard && canPaste(clipboard, group.id))
-      actions.push('rule', {
-        icon: 'clipboard-text',
-        label: `Paste “${summary(clipboard.node)}”`,
-        detail: clipboard.mode === 'cut' ? 'Moves it here' : 'Adds a copy here',
-        run: () => pasteInto(group.id),
-      });
-    return actions;
-  };
-
   const cycle = (group: Group) =>
     onChange(replaceNode(tree, group.id, { ...group, op: nextOp(group.op) }));
   const addSubgroup = (groupId: string) =>
@@ -378,6 +231,20 @@ export function FilterScreen({
       })
     );
 
+  const actionContext: ActionContext = {
+    tree,
+    focus,
+    clipboard,
+    cutId,
+    change: onChange,
+    setClipboard,
+    edit: (groupId, condition) => setEditing({ groupId, condition }),
+    open,
+    pasteBeside,
+    pasteInto,
+    addSubgroup,
+  };
+
   const lines = outline(focus, summaryOpen);
   const folds = lines.some((l) => l.some((r) => r.kind === 'more'));
   const sheet = menu
@@ -386,12 +253,12 @@ export function FilterScreen({
           menu.id === tree.id
             ? `Whole filter · ${summary(menu)}`
             : summary(menu),
-        actions: menuActions(menu),
+        actions: menuActions(menu, actionContext),
       }
     : adding
       ? {
           title: `Add to ${GROUP_LABELS[adding.op]}`,
-          actions: addActions(adding),
+          actions: addActions(adding, actionContext),
         }
       : null;
   const closeSheet = () => {
@@ -463,7 +330,7 @@ export function FilterScreen({
           ) : null}
         </View>
         {atRoot ? null : (
-          <Crumbs
+          <Breadcrumbs
             chain={chain}
             visited={visited}
             levelsOpen={levels}
@@ -679,16 +546,7 @@ export function FilterScreen({
               </Text>
             )
           }
-          items={(sheet?.actions ?? []).map((action) =>
-            action === 'rule'
-              ? action
-              : {
-                  icon: action.icon,
-                  label: action.label,
-                  detail: action.detail,
-                  onPress: action.run,
-                }
-          )}
+          items={sheet?.actions ?? []}
         />
 
         <Modal
@@ -743,388 +601,9 @@ export function FilterScreen({
   );
 }
 
-/** Design 5c / 5d: where the open group sits; tap a chip to go there. Deep paths fold their middle into "…". */
-function Crumbs({
-  chain,
-  visited,
-  levelsOpen,
-  onGo,
-  onLevels,
-}: {
-  chain: Group[];
-  visited: Set<string>;
-  levelsOpen: boolean;
-  onGo: (group: Group) => void;
-  onLevels: () => void;
-}) {
-  const items: (Group | 'fold')[] =
-    chain.length > 4 ? [chain[0]!, 'fold', ...chain.slice(-2)] : chain;
-  return (
-    <View style={styles.crumbs}>
-      {items.map((item, i) => {
-        const last = i === items.length - 1;
-        const sep =
-          i > 0 ? (
-            <Icon name="caret-right" size={10} color={n.textAlpha(45)} />
-          ) : null;
-        if (item === 'fold')
-          return (
-            <View key="fold" style={styles.crumbLine}>
-              {sep}
-              <Pressable
-                onPress={onLevels}
-                style={[styles.crumb, levelsOpen && styles.crumbOpen]}
-                accessibilityLabel="Hidden levels"
-              >
-                <Text style={styles.crumbText}>…</Text>
-              </Pressable>
-            </View>
-          );
-        const skipped = !visited.has(item.id);
-        return (
-          <View key={item.id} style={styles.crumbLine}>
-            {sep}
-            <Pressable
-              onPress={last || skipped ? undefined : () => onGo(item)}
-              style={styles.crumb}
-            >
-              {i === 0 ? (
-                <Icon
-                  name="funnel-simple"
-                  size={15}
-                  color={last ? n.accent300 : n.textAlpha(55)}
-                />
-              ) : null}
-              <Text
-                style={[
-                  styles.crumbText,
-                  skipped && styles.crumbSkipped,
-                  last && styles.crumbHere,
-                ]}
-                numberOfLines={1}
-              >
-                {i === 0 ? 'Filter' : GROUP_LABELS[item.op]}
-              </Text>
-            </Pressable>
-          </View>
-        );
-      })}
-    </View>
-  );
-}
-
-/** Design 5a: a summary line's pieces; a group token opens that group. */
-function Runs({
-  runs,
-  onOpen,
-}: {
-  runs: SummaryRun[];
-  onOpen?: (group: Group) => void;
-}) {
-  return runs.map((run, i) => {
-    switch (run.kind) {
-      case 'lead':
-        return (
-          <Text key={i} style={styles.summaryLead}>
-            {run.text}
-          </Text>
-        );
-      case 'word':
-        return (
-          <Text key={i} style={styles.summaryWord}>
-            {run.text}
-          </Text>
-        );
-      case 'text':
-        return <Text key={i}>{run.text}</Text>;
-      case 'more':
-        return (
-          <Text key={i} style={styles.summaryMore}>
-            + {run.count} more
-          </Text>
-        );
-      case 'group':
-        return (
-          <Text
-            key={i}
-            style={styles.token}
-            onPress={onOpen ? () => onOpen(run.group) : undefined}
-          >
-            {' '}
-            <Icon name="brackets-curly" size={11} color={n.accent200} />
-            {` ${run.text} `}
-            <Icon name="caret-right" size={8} color={n.accent200} />
-            {' '}
-          </Text>
-        );
-    }
-  });
-}
-
-/** A group one level down: its pill (tap cycles) and ⋮, then its children; groups inside it are rows that open. */
-function Subgroup({
-  group,
-  cutId,
-  cameFrom,
-  clipboard,
-  onCycle,
-  onEdit,
-  onMenu,
-  onOpen,
-  onAdd,
-  onPaste,
-}: {
-  group: Group;
-  cutId: string | null;
-  cameFrom: string | null;
-  clipboard: Clipboard | null;
-  onCycle: (group: Group) => void;
-  onEdit: (groupId: string, condition?: Condition) => void;
-  onMenu: (node: Node) => void;
-  onOpen: (group: Group) => void;
-  onAdd: (group: Group) => void;
-  onPaste: (groupId: string) => void;
-}) {
-  const cut = group.id === cutId;
-  return (
-    <View
-      style={[
-        styles.subgroup,
-        cut && styles.cutGroup,
-        group.id === cameFrom && styles.subgroupRing,
-      ]}
-    >
-      <View style={styles.subRow}>
-        <Pressable
-          onPress={() => onCycle(group)}
-          style={[styles.pill, styles.subPill]}
-        >
-          <Text style={[styles.pillText, styles.subPillText]}>
-            {GROUP_LABELS[group.op]}
-          </Text>
-          <Icon name="caret-up-down" size={12} color={n.accent200} />
-        </Pressable>
-        {cut ? <CutTag /> : null}
-        <View style={styles.spacer} />
-        <MoreButton
-          size="sm"
-          onPress={() => onMenu(group)}
-          accessibilityLabel="Group menu"
-        />
-      </View>
-      <View style={styles.children}>
-        <View style={[styles.guide, styles.guideSub]} />
-        {group.children.map((child) =>
-          child.kind === 'condition' ? (
-            <ConditionRow
-              key={child.id}
-              condition={child}
-              cut={child.id === cutId}
-              onPress={() => onEdit(group.id, child)}
-              onMenu={() => onMenu(child)}
-            />
-          ) : (
-            <GroupRow
-              key={child.id}
-              group={child}
-              cut={child.id === cutId}
-              ring={child.id === cameFrom}
-              onPress={() => onOpen(child)}
-              onMenu={() => onMenu(child)}
-            />
-          )
-        )}
-        <AddRow
-          group={group}
-          compact
-          clipboard={clipboard}
-          onAdd={onAdd}
-          onPaste={onPaste}
-        />
-      </View>
-    </View>
-  );
-}
-
-// Rows in the tablet's drawer (on the surface) sit a step lighter than on the phone's ground: text 6% over the surface
-const RAISED = '#2f313d';
-const Raised = createContext(false);
-
-/** Design 5b: a group two levels down, as one row: operator, count and its short summary. Tap opens it. */
-function GroupRow({
-  group,
-  cut,
-  ring,
-  onPress,
-  onMenu,
-}: {
-  group: Group;
-  cut?: boolean;
-  ring?: boolean;
-  onPress: () => void;
-  onMenu: () => void;
-}) {
-  const raised = useContext(Raised);
-  const inside = conditionCount(group);
-  const phrase = groupPhrase(group);
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[
-        styles.row,
-        raised && styles.rowRaised,
-        styles.groupRow,
-        ring && styles.ringRow,
-        cut && styles.cutRow,
-      ]}
-    >
-      <View style={styles.groupTile}>
-        <Icon name="brackets-curly" size={16} color={n.accent300} />
-      </View>
-      <View style={styles.rowBody}>
-        <View style={styles.rowLabelLine}>
-          <Text style={styles.rowLabel}>
-            <Text style={styles.groupRowOp}>{GROUP_LABELS[group.op]}</Text> ·{' '}
-            {inside} condition{inside === 1 ? '' : 's'}
-          </Text>
-          {cut ? <CutTag /> : null}
-        </View>
-        <Text style={styles.groupRowText} numberOfLines={2}>
-          {phrase.length ? <Runs runs={phrase} /> : 'Empty · tap to add to it'}
-        </Text>
-      </View>
-      <Icon name="caret-right" size={14} color={n.textAlpha(55)} />
-      <MoreButton size="sm" onPress={onMenu} accessibilityLabel="Menu" />
-    </Pressable>
-  );
-}
-
-/** Design 5e: one "+ Add" per group (Condition / Subgroup / Paste in a sheet); Paste stays beside it as a shortcut. */
-function AddRow({
-  group,
-  compact,
-  clipboard,
-  onAdd,
-  onPaste,
-}: {
-  group: Group;
-  compact?: boolean;
-  clipboard: Clipboard | null;
-  onAdd: (group: Group) => void;
-  onPaste: (groupId: string) => void;
-}) {
-  return (
-    <View style={compact ? styles.subActions : styles.actions}>
-      <Button
-        label="Add"
-        variant="text"
-        size="sm"
-        icon="plus"
-        onPress={() => onAdd(group)}
-      />
-      {canPaste(clipboard, group.id) ? (
-        <PasteButton compact={compact} onPress={() => onPaste(group.id)} />
-      ) : null}
-    </View>
-  );
-}
-
-/** Design 4b: where the clipboard goes, in a group's add row. */
-function PasteButton({
-  onPress,
-  compact,
-}: {
-  onPress: () => void;
-  compact?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.action,
-        compact && styles.subAction,
-        styles.paste,
-        pressed && styles.actionPressed,
-      ]}
-    >
-      <Icon name="clipboard-text" size={14} color={n.accent200} />
-      <Text style={[styles.actionText, styles.pasteText]}>Paste</Text>
-    </Pressable>
-  );
-}
-
-function CutTag() {
-  return (
-    <View style={styles.cutTag}>
-      <Icon name="scissors" size={10} color={n.neutral300} />
-      <Text style={styles.cutTagText}>Cut</Text>
-    </View>
-  );
-}
-
-function ConditionRow({
-  condition,
-  cut,
-  onPress,
-  onMenu,
-}: {
-  condition: Condition;
-  cut?: boolean;
-  onPress: () => void;
-  onMenu: () => void;
-}) {
-  const raised = useContext(Raised);
-  const { label, runs, resolved, resolvedMono } = rowText(condition);
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.row, raised && styles.rowRaised, cut && styles.cutRow]}
-    >
-      <View style={styles.rowBody}>
-        <View style={styles.rowLabelLine}>
-          <Text style={styles.rowLabel}>{label}</Text>
-          {cut ? <CutTag /> : null}
-        </View>
-        <Text style={styles.rowValue} numberOfLines={1}>
-          {runs.map((run, i) =>
-            run.folder ? (
-              <Icon key={i} name="folder" fill size={14} color={n.accent} />
-            ) : run.sep ? (
-              <Icon
-                key={i}
-                name="caret-right"
-                size={10}
-                color={n.textAlpha(45)}
-              />
-            ) : (
-              <Text
-                key={i}
-                style={[
-                  run.muted && styles.rowMuted,
-                  run.mono && styles.rowMono,
-                ]}
-              >
-                {run.text}
-              </Text>
-            )
-          )}
-        </Text>
-        {resolved ? (
-          <Text
-            style={[styles.rowResolved, resolvedMono && styles.rowResolvedMono]}
-            numberOfLines={1}
-            ellipsizeMode="head"
-          >
-            {resolved}
-          </Text>
-        ) : null}
-      </View>
-      <MoreButton size="sm" onPress={onMenu} accessibilityLabel="Menu" />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
+  // Docked (tablet, 2d): fills its drawer, on the drawer's surface
+  docked: { flex: 1 },
   screen: {
     position: 'absolute',
     left: 0,
@@ -1133,27 +612,6 @@ const styles = StyleSheet.create({
     // design
     backgroundColor: n.bg,
   },
-  // Docked (tablet, 2d): fills its drawer, on the drawer's surface
-  docked: { flex: 1 },
-  dockedFooter: {
-    paddingTop: 12,
-    paddingBottom: 14,
-    paddingLeft: 20,
-    paddingRight: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderTopWidth: 1,
-    borderTopColor: n.divider,
-  },
-  dockedMatch: {
-    flex: 1,
-    color: n.textAlpha(60),
-    fontSize: 13,
-    fontFamily: fonts.regular,
-    fontVariant: ['tabular-nums'],
-  },
-  dockedMatchCount: { color: n.text, fontFamily: fonts.medium },
   dockedSaved: {
     paddingLeft: 20,
     paddingRight: 20,
@@ -1168,9 +626,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts.regular,
   },
-  // In the drawer the ground is the surface: rows sit a step lighter
-  rowRaised: { backgroundColor: RAISED },
-  hidden: { display: 'none' },
   header: {
     paddingTop: 4,
     paddingHorizontal: 12,
@@ -1178,6 +633,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
+  hidden: { display: 'none' },
   titleRow: {
     flex: 1,
     flexDirection: 'row',
@@ -1192,36 +648,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   headerSave: { marginRight: 4 },
-  crumbs: {
-    paddingLeft: 10,
-    paddingRight: 12,
-    paddingBottom: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  crumbLine: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    flexShrink: 1,
-  },
-  crumb: {
-    height: 32,
-    paddingHorizontal: 8,
-    borderRadius: n.radiusMd,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flexShrink: 1,
-  },
-  crumbOpen: { backgroundColor: n.textAlpha(10) },
-  crumbText: {
-    fontFamily: fonts.regular,
-    fontSize: 13,
-    color: n.textAlpha(55),
-  },
-  crumbHere: { color: n.accent300 },
-  crumbSkipped: { color: n.textAlpha(35) },
   body: { flex: 1 },
   bodyContent: { paddingTop: 8, paddingHorizontal: 16, paddingBottom: 20 },
   summary: { marginHorizontal: 4, marginBottom: 16 },
@@ -1230,14 +656,6 @@ const styles = StyleSheet.create({
     fontSize: 13.5,
     lineHeight: 13.5 * 1.6,
     color: n.textAlpha(72),
-  },
-  summaryLead: { fontFamily: fonts.medium, color: n.text },
-  summaryWord: { color: n.textAlpha(50) },
-  summaryMore: { color: n.accent300 },
-  token: {
-    fontSize: 12,
-    color: n.accent200,
-    backgroundColor: n.accentAlpha(14),
   },
   rootRow: {
     flexDirection: 'row',
@@ -1258,67 +676,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     boxShadow: `0 0 12px ${n.accentAlpha(25)}`,
   },
-  subPill: { height: 30, paddingHorizontal: 10 },
   pillText: { fontFamily: fonts.medium, color: n.accent200 },
   rootPillText: { fontSize: 13 },
-  subPillText: { fontSize: 12.5 },
   these: {
     flex: 1,
     fontFamily: fonts.regular,
     fontSize: 12,
     color: n.textAlpha(50),
   },
-  spacer: { flex: 1 },
-  subgroup: { gap: 6, borderRadius: n.radiusMd },
-  subgroupRing: { backgroundColor: n.accentAlpha(9) },
-  cutGroup: { opacity: 0.6 },
-  subActions: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
-  paste: { borderWidth: 1, borderColor: n.accentAlpha(45) },
-  pasteText: { color: n.accent200 },
-  cutTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 5,
-    backgroundColor: n.neutral800,
+  children: { position: 'relative', paddingLeft: 16, gap: 6 },
+  guide: {
+    position: 'absolute',
+    left: 5,
+    top: 0,
+    width: 1,
+    backgroundColor: n.divider,
   },
-  cutTagText: {
-    fontFamily: fonts.regular,
-    fontSize: 10.5,
-    color: n.neutral300,
-  },
-  cutRow: {
-    opacity: 0.6,
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: n.textAlpha(30),
-  },
-  rowLabelLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  groupRow: { paddingLeft: 10, paddingRight: 8 },
-  ringRow: {
-    borderWidth: 1,
-    borderColor: n.accent,
-    boxShadow: `0 0 24px ${n.accentAlpha(22)}`,
-  },
-  groupTile: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.accentAlpha(14),
-  },
-  groupRowOp: { fontFamily: fonts.medium, color: n.accent200 },
-  groupRowText: {
-    marginTop: 1,
-    fontFamily: fonts.regular,
-    fontSize: 13,
-    lineHeight: 13 * 1.45,
-    color: n.text,
-  },
+  guideRoot: { bottom: 22 },
   clipboardBar: {
     marginHorizontal: 16,
     marginBottom: 10,
@@ -1339,13 +713,34 @@ const styles = StyleSheet.create({
     color: n.textAlpha(55),
   },
   clipboardText: { fontFamily: fonts.regular, fontSize: 14, color: n.text },
-  menuTitle: {
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 6,
+  dockedFooter: {
+    paddingTop: 12,
+    paddingBottom: 14,
+    paddingLeft: 20,
+    paddingRight: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: n.divider,
+  },
+  dockedMatch: {
+    flex: 1,
+    color: n.textAlpha(60),
+    fontSize: 13,
     fontFamily: fonts.regular,
-    fontSize: 12,
-    color: n.textAlpha(55),
+    fontVariant: ['tabular-nums'],
+  },
+  dockedMatchCount: { color: n.text, fontFamily: fonts.medium },
+  footer: {
+    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingBottom: Platform.OS === 'android' ? 12 : 30,
+    flexDirection: 'row',
+    gap: 8,
+    borderTopWidth: 1,
+    borderTopColor: n.divider,
+    backgroundColor: n.bg,
   },
   menuClipboard: {
     marginHorizontal: 16,
@@ -1365,8 +760,10 @@ const styles = StyleSheet.create({
     color: n.textAlpha(55),
   },
   menuClipboardItem: { color: n.text },
-  menuItemBody: { flex: 1, gap: 2 },
-  menuDetail: {
+  menuTitle: {
+    paddingHorizontal: 20,
+    paddingTop: 4,
+    paddingBottom: 6,
     fontFamily: fonts.regular,
     fontSize: 12,
     color: n.textAlpha(55),
@@ -1394,7 +791,14 @@ const styles = StyleSheet.create({
     borderRadius: n.radiusMd,
   },
   levelSkipped: { opacity: 0.5 },
+  menuItemPressed: { backgroundColor: n.accentAlpha(10) },
+  menuItemBody: { flex: 1, gap: 2 },
   levelName: { fontFamily: fonts.medium, fontSize: 14, color: n.text },
+  menuDetail: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: n.textAlpha(55),
+  },
   levelsRule: {
     marginVertical: 4,
     marginHorizontal: 12,
@@ -1409,63 +813,4 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: n.textAlpha(50),
   },
-  children: { position: 'relative', paddingLeft: 16, gap: 6 },
-  guide: {
-    position: 'absolute',
-    left: 5,
-    top: 0,
-    width: 1,
-    backgroundColor: n.divider,
-  },
-  guideRoot: { bottom: 22 },
-  guideSub: { bottom: 20 },
-  subRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 },
-  row: {
-    paddingVertical: 9,
-    paddingHorizontal: 12,
-    borderRadius: n.radiusMd,
-    backgroundColor: n.surface,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  rowBody: { flex: 1 },
-  rowLabel: {
-    fontFamily: fonts.regular,
-    fontSize: 11.5,
-    color: n.textAlpha(50),
-  },
-  rowValue: { fontFamily: fonts.regular, fontSize: 14, color: n.text },
-  rowMuted: { color: n.textAlpha(55) },
-  rowMono: { fontFamily: fonts.mono, fontSize: 13 },
-  rowResolvedMono: { fontFamily: fonts.mono, fontSize: 11.5 },
-  rowResolved: {
-    fontFamily: fonts.regular,
-    fontSize: 11.5,
-    color: n.accent300,
-  },
-  actions: { flexDirection: 'row', gap: 6, marginTop: 6 },
-  action: {
-    height: 36,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: n.radiusMd,
-    alignSelf: 'flex-start',
-  },
-  subAction: { height: 34, paddingHorizontal: 10 },
-  actionPressed: { backgroundColor: n.accentAlpha(10) },
-  actionText: { fontFamily: fonts.regular, fontSize: 13, color: n.accent300 },
-  footer: {
-    paddingTop: 12,
-    paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'android' ? 12 : 30,
-    flexDirection: 'row',
-    gap: 8,
-    borderTopWidth: 1,
-    borderTopColor: n.divider,
-    backgroundColor: n.bg,
-  },
-  menuItemPressed: { backgroundColor: n.accentAlpha(10) },
 });
