@@ -19,9 +19,12 @@ import {
   stars,
   videoMeta,
 } from '../lib/format';
-import { Icon } from './Icon';
+import { Icon } from '../ui/Icon';
 import { ResumeBar } from './VideoCard';
 import { type Personal } from './VideoRow';
+import { Button } from '../ui/Button';
+import { CloseButton } from '../ui/IconButton';
+import { Rule, SectionLabel } from '../ui/Text';
 
 /**
  * The tablet Library's preview (design 1h, in a Drawer): the video picked in the grid — a header with ✕; its cover with the rating, the resume
@@ -76,18 +79,8 @@ export function VideoDetail({
   return (
     <ScrollView style={styles.pane} contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <Text style={styles.section}>PREVIEW</Text>
-        <Pressable
-          onPress={onClose}
-          accessibilityLabel="Close the preview"
-          hitSlop={6}
-          style={({ pressed }) => [
-            styles.close,
-            pressed && styles.closePressed,
-          ]}
-        >
-          <Icon name="x" size={16} color={n.text} />
-        </Pressable>
+        <SectionLabel>Preview</SectionLabel>
+        <CloseButton onPress={onClose} accessibilityLabel="Close the preview" />
       </View>
       <Pressable
         onPress={() => onPlay(video)}
@@ -129,18 +122,13 @@ export function VideoDetail({
         {meta ? <Text style={styles.meta}>{meta}</Text> : null}
       </View>
       <View style={styles.actions}>
-        <Pressable
+        <Button
+          label={progress > 0 ? `Resume · ${left} min left` : 'Play'}
+          icon="play"
+          iconFill
+          grow
           onPress={() => onPlay(video)}
-          style={({ pressed }) => [
-            styles.primary,
-            pressed && styles.primaryPressed,
-          ]}
-        >
-          <Icon name="play" fill size={14} color={n.accent200} />
-          <Text style={styles.primaryText}>
-            {progress > 0 ? `Resume · ${left} min left` : 'Play'}
-          </Text>
-        </Pressable>
+        />
         <Toggle
           icon="bookmark-simple"
           label="Save for later"
@@ -156,8 +144,8 @@ export function VideoDetail({
       </View>
       {segments.length ? (
         <>
-          <View style={styles.rule} />
-          <Text style={styles.section}>MOMENTS</Text>
+          <Rule />
+          <SectionLabel>Moments</SectionLabel>
           <View style={styles.moments}>
             {segments.map((s) => (
               <Pressable
@@ -186,7 +174,7 @@ export function VideoDetail({
       ) : null}
       {people.length || tags.length ? (
         <>
-          <Text style={styles.section}>PEOPLE &amp; TAGS</Text>
+          <SectionLabel>People & tags</SectionLabel>
           <View style={styles.chips}>
             {people.map((p) => (
               <Pressable
@@ -266,15 +254,6 @@ const styles = StyleSheet.create({
     marginRight: -8,
     marginBottom: -4,
   },
-  close: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.textAlpha(8),
-  },
-  closePressed: { backgroundColor: n.textAlpha(14) },
   cover: {
     aspectRatio: 16 / 9,
     borderRadius: 14,
@@ -346,19 +325,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
   actions: { flexDirection: 'row', gap: 8 },
-  primary: {
-    flex: 1,
-    height: 44,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  primaryPressed: { backgroundColor: n.accentAlpha(12) },
-  primaryText: { color: n.accent200, fontSize: 14, fontFamily: fonts.medium },
   toggle: {
     width: 44,
     height: 44,
@@ -370,13 +336,6 @@ const styles = StyleSheet.create({
   },
   toggleOn: { borderColor: n.accent },
   pressed: { backgroundColor: n.textAlpha(6) },
-  rule: { height: 1, marginHorizontal: 12, backgroundColor: n.divider },
-  section: {
-    color: n.textAlpha(50),
-    fontSize: 12,
-    letterSpacing: 1,
-    fontFamily: fonts.regular,
-  },
   moments: { gap: 4, marginTop: -6 },
   moment: {
     padding: 5,

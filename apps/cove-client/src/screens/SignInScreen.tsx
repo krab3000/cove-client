@@ -7,7 +7,6 @@ import {
   type ComponentRef,
 } from 'react';
 import {
-  ActivityIndicator,
   BackHandler,
   KeyboardAvoidingView,
   Modal,
@@ -21,7 +20,12 @@ import {
 } from 'react-native';
 import { CoveClient, CoveError } from '../api/cove';
 import { Drawer } from '../components/Drawer';
-import { Icon } from '../components/Icon';
+import { Button } from '../ui/Button';
+import { Icon } from '../ui/Icon';
+import { BackButton, MoreButton } from '../ui/IconButton';
+import { PanelHeader } from '../ui/PanelHeader';
+import { ErrorText, Spinner, StatusDot } from '../ui/Text';
+import { TextField } from '../ui/TextField';
 import { Sheet, SheetHeading, SheetRow, SheetRule } from '../components/Sheet';
 import { fonts, nocturne as n } from '../theme/tokens';
 import {
@@ -220,16 +224,12 @@ export function SignInScreen({
                 <Text style={styles.paneText}>
                   By the address you open it at in a browser.
                 </Text>
-                <Pressable
+                <Button
+                  label="Add server"
                   onPress={() => openEditor('add')}
-                  style={({ pressed }) => [
-                    styles.primary,
-                    styles.paneButton,
-                    pressed && styles.primaryPressed,
-                  ]}
-                >
-                  <Text style={styles.primaryText}>Add server</Text>
-                </Pressable>
+                  size="lg"
+                  style={styles.paneButton}
+                />
               </View>
             )}
           </View>
@@ -420,12 +420,7 @@ function Servers({
                       {s.address}
                     </Text>
                     <View style={styles.statusLine}>
-                      <View
-                        style={[
-                          styles.dot,
-                          online === false ? styles.dotOff : styles.dotOn,
-                        ]}
-                      />
+                      <StatusDot on={online !== false} />
                       <Text style={styles.serverMeta} numberOfLines={1}>
                         {status}
                       </Text>
@@ -439,7 +434,7 @@ function Servers({
                     />
                   )}
                 </Pressable>
-                <Pressable
+                <MoreButton
                   ref={(v) => {
                     if (v) mores.current.set(s.id, v);
                     else mores.current.delete(s.id);
@@ -453,17 +448,7 @@ function Servers({
                       );
                   }}
                   accessibilityLabel={`${s.name} options`}
-                  style={({ pressed }) => [
-                    styles.more,
-                    pressed && styles.pressed,
-                  ]}
-                >
-                  <Icon
-                    name="dots-three-vertical"
-                    size={18}
-                    color={n.textAlpha(45)}
-                  />
-                </Pressable>
+                />
               </View>
             );
           })}
@@ -472,13 +457,13 @@ function Servers({
               Add your Cove server by the address you open it at in a browser.
             </Text>
           )}
-          <Pressable
+          <Button
+            label="Add server"
+            icon="plus"
+            variant="text"
             onPress={onAdd}
-            style={({ pressed }) => [styles.add, pressed && styles.addPressed]}
-          >
-            <Icon name="plus" size={16} color={n.accent300} />
-            <Text style={styles.addText}>Add server</Text>
-          </Pressable>
+            style={styles.add}
+          />
         </View>
       </ScrollView>
     </View>
@@ -511,73 +496,48 @@ function ServerForm({
   return (
     <View style={drawer ? styles.formDrawer : null}>
       {drawer ? (
-        <View style={styles.drawerHeader}>
-          <Text style={styles.drawerTitle}>{title}</Text>
-          <Pressable
-            onPress={onCancel}
-            accessibilityLabel="Close"
-            hitSlop={6}
-            style={({ pressed }) => [
-              styles.close,
-              pressed && styles.closePressed,
-            ]}
-          >
-            <Icon name="x" size={16} color={n.text} />
-          </Pressable>
-        </View>
+        <PanelHeader title={title} onClose={onCancel} />
       ) : (
         <SheetHeading>{title}</SheetHeading>
       )}
       <View style={styles.form}>
         <Text style={styles.label}>Address</Text>
-        <TextInput
+        <TextField
           value={address}
           onChangeText={onAddress}
           placeholder="https://cove.local:9999"
-          placeholderTextColor={n.textAlpha(40)}
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
           autoFocus
           returnKeyType="next"
-          style={[styles.input, styles.inputFocus]}
         />
         <Text style={styles.label}>Name (optional)</Text>
-        <TextInput
+        <TextField
           value={name}
           onChangeText={onName}
           placeholder="e.g. Living Room NAS"
-          placeholderTextColor={n.textAlpha(40)}
           onSubmitEditing={onSave}
           returnKeyType="done"
-          style={styles.input}
         />
         <Text style={styles.hint}>
           The address you open Cove at in a browser. Without a name, the list
           shows its host.
         </Text>
         <View style={styles.buttons}>
-          <Pressable
+          <Button
+            label="Cancel"
+            variant="secondary"
+            size="lg"
             onPress={onCancel}
-            style={({ pressed }) => [
-              styles.secondary,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.secondaryText}>Cancel</Text>
-          </Pressable>
-          <Pressable
-            onPress={onSave}
+          />
+          <Button
+            label={saveLabel}
+            size="lg"
+            grow
             disabled={!valid}
-            style={({ pressed }) => [
-              styles.primary,
-              styles.grow,
-              !valid && styles.disabled,
-              pressed && styles.primaryPressed,
-            ]}
-          >
-            <Text style={styles.primaryText}>{saveLabel}</Text>
-          </Pressable>
+            onPress={onSave}
+          />
         </View>
       </View>
     </View>
@@ -597,7 +557,7 @@ function Unreachable({
   return (
     <View style={styles.centered}>
       <View style={styles.pillCentered}>
-        <View style={[styles.dot, styles.dotOff]} />
+        <StatusDot on={false} />
         <Text style={styles.pillText} numberOfLines={1}>
           {server.name}
         </Text>
@@ -610,22 +570,13 @@ function Unreachable({
         Check that it is on, and on this network.
       </Text>
       <View style={styles.buttons}>
-        <Pressable
+        <Button
+          label="Edit server"
+          variant="secondary"
+          size="lg"
           onPress={onEdit}
-          style={({ pressed }) => [styles.secondary, pressed && styles.pressed]}
-        >
-          <Text style={styles.secondaryText}>Edit server</Text>
-        </Pressable>
-        <Pressable
-          onPress={onRetry}
-          style={({ pressed }) => [
-            styles.primary,
-            styles.paneButton,
-            pressed && styles.primaryPressed,
-          ]}
-        >
-          <Text style={styles.primaryText}>Try again</Text>
-        </Pressable>
+        />
+        <Button label="Try again" size="lg" onPress={onRetry} />
       </View>
     </View>
   );
@@ -743,16 +694,9 @@ function Accounts({
       >
         {large ? null : (
           <>
-            <Pressable
-              onPress={onBack}
-              accessibilityLabel="Servers"
-              style={styles.back}
-              hitSlop={4}
-            >
-              <Icon name="caret-left" size={20} color={n.text} />
-            </Pressable>
+            <BackButton onPress={onBack!} accessibilityLabel="Servers" />
             <View style={styles.pill}>
-              <View style={[styles.dot, styles.dotOn]} />
+              <StatusDot on />
               <Text style={styles.pillText} numberOfLines={1}>
                 {server.name}
               </Text>
@@ -761,18 +705,14 @@ function Accounts({
         )}
         <View style={styles.grow} />
         {empty ? null : (
-          <Pressable
+          <Button
+            label={edit ? 'Done' : 'Edit'}
+            variant="text"
             onPress={() => {
               setEdit((x) => !x);
               setCard(null);
             }}
-            style={({ pressed }) => [
-              styles.textButton,
-              pressed && styles.addPressed,
-            ]}
-          >
-            <Text style={styles.addText}>{edit ? 'Done' : 'Edit'}</Text>
-          </Pressable>
+          />
         )}
       </View>
       <ScrollView
@@ -784,7 +724,7 @@ function Accounts({
       >
         {large ? (
           <View style={styles.pillCentered}>
-            <View style={[styles.dot, styles.dotOn]} />
+            <StatusDot on />
             <Text style={styles.pillText} numberOfLines={1}>
               {server.name}
             </Text>
@@ -815,7 +755,7 @@ function Accounts({
                     ]}
                   >
                     {busy === account.username ? (
-                      <ActivityIndicator color={ink} />
+                      <Spinner />
                     ) : (
                       <Text style={[styles.initial, { color: ink }]}>
                         {initialOf(account.username)}
@@ -876,7 +816,9 @@ function Accounts({
             )}
           </View>
         )}
-        {error && !card ? <Text style={styles.error}>{error}</Text> : null}
+        {error && !card ? (
+          <ErrorText style={styles.error}>{error}</ErrorText>
+        ) : null}
         {/* A tablet's card sits under the avatars, centred */}
         {large && card && !edit ? (
           <View style={[styles.card, styles.cardLarge]}>{cardBody()}</View>
@@ -899,59 +841,44 @@ function Accounts({
           </Text>
         </Text>
         {card === 'add' ? (
-          <TextInput
+          <TextField
             value={username}
             onChangeText={setUsername}
             placeholder="Username"
-            placeholderTextColor={n.textAlpha(40)}
             autoCapitalize="none"
             autoCorrect={false}
             autoFocus={!empty || !large}
             returnKeyType="next"
             onSubmitEditing={() => passwordRef.current?.focus()}
-            style={[styles.input, styles.inputFocus]}
           />
         ) : null}
-        <TextInput
+        <TextField
           ref={passwordRef}
           value={password}
           onChangeText={setPassword}
           placeholder="Password"
-          placeholderTextColor={n.textAlpha(40)}
           secureTextEntry
           autoFocus={card !== 'add'}
           returnKeyType="go"
           onSubmitEditing={signIn}
-          style={[styles.input, card !== 'add' && styles.inputFocus]}
         />
-        {error ? <Text style={styles.errorInCard}>{error}</Text> : null}
+        {error ? <ErrorText>{error}</ErrorText> : null}
         <View style={styles.buttons}>
           {card === 'add' && !empty ? (
-            <Pressable
+            <Button
+              label="Cancel"
+              variant="secondary"
+              size="lg"
               onPress={() => setCard(null)}
-              style={({ pressed }) => [
-                styles.secondary,
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={styles.secondaryText}>Cancel</Text>
-            </Pressable>
+            />
           ) : null}
-          <Pressable
+          <Button
+            label="Sign in"
+            size="lg"
+            grow
+            busy={!!busy}
             onPress={signIn}
-            disabled={!!busy}
-            style={({ pressed }) => [
-              styles.primary,
-              styles.grow,
-              pressed && styles.primaryPressed,
-            ]}
-          >
-            {busy ? (
-              <ActivityIndicator color={n.accent200} />
-            ) : (
-              <Text style={styles.primaryText}>Sign in</Text>
-            )}
-          </Pressable>
+          />
         </View>
       </>
     );
@@ -1053,16 +980,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
   statusLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  dotOn: { backgroundColor: n.accent, boxShadow: `0 0 6px ${n.accent}` },
-  dotOff: { backgroundColor: n.neutral700 },
-  more: {
-    width: 40,
-    height: 44,
-    borderRadius: n.radiusMd,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   help: {
     marginHorizontal: 6,
     marginTop: 4,
@@ -1071,17 +988,7 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontFamily: fonts.regular,
   },
-  add: {
-    alignSelf: 'flex-start',
-    height: 40,
-    paddingHorizontal: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: n.radiusMd,
-  },
-  addPressed: { backgroundColor: n.accentAlpha(10) },
-  addText: { color: n.accent300, fontSize: 14, fontFamily: fonts.medium },
+  add: { alignSelf: 'flex-start' },
   sheetCaption: {
     paddingHorizontal: 20,
     paddingTop: 4,
@@ -1109,28 +1016,6 @@ const styles = StyleSheet.create({
   },
   menuText: { color: n.text, fontSize: 15, fontFamily: fonts.regular },
   formDrawer: { flex: 1 },
-  drawerHeader: {
-    paddingTop: 14,
-    paddingLeft: 20,
-    paddingRight: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  drawerTitle: {
-    flex: 1,
-    color: n.text,
-    fontSize: 17,
-    fontFamily: fonts.medium,
-  },
-  close: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.textAlpha(8),
-  },
-  closePressed: { backgroundColor: n.textAlpha(14) },
   form: { paddingHorizontal: 20, paddingTop: 8, gap: 6 },
   label: {
     marginTop: 8,
@@ -1138,19 +1023,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.regular,
   },
-  input: {
-    height: 46,
-    paddingHorizontal: 14,
-    paddingVertical: 0,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.divider,
-    backgroundColor: n.bg,
-    color: n.text,
-    fontSize: 15,
-    fontFamily: fonts.regular,
-  },
-  inputFocus: { borderColor: n.accent },
   hint: {
     marginTop: 4,
     color: n.textAlpha(50),
@@ -1160,27 +1032,6 @@ const styles = StyleSheet.create({
   },
   buttons: { flexDirection: 'row', gap: 8, marginTop: 10 },
   grow: { flex: 1 },
-  secondary: {
-    height: 50,
-    paddingHorizontal: 18,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.divider,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  secondaryText: { color: n.text, fontSize: 14, fontFamily: fonts.medium },
-  primary: {
-    height: 50,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryPressed: { backgroundColor: n.accentAlpha(12) },
-  primaryText: { color: n.accent200, fontSize: 15, fontFamily: fonts.medium },
-  disabled: { opacity: 0.4 },
   // A tablet's right pane, for a state with no accounts to show
   centered: {
     flex: 1,
@@ -1204,7 +1055,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontFamily: fonts.regular,
   },
-  paneButton: { paddingHorizontal: 24, marginTop: 6 },
+  paneButton: { marginTop: 6, paddingHorizontal: 24 },
   accountsHeader: {
     paddingTop: 12,
     paddingHorizontal: 16,
@@ -1213,12 +1064,6 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   accountsHeaderLarge: { minHeight: 52 },
-  back: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   pill: {
     flexShrink: 1,
     flexDirection: 'row',
@@ -1240,12 +1085,6 @@ const styles = StyleSheet.create({
     color: n.textAlpha(70),
     fontSize: 13,
     fontFamily: fonts.regular,
-  },
-  textButton: {
-    height: 40,
-    paddingHorizontal: 12,
-    borderRadius: n.radiusMd,
-    justifyContent: 'center',
   },
   accountsContent: { paddingBottom: 24 },
   accountsContentLarge: { paddingTop: 40, paddingBottom: 40 },
@@ -1307,21 +1146,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
   tileMeta: { color: n.textAlpha(50), fontSize: 12, fontFamily: fonts.regular },
-  error: {
-    marginTop: 20,
-    marginHorizontal: 24,
-    color: '#ff6b6b',
-    fontSize: 13,
-    lineHeight: 19,
-    textAlign: 'center',
-    fontFamily: fonts.regular,
-  },
-  errorInCard: {
-    color: '#ff6b6b',
-    fontSize: 13,
-    lineHeight: 19,
-    fontFamily: fonts.regular,
-  },
+  error: { marginTop: 20, marginHorizontal: 24, textAlign: 'center' },
   card: {
     marginHorizontal: 16,
     marginBottom: 20,

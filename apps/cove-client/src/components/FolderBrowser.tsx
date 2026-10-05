@@ -12,7 +12,9 @@ import { CoveError, type CoveClient } from '../api/cove';
 import type { FilterExpression, LibraryFolder } from '../api/types';
 import { folderChain, type FolderRef } from '../filter/model';
 import { fonts, nocturne as n } from '../theme/tokens';
-import { Icon } from './Icon';
+import { Icon } from '../ui/Icon';
+import { Button } from '../ui/Button';
+import { BackButton } from '../ui/IconButton';
 
 /** What a folder pick hands back: the folders from the library root down to it, and its subfolder count. */
 export interface FolderPick {
@@ -133,13 +135,7 @@ export function FolderBrowser({
   return (
     <View style={styles.fill}>
       <View style={styles.header}>
-        <Pressable
-          onPress={onBack}
-          style={styles.back}
-          accessibilityLabel="Back"
-        >
-          <Icon name="caret-left" size={20} color={n.text} />
-        </Pressable>
+        <BackButton onPress={onBack} />
         <Text style={styles.title}>Choose a folder</Text>
         <Pressable onPress={() => onType(false)} style={styles.typeLink}>
           <Icon name="cursor-text" size={16} color={n.accent300} />
@@ -283,24 +279,16 @@ export function FolderBrowser({
               : 'Pick a library folder to start'}
           </Text>
         </View>
-        <Pressable
+        <Button
+          label={
+            target
+              ? `Use “${target.name}”${targetCount == null ? '' : ` · ${fmt(targetCount)} videos`}`
+              : 'Choose a folder'
+          }
+          size="lg"
           disabled={!target}
           onPress={() => target && onPick({ chain: targetChain, subfolders })}
-          style={({ pressed }) => [
-            styles.primary,
-            !target && styles.primaryOff,
-            pressed && styles.primaryPressed,
-          ]}
-        >
-          <Text
-            style={[styles.primaryText, !target && styles.primaryTextOff]}
-            numberOfLines={1}
-          >
-            {target
-              ? `Use “${target.name}”${targetCount == null ? '' : ` · ${fmt(targetCount)} videos`}`
-              : 'Choose a folder'}
-          </Text>
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -452,13 +440,7 @@ export function TypedPath({
   return (
     <View style={styles.fill}>
       <View style={styles.header}>
-        <Pressable
-          onPress={onBack}
-          style={styles.back}
-          accessibilityLabel="Back"
-        >
-          <Icon name="caret-left" size={20} color={n.text} />
-        </Pressable>
+        <BackButton onPress={onBack} />
         <Text style={styles.title}>Type a folder path</Text>
       </View>
       <ScrollView
@@ -553,19 +535,12 @@ export function TypedPath({
         ))}
       </ScrollView>
       <View style={styles.footer}>
-        <Pressable
+        <Button
+          label="Use this folder"
+          size="lg"
           disabled={!ok}
           onPress={use}
-          style={({ pressed }) => [
-            styles.primary,
-            !ok && styles.primaryOff,
-            pressed && styles.primaryPressed,
-          ]}
-        >
-          <Text style={[styles.primaryText, !ok && styles.primaryTextOff]}>
-            Use this folder
-          </Text>
-        </Pressable>
+        />
       </View>
     </View>
   );
@@ -578,12 +553,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 2,
-  },
-  back: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   title: { flex: 1, fontFamily: fonts.medium, fontSize: 17, color: n.text },
   typeLink: {
@@ -712,19 +681,6 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     color: n.textAlpha(55),
   },
-  primary: {
-    height: 50,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  primaryOff: { borderColor: n.divider },
-  primaryPressed: { backgroundColor: n.accentAlpha(12) },
-  primaryText: { fontFamily: fonts.medium, fontSize: 15, color: n.accent200 },
-  primaryTextOff: { color: n.textAlpha(40) },
   typed: { paddingHorizontal: 16, paddingBottom: 16 },
   banner: {
     marginTop: 6,

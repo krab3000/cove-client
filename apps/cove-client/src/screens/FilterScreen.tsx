@@ -22,7 +22,11 @@ import {
 import type { CoveClient } from '../api/cove';
 import type { FilterExpression } from '../api/types';
 import { ConditionSheet } from '../components/ConditionSheet';
-import { Icon, type IconName } from '../components/Icon';
+import { formatCount } from '../lib/format';
+import { Button } from '../ui/Button';
+import { Icon, type IconName } from '../ui/Icon';
+import { BackButton, IconButton, MoreButton } from '../ui/IconButton';
+import { PanelHeader } from '../ui/PanelHeader';
 import {
   GROUP_LABELS,
   appendTo,
@@ -427,36 +431,21 @@ export function FilterScreen({
         }
       >
         {docked ? (
-          <View style={styles.dockedHeader}>
-            {atRoot ? null : (
-              <Pressable
-                onPress={up}
-                style={styles.back}
-                hitSlop={4}
-                accessibilityLabel="Up one level"
-              >
-                <Icon name="caret-left" size={20} color={n.text} />
-              </Pressable>
-            )}
-            <Text style={styles.dockedTitle}>Filter</Text>
-            <Text style={styles.dockedCount}>
-              {conditionCount(tree) === 1
+          <PanelHeader
+            title="Filter"
+            detail={
+              conditionCount(tree) === 1
                 ? '1 condition'
-                : `${conditionCount(tree)} conditions`}
-            </Text>
-            <View style={styles.dockedSpacer} />
-            <Pressable
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.dockedClose,
-                pressed && styles.dockedClosePressed,
-              ]}
-              hitSlop={6}
-              accessibilityLabel="Close the filter"
-            >
-              <Icon name="x" size={16} color={n.text} />
-            </Pressable>
-          </View>
+                : `${conditionCount(tree)} conditions`
+            }
+            left={
+              atRoot ? null : (
+                <BackButton onPress={up} accessibilityLabel="Up one level" />
+              )
+            }
+            onClose={onClose}
+            closeLabel="Close the filter"
+          />
         ) : null}
         {docked && title ? (
           <View style={styles.dockedSaved}>
@@ -470,14 +459,10 @@ export function FilterScreen({
           </View>
         ) : null}
         <View style={[styles.header, docked && styles.hidden]}>
-          <Pressable
+          <BackButton
             onPress={atRoot ? onClose : up}
-            style={styles.back}
-            hitSlop={4}
             accessibilityLabel={atRoot ? 'Close the filter' : 'Up one level'}
-          >
-            <Icon name="caret-left" size={20} color={n.text} />
-          </Pressable>
+          />
           <View style={styles.titleRow}>
             <Text style={styles.title} numberOfLines={1}>
               {title ?? 'New filter'}
@@ -487,15 +472,12 @@ export function FilterScreen({
             ) : null}
           </View>
           {saveLabel && onSave ? (
-            <Pressable
+            <Button
+              label={saveLabel}
+              size="sm"
               onPress={onSave}
-              style={({ pressed }) => [
-                styles.headerSave,
-                pressed && styles.primaryPressed,
-              ]}
-            >
-              <Text style={styles.headerSaveText}>{saveLabel}</Text>
-            </Pressable>
+              style={styles.headerSave}
+            />
           ) : null}
         </View>
         {atRoot ? null : (
@@ -570,18 +552,11 @@ export function FilterScreen({
                     ? 'this 1'
                     : `these ${focus.children.length}`}
               </Text>
-              <Pressable
+              <MoreButton
+                size="sm"
                 onPress={() => setMenu(focus)}
-                hitSlop={8}
-                style={styles.groupMenu}
                 accessibilityLabel="Group menu"
-              >
-                <Icon
-                  name="dots-three-vertical"
-                  size={16}
-                  color={n.textAlpha(45)}
-                />
-              </Pressable>
+              />
             </View>
             <View style={styles.children}>
               <View style={[styles.guide, styles.guideRoot]} />
@@ -641,13 +616,13 @@ export function FilterScreen({
                 {summary(clipboard.node)}
               </Text>
             </View>
-            <Pressable
+            <IconButton
+              icon="x"
+              size="sm"
+              color={n.textAlpha(55)}
               onPress={() => setClipboard(null)}
-              hitSlop={10}
               accessibilityLabel="Clear the clipboard"
-            >
-              <Icon name="x" size={16} color={n.textAlpha(55)} />
-            </Pressable>
+            />
           </View>
         ) : null}
 
@@ -655,54 +630,31 @@ export function FilterScreen({
           <View style={styles.dockedFooter}>
             <Text style={styles.dockedMatch}>
               <Text style={styles.dockedMatchCount}>
-                {count == null ? '…' : count.toLocaleString('en-US')}
+                {count == null ? '…' : formatCount(count)}
               </Text>{' '}
               videos match
             </Text>
             {saveLabel && onSave ? (
-              <Pressable
-                onPress={onSave}
-                style={({ pressed }) => [
-                  styles.saveButton,
-                  pressed && styles.primaryPressed,
-                ]}
-              >
-                <Text style={styles.saveButtonText}>{saveLabel}</Text>
-              </Pressable>
+              <Button label={saveLabel} onPress={onSave} />
             ) : null}
-            <Pressable
-              onPress={onClose}
-              style={({ pressed }) => [
-                styles.done,
-                pressed && styles.secondaryPressed,
-              ]}
-            >
-              <Text style={styles.doneText}>Done</Text>
-            </Pressable>
+            <Button label="Done" variant="secondary" onPress={onClose} />
           </View>
         ) : null}
         <View style={[styles.footer, docked && styles.hidden]}>
-          <Pressable
+          <Button
+            label="Play all"
+            variant="secondary"
+            size="lg"
+            icon="play"
+            iconFill
             onPress={() => onPlayAll(wire)}
-            style={({ pressed }) => [
-              styles.secondary,
-              pressed && styles.secondaryPressed,
-            ]}
-          >
-            <Icon name="play" fill size={14} color={n.text} />
-            <Text style={styles.secondaryText}>Play all</Text>
-          </Pressable>
-          <Pressable
+          />
+          <Button
+            label={`Show ${count == null ? '…' : formatCount(count)} videos`}
+            size="lg"
+            grow
             onPress={() => onApply(wire)}
-            style={({ pressed }) => [
-              styles.primary,
-              pressed && styles.primaryPressed,
-            ]}
-          >
-            <Text style={styles.primaryText}>
-              Show {count == null ? '…' : count.toLocaleString('en-US')} videos
-            </Text>
-          </Pressable>
+          />
         </View>
 
         {editing ? (
@@ -987,14 +939,11 @@ function Subgroup({
         </Pressable>
         {cut ? <CutTag /> : null}
         <View style={styles.spacer} />
-        <Pressable
+        <MoreButton
+          size="sm"
           onPress={() => onMenu(group)}
-          hitSlop={8}
-          style={styles.groupMenu}
           accessibilityLabel="Group menu"
-        >
-          <Icon name="dots-three-vertical" size={16} color={n.textAlpha(45)} />
-        </Pressable>
+        />
       </View>
       <View style={styles.children}>
         <View style={[styles.guide, styles.guideSub]} />
@@ -1078,9 +1027,7 @@ function GroupRow({
         </Text>
       </View>
       <Icon name="caret-right" size={14} color={n.textAlpha(55)} />
-      <Pressable onPress={onMenu} hitSlop={12} style={styles.rowMenu}>
-        <Icon name="dots-three-vertical" size={16} color={n.textAlpha(45)} />
-      </Pressable>
+      <MoreButton size="sm" onPress={onMenu} accessibilityLabel="Menu" />
     </Pressable>
   );
 }
@@ -1101,17 +1048,13 @@ function AddRow({
 }) {
   return (
     <View style={compact ? styles.subActions : styles.actions}>
-      <Pressable
+      <Button
+        label="Add"
+        variant="text"
+        size="sm"
+        icon="plus"
         onPress={() => onAdd(group)}
-        style={({ pressed }) => [
-          styles.action,
-          compact && styles.subAction,
-          pressed && styles.actionPressed,
-        ]}
-      >
-        <Icon name="plus" size={14} color={n.accent300} />
-        <Text style={styles.actionText}>Add</Text>
-      </Pressable>
+      />
       {canPaste(clipboard, group.id) ? (
         <PasteButton compact={compact} onPress={() => onPaste(group.id)} />
       ) : null}
@@ -1209,9 +1152,7 @@ function ConditionRow({
           </Text>
         ) : null}
       </View>
-      <Pressable onPress={onMenu} hitSlop={12} style={styles.rowMenu}>
-        <Icon name="dots-three-vertical" size={16} color={n.textAlpha(45)} />
-      </Pressable>
+      <MoreButton size="sm" onPress={onMenu} accessibilityLabel="Menu" />
     </Pressable>
   );
 }
@@ -1258,31 +1199,6 @@ const styles = StyleSheet.create({
   },
   // Docked (tablet, 2d): fills its drawer, on the drawer's surface
   docked: { flex: 1 },
-  dockedHeader: {
-    paddingTop: 14,
-    paddingLeft: 20,
-    paddingRight: 12,
-    paddingBottom: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  dockedTitle: { color: n.text, fontSize: 17, fontFamily: fonts.medium },
-  dockedCount: {
-    color: n.textAlpha(55),
-    fontSize: 12.5,
-    fontFamily: fonts.regular,
-  },
-  dockedSpacer: { flex: 1 },
-  dockedClose: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.textAlpha(8),
-  },
-  dockedClosePressed: { backgroundColor: n.textAlpha(14) },
   dockedFooter: {
     paddingTop: 12,
     paddingBottom: 14,
@@ -1326,30 +1242,6 @@ const styles = StyleSheet.create({
     color: n.accent100,
     backgroundColor: n.accent800,
   },
-  saveButton: {
-    height: 40,
-    paddingHorizontal: 18,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  saveButtonText: {
-    fontFamily: fonts.medium,
-    fontSize: 14,
-    color: n.accent200,
-  },
-  done: {
-    height: 40,
-    paddingHorizontal: 20,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.divider,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  doneText: { fontFamily: fonts.medium, fontSize: 14, color: n.text },
   // In the drawer the ground is the surface: rows sit a step lighter
   rowRaised: { backgroundColor: RAISED },
   hidden: { display: 'none' },
@@ -1359,12 +1251,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-  },
-  back: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   titleRow: {
     flex: 1,
@@ -1379,21 +1265,7 @@ const styles = StyleSheet.create({
     color: n.text,
     flexShrink: 1,
   },
-  headerSave: {
-    height: 34,
-    paddingHorizontal: 12,
-    marginRight: 4,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerSaveText: {
-    fontFamily: fonts.medium,
-    fontSize: 13,
-    color: n.accent200,
-  },
+  headerSave: { marginRight: 4 },
   edited: {
     fontFamily: fonts.regular,
     fontSize: 11,
@@ -1479,12 +1351,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 12,
     color: n.textAlpha(50),
-  },
-  groupMenu: {
-    width: 40,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   spacer: { flex: 1 },
   subgroup: { gap: 6, borderRadius: n.radiusMd },
@@ -1669,7 +1535,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     color: n.accent300,
   },
-  rowMenu: { paddingVertical: 4 },
   actions: { flexDirection: 'row', gap: 6, marginTop: 6 },
   action: {
     height: 36,
@@ -1693,29 +1558,6 @@ const styles = StyleSheet.create({
     borderTopColor: n.divider,
     backgroundColor: n.bg,
   },
-  secondary: {
-    height: 50,
-    paddingHorizontal: 16,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.divider,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  secondaryPressed: { backgroundColor: n.textAlpha(7) },
-  secondaryText: { fontFamily: fonts.medium, fontSize: 14, color: n.text },
-  primary: {
-    flex: 1,
-    height: 50,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryPressed: { backgroundColor: n.accentAlpha(12) },
-  primaryText: { fontFamily: fonts.medium, fontSize: 15, color: n.accent200 },
   menuScrim: { flex: 1, backgroundColor: n.scrim, justifyContent: 'flex-end' },
   menu: {
     backgroundColor: n.surface,

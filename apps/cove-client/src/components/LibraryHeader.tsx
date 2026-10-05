@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { fonts, nocturne as n } from '../theme/tokens';
-import { Icon, type IconName } from './Icon';
+import { Icon, type IconName } from '../ui/Icon';
 
 export type LibraryView = 'grid2' | 'grid3' | 'list';
 
@@ -620,26 +620,6 @@ const styles = StyleSheet.create({
   },
   shuffleOn: { backgroundColor: n.accentAlpha(12) },
   spacer: { flex: 1 },
-  chipScroll: { flex: 1, marginHorizontal: 4 },
-  chips: { gap: 6, alignItems: 'center' },
-  chip: {
-    height: 32,
-    paddingLeft: 11,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 16,
-  },
-  chipText: { fontSize: 12.5, fontFamily: fonts.regular },
-  struck: { textDecorationLine: 'line-through' },
-  chipX: {
-    width: 28,
-    height: 28,
-    marginRight: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chipEnd: { width: 9 },
   play: {
     width: 36,
     height: 36,

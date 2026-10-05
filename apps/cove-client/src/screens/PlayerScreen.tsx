@@ -16,7 +16,7 @@ import {
 import { primaryFile, type CoveClient } from '../api/cove';
 import type { Engagement, Segment, Video } from '../api/types';
 import { Bar } from '../components/Bar';
-import { Icon, type IconName } from '../components/Icon';
+import { Icon, type IconName } from '../ui/Icon';
 import { SeekTrack } from '../components/SeekTrack';
 import {
   Sheet,
@@ -24,7 +24,7 @@ import {
   SheetRow,
   SheetSection,
 } from '../components/Sheet';
-import { fonts, nocturne as n } from '../theme/tokens';
+import { fonts, nocturne as n, overVideo } from '../theme/tokens';
 import {
   formatDuration,
   resolutionLabel,
@@ -42,6 +42,7 @@ import {
 } from '../player';
 import { useSafeInsets } from '../platform/insets';
 import { isLarge } from '../theme/layout';
+import { BackButton, IconButton } from '../ui/IconButton';
 
 const touch = Platform.OS === 'android';
 // Controls hide after this long without input while playing.
@@ -570,9 +571,10 @@ export function PlayerScreen({
           <View style={[styles.transport, styles.transportWide]}>
             <IconButton
               icon="clock-counter-clockwise"
-              size={32}
-              label="Back 10 seconds"
+              iconSize={32}
+              accessibilityLabel="Back 10 seconds"
               onPress={() => skip(-SEEK_STEP)}
+              color={overVideo.ink}
             />
             <PlayButton
               size={76}
@@ -586,9 +588,10 @@ export function PlayerScreen({
             />
             <IconButton
               icon="clock-clockwise"
-              size={32}
-              label="Forward 10 seconds"
+              iconSize={32}
+              accessibilityLabel="Forward 10 seconds"
               onPress={() => skip(SEEK_STEP)}
+              color={overVideo.ink}
             />
           </View>
         </View>
@@ -613,9 +616,10 @@ export function PlayerScreen({
             <>
               <IconButton
                 icon={muted || volume === 0 ? 'speaker-slash' : 'speaker-high'}
-                size={18}
-                label={muted ? 'Unmute' : 'Mute'}
+                iconSize={18}
+                accessibilityLabel={muted ? 'Unmute' : 'Mute'}
                 onPress={() => setMuted(!muted)}
+                color={overVideo.ink}
               />
               <Bar
                 value={muted ? 0 : volume}
@@ -636,9 +640,10 @@ export function PlayerScreen({
           </Pressable>
           <IconButton
             icon="corners-out"
-            size={20}
-            label="Full screen"
+            iconSize={20}
+            accessibilityLabel="Full screen"
             onPress={() => setFullscreen(true)}
+            color={overVideo.ink}
           />
         </View>
       </View>
@@ -786,11 +791,12 @@ export function PlayerScreen({
               >
                 <IconButton
                   icon="caret-left"
-                  size={22}
-                  label={fullscreen ? 'Leave full screen' : 'Back'}
+                  iconSize={22}
+                  accessibilityLabel={fullscreen ? 'Leave full screen' : 'Back'}
                   onPress={() =>
                     fullscreen ? setFullscreen(false) : onClose()
                   }
+                  color={overVideo.ink}
                 />
                 <View style={styles.lTitle}>
                   <Text style={styles.lTitleText} numberOfLines={1}>
@@ -810,12 +816,13 @@ export function PlayerScreen({
                 {touch ? (
                   <IconButton
                     icon="lock-simple-open"
-                    size={20}
-                    label="Lock the controls"
+                    iconSize={20}
+                    accessibilityLabel="Lock the controls"
                     onPress={() => {
                       setLocked(true);
                       setControls(false);
                     }}
+                    color={overVideo.ink}
                   />
                 ) : null}
               </View>
@@ -825,9 +832,10 @@ export function PlayerScreen({
                   <View style={[styles.transport, styles.transportWide]}>
                     <IconButton
                       icon="clock-counter-clockwise"
-                      size={32}
-                      label="Back 10 seconds"
+                      iconSize={32}
+                      accessibilityLabel="Back 10 seconds"
                       onPress={() => skip(-SEEK_STEP)}
+                      color={overVideo.ink}
                     />
                     <PlayButton
                       size={72}
@@ -839,9 +847,10 @@ export function PlayerScreen({
                     />
                     <IconButton
                       icon="clock-clockwise"
-                      size={32}
-                      label="Forward 10 seconds"
+                      iconSize={32}
+                      accessibilityLabel="Forward 10 seconds"
                       onPress={() => skip(SEEK_STEP)}
+                      color={overVideo.ink}
                     />
                   </View>
                 </View>
@@ -876,9 +885,10 @@ export function PlayerScreen({
                             ? 'speaker-slash'
                             : 'speaker-high'
                         }
-                        size={18}
-                        label={muted ? 'Unmute' : 'Mute'}
+                        iconSize={18}
+                        accessibilityLabel={muted ? 'Unmute' : 'Mute'}
                         onPress={() => setMuted(!muted)}
+                        color={overVideo.ink}
                       />
                       <Bar
                         value={muted ? 0 : volume}
@@ -910,9 +920,10 @@ export function PlayerScreen({
                   {fullscreen ? (
                     <IconButton
                       icon="corners-in"
-                      size={20}
-                      label="Leave full screen"
+                      iconSize={20}
+                      accessibilityLabel="Leave full screen"
                       onPress={() => setFullscreen(false)}
+                      color={overVideo.ink}
                     />
                   ) : null}
                 </View>
@@ -924,15 +935,17 @@ export function PlayerScreen({
               <View style={styles.kTop}>
                 <IconButton
                   icon="caret-down"
-                  size={22}
-                  label="Close the player"
+                  iconSize={22}
+                  accessibilityLabel="Close the player"
                   onPress={onClose}
+                  color={overVideo.ink}
                 />
                 <IconButton
                   icon="gear-six"
-                  size={20}
-                  label="Settings"
+                  iconSize={20}
+                  accessibilityLabel="Settings"
                   onPress={() => setSheet('settings')}
+                  color={overVideo.ink}
                 />
               </View>
               {info && !error && !seeking ? (
@@ -940,9 +953,10 @@ export function PlayerScreen({
                   <View style={[styles.transport, styles.transportNarrow]}>
                     <IconButton
                       icon="clock-counter-clockwise"
-                      size={28}
-                      label="Back 10 seconds"
+                      iconSize={28}
+                      accessibilityLabel="Back 10 seconds"
                       onPress={() => skip(-SEEK_STEP)}
+                      color={overVideo.ink}
                     />
                     <PlayButton
                       size={64}
@@ -954,9 +968,10 @@ export function PlayerScreen({
                     />
                     <IconButton
                       icon="clock-clockwise"
-                      size={28}
-                      label="Forward 10 seconds"
+                      iconSize={28}
+                      accessibilityLabel="Forward 10 seconds"
                       onPress={() => skip(SEEK_STEP)}
+                      color={overVideo.ink}
                     />
                   </View>
                 </View>
@@ -972,9 +987,10 @@ export function PlayerScreen({
                 <View style={styles.spacer} />
                 <IconButton
                   icon="corners-out"
-                  size={18}
-                  label="Full screen"
+                  iconSize={18}
+                  accessibilityLabel="Full screen"
                   onPress={() => setFullscreen(true)}
+                  color={overVideo.ink}
                 />
               </View>
             </View>
@@ -1153,13 +1169,11 @@ export function PlayerScreen({
           <View
             style={[styles.mBack, { top: insets.top + 10, left: TABLET_PAD }]}
           >
-            <Pressable
+            <BackButton
+              look="outlined"
               onPress={onClose}
               accessibilityLabel="Back to the Library"
-              style={styles.mBackButton}
-            >
-              <Icon name="caret-left" size={20} color={n.text} />
-            </Pressable>
+            />
             <Text style={styles.mCrumb}>Library</Text>
           </View>
           <ScrollView
@@ -1529,29 +1543,6 @@ function uuid(): string {
   });
 }
 
-function IconButton({
-  icon,
-  size,
-  label,
-  onPress,
-}: {
-  icon: IconName;
-  size: number;
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityLabel={label}
-      hitSlop={4}
-      style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
-    >
-      <Icon name={icon} size={size} color={INK} />
-    </Pressable>
-  );
-}
-
 function PlayButton({
   size,
   icon,
@@ -1638,12 +1629,6 @@ const styles = StyleSheet.create({
   transport: { flexDirection: 'row', alignItems: 'center' },
   transportWide: { gap: 64 },
   transportNarrow: { gap: 36 },
-  iconButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   pressed: { opacity: 0.6 },
   pressedBg: { backgroundColor: n.textAlpha(6) },
   play: {
@@ -1854,15 +1839,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  mBackButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: n.divider,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   mCrumb: { color: n.textAlpha(60), fontSize: 13, fontFamily: fonts.regular },
   mDetails: { position: 'absolute', bottom: 0 },

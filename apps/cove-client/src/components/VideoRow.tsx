@@ -19,7 +19,7 @@ import {
   stars,
   videoMeta,
 } from '../lib/format';
-import { Icon } from './Icon';
+import { Icon } from '../ui/Icon';
 import { HoverPreview } from './HoverPreview';
 import {
   useInRange,

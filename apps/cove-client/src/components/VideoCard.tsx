@@ -19,7 +19,7 @@ import {
   videoTitle,
 } from '../lib/format';
 import { HoverPreview } from './HoverPreview';
-import { Icon } from './Icon';
+import { Icon } from '../ui/Icon';
 import {
   useInRange,
   useIsSelected,

@@ -7,14 +7,11 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  ActivityIndicator,
   BackHandler,
   FlatList,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
-  TextInput,
   View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -78,6 +75,9 @@ import WheelCapture, {
 } from '../native/WheelCaptureNativeComponent';
 import { formatSize, initialOf } from '../lib/format';
 import { isLarge } from '../theme/layout';
+import { Button } from '../ui/Button';
+import { ErrorText, Spinner, StatusDot } from '../ui/Text';
+import { TextField } from '../ui/TextField';
 
 const PER_PAGE = 40;
 // Space above the first row.
@@ -1235,18 +1235,14 @@ export function BrowseScreen({
         />
         {error ? (
           <View style={styles.errorRow}>
-            <Text style={styles.error} numberOfLines={2}>
-              {error}
-            </Text>
-            <Pressable onPress={retry} hitSlop={8}>
-              <Text style={styles.retry}>Retry</Text>
-            </Pressable>
+            <ErrorText style={styles.error}>{error}</ErrorText>
+            <Button label="Retry" variant="text" size="sm" onPress={retry} />
           </View>
         ) : null}
         <View style={styles.listArea}>
           {total == null && !error ? (
             <View style={styles.center}>
-              <ActivityIndicator color={n.accent} />
+              <Spinner />
             </View>
           ) : null}
           {total === 0 ? (
@@ -1409,7 +1405,7 @@ export function BrowseScreen({
               {client.username}
             </Text>
             <View style={styles.accountServer}>
-              <View style={styles.serverDot} />
+              <StatusDot on />
               <Text style={styles.accountServerText} numberOfLines={1}>
                 {client.server.replace(/^https?:\/\//, '')}
               </Text>
@@ -1441,7 +1437,7 @@ export function BrowseScreen({
         <Text style={styles.saveAsHint}>
           The filter, the search and the view, as a saved filter in Cove.
         </Text>
-        <TextInput
+        <TextField
           value={newName}
           onChangeText={(t) => {
             setNewName(t);
@@ -1449,32 +1445,20 @@ export function BrowseScreen({
           }}
           onSubmitEditing={saveAs}
           placeholder="Name"
-          placeholderTextColor={n.textAlpha(45)}
           autoFocus
           returnKeyType="done"
           style={styles.nameInput}
         />
         {sheetError ? (
-          <Text style={styles.sheetError}>{sheetError}</Text>
+          <ErrorText style={styles.sheetError}>{sheetError}</ErrorText>
         ) : null}
-        <Pressable
-          onPress={saveAs}
+        <Button
+          label="Save"
+          size="lg"
           disabled={!newName.trim()}
-          style={({ pressed }) => [
-            styles.primary,
-            !newName.trim() && styles.primaryDisabled,
-            pressed && styles.primaryPressed,
-          ]}
-        >
-          <Text
-            style={[
-              styles.primaryText,
-              !newName.trim() && styles.primaryTextDisabled,
-            ]}
-          >
-            Save
-          </Text>
-        </Pressable>
+          onPress={saveAs}
+          style={styles.saveButton}
+        />
       </Sheet>
     </View>
   );
@@ -1505,13 +1489,7 @@ const styles = StyleSheet.create({
     borderRadius: n.radiusMd,
     backgroundColor: n.surface,
   },
-  error: {
-    color: '#ff8a8a',
-    flex: 1,
-    fontSize: 12.5,
-    fontFamily: fonts.regular,
-  },
-  retry: { color: n.accent300, fontSize: 13, fontFamily: fonts.medium },
+  error: { flex: 1 },
   account: {
     paddingHorizontal: 20,
     paddingTop: 12,
@@ -1536,12 +1514,6 @@ const styles = StyleSheet.create({
   accountText: { flex: 1, minWidth: 0, gap: 2 },
   accountName: { color: n.text, fontSize: 17, fontFamily: fonts.medium },
   accountServer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  serverDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: n.accent,
-  },
   accountServerText: {
     flexShrink: 1,
     color: n.textAlpha(55),
@@ -1555,37 +1527,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts.regular,
   },
-  nameInput: {
-    marginHorizontal: 20,
-    height: 48,
-    paddingHorizontal: 14,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-    backgroundColor: n.bg,
-    color: n.text,
-    fontSize: 15,
-    fontFamily: fonts.regular,
-  },
-  sheetError: {
-    marginHorizontal: 20,
-    marginTop: 8,
-    color: '#ff8a8a',
-    fontSize: 12.5,
-    fontFamily: fonts.regular,
-  },
-  primary: {
-    marginHorizontal: 20,
-    marginTop: 16,
-    height: 50,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryDisabled: { borderColor: n.divider },
-  primaryPressed: { backgroundColor: n.accentAlpha(12) },
-  primaryText: { color: n.accent200, fontSize: 15, fontFamily: fonts.medium },
-  primaryTextDisabled: { color: n.textAlpha(40) },
+  nameInput: { marginHorizontal: 20 },
+  sheetError: { marginHorizontal: 20, marginTop: 8 },
+  saveButton: { marginHorizontal: 20, marginTop: 16 },
 });

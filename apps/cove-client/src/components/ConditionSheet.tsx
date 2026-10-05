@@ -28,8 +28,10 @@ import {
 } from '../filter/model';
 import { fonts, nocturne as n } from '../theme/tokens';
 import { FolderBrowser, TypedPath, type FolderPick } from './FolderBrowser';
-import { Icon } from './Icon';
+import { Icon } from '../ui/Icon';
 import { useSafeInsets } from '../platform/insets';
+import { Button } from '../ui/Button';
+import { ErrorText } from '../ui/Text';
 
 const QUICK_DATES = ['-7d', '-1m', '-1y', '0d'];
 
@@ -143,19 +145,14 @@ export function ConditionSheet({
           )}
           {condition && !folders ? (
             <View style={styles.footer}>
-              {error ? <Text style={styles.error}>{error}</Text> : null}
-              <Pressable
+              {error ? <ErrorText>{error}</ErrorText> : null}
+              <Button
+                label={initial ? 'Save condition' : 'Add condition'}
+                size="lg"
                 onPress={save}
-                style={({ pressed }) => [
-                  styles.primary,
-                  !!error && styles.disabled,
-                  pressed && styles.primaryPressed,
-                ]}
-              >
-                <Text style={styles.primaryText}>
-                  {initial ? 'Save condition' : 'Add condition'}
-                </Text>
-              </Pressable>
+                // Still pressable: pressing says what is missing
+                style={error ? styles.dimmed : undefined}
+              />
             </View>
           ) : null}
         </View>
@@ -785,6 +782,7 @@ function Chip({
 }
 
 const styles = StyleSheet.create({
+  dimmed: { opacity: 0.45 },
   scrim: { flex: 1, backgroundColor: n.scrim, justifyContent: 'flex-end' },
   sheet: {
     maxHeight: '86%',
@@ -985,16 +983,4 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: n.divider,
   },
-  error: { fontFamily: fonts.regular, fontSize: 12.5, color: n.accent300 },
-  primary: {
-    height: 50,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  primaryPressed: { backgroundColor: n.accentAlpha(12) },
-  disabled: { opacity: 0.45 },
-  primaryText: { fontFamily: fonts.medium, fontSize: 15, color: n.accent200 },
 });
