@@ -6,12 +6,10 @@ import { createQueryClient } from './app/queryClient';
 import { useSafeInsets } from './platform/insets';
 import { BrowseScreen } from './screens/BrowseScreen';
 import { PlayerScreen } from './screens/PlayerScreen';
-import { SignInScreen } from './screens/SignInScreen';
-import type { SignIn } from './signIn';
-import { accounts, changeAccounts } from './state/accounts';
+import { SignInScreen } from './features/signin/SignInScreen';
 import { closePlayer, play, player } from './state/player';
 import { prefs } from './state/prefs';
-import { enter, logout, session, startSession } from './state/session';
+import { logout, session, startSession } from './state/session';
 import { nocturne } from './theme/tokens';
 import { Spinner } from './ui/Text';
 import { ClientContext } from './data/client';
@@ -23,11 +21,12 @@ import { ClientContext } from './data/client';
  */
 export default function App() {
   // Snapshots re-render on change; the client and the videos are plain objects (ref), passed as they are
-  const { status, signInServerId } = useSnapshot(session);
-  const client = useSnapshot(session).client ? session.client : null;
+  const sessionSnap = useSnapshot(session);
+  const { status } = sessionSnap;
+  const client = sessionSnap.client ? session.client : null;
   const playing = useSnapshot(player).playing ? player.playing : null;
   const { autoplay } = useSnapshot(prefs);
-  const signIn = useSnapshot(accounts) as SignIn;
+
   useEffect(() => {
     startSession();
   }, []);
@@ -64,12 +63,7 @@ export default function App() {
                 previews={!playing}
               />
             ) : (
-              <SignInScreen
-                state={signIn}
-                onChange={changeAccounts}
-                onSignedIn={enter}
-                initialServerId={signInServerId}
-              />
+              <SignInScreen />
             )}
           </View>
           {/* Edge to edge, outside the content's system bar padding: the player keeps its own insets. */}
