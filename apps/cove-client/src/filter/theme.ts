@@ -12,6 +12,7 @@ export const nocturne = {
   accent100: '#f5f4ff',
   accent200: '#e7e5fe',
   accent300: '#d2cefd',
+  accent700: '#5d5294',
   accent800: '#423a6a',
   accent900: '#2b2741',
   neutral300: '#cfd3e5',

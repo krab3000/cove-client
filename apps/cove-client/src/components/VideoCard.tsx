@@ -11,14 +11,15 @@ import {
 } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
+import { fonts, nocturne as n } from '../filter/theme';
 import {
   formatDuration,
   resolutionLabel,
   videoSubtitle,
   videoTitle,
 } from '../format';
-import { colors } from './Controls';
 import { HoverPreview } from './HoverPreview';
+import { Icon } from './Icon';
 import {
   useInRange,
   useIsSelected,
@@ -26,10 +27,10 @@ import {
   type Selection,
 } from './selection';
 
-
 /**
- * A grid card: the cover (or a placeholder until Cove's generate task has made one), duration and resolution
- * badges, title and studio/date.
+ * A Library grid tile (design 1f): the cover (or a placeholder until Cove's generate task has made one) with one
+ * "resolution · duration" badge, a heart on the user's favorites and the resume bar; the title, and in the roomier
+ * grid the studio and date.
  */
 export const VideoCard = memo(function VideoCard({
   client,
@@ -43,6 +44,9 @@ export const VideoCard = memo(function VideoCard({
   held: heldSelection,
   onHold,
   onRelease,
+  showStudio,
+  favorite,
+  progress,
 }: {
   client: CoveClient;
   video: Video;
@@ -58,6 +62,10 @@ export const VideoCard = memo(function VideoCard({
   held: Selection<number | null>;
   onHold: (video: Video) => void;
   onRelease: (video: Video) => void;
+  showStudio: boolean;
+  // The user's own: a favorite, and how far they got (0–1; 0 = not started)
+  favorite: boolean;
+  progress: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
@@ -66,13 +74,17 @@ export const VideoCard = memo(function VideoCard({
   const autoplay = useInRange(focus, index);
   const showPreview = previewing || held || autoplay;
   // The loading bar runs from the preview being chosen until it plays (or turns out to have nothing to play).
-  const [previewState, setPreviewState] = useState<'loading' | 'playing' | 'none'>('loading');
+  const [previewState, setPreviewState] = useState<
+    'loading' | 'playing' | 'none'
+  >('loading');
   useEffect(() => {
     if (showPreview) setPreviewState('loading');
   }, [showPreview]);
   const file = primaryFile(video);
-  const duration = formatDuration(file?.duration);
-  const resolution = resolutionLabel(video);
+  const badge = [resolutionLabel(video), formatDuration(file?.duration)]
+    .filter(Boolean)
+    .join(' · ');
+  const thumbHeight = Math.round((width * 9) / 16);
 
   return (
     <Pressable
@@ -82,16 +94,19 @@ export const VideoCard = memo(function VideoCard({
       delayLongPress={300}
       onLongPress={() => onHold(video)}
       onPressOut={() => onRelease(video)}
-      style={[styles.card, { width, height }, hovered && styles.cardHover]}
+      style={{ width, height }}
     >
-      <View style={styles.thumb}>
+      <View
+        style={[
+          styles.thumb,
+          { height: thumbHeight },
+          hovered && styles.thumbHover,
+        ]}
+      >
         {imageFailed ? (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderCodec}>
               {(file?.videoCodec ?? '').toUpperCase()}
-            </Text>
-            <Text style={styles.placeholderFormat}>
-              {[file?.format, file?.audioCodec].filter(Boolean).join(' · ')}
             </Text>
           </View>
         ) : (
@@ -110,96 +125,136 @@ export const VideoCard = memo(function VideoCard({
             client={client}
             video={video}
             onState={setPreviewState}
-            // The thumbnail, inside the card's 1 px border.
-            width={width - 2}
-            height={Math.round(((width - 2) * 9) / 16)}
+            width={width}
+            height={thumbHeight}
           />
         ) : null}
         {showPreview && previewState === 'loading' ? <LoadingBar /> : null}
-        {resolution ? (
-          <Text style={[styles.badge, styles.badgeLeft]}>{resolution}</Text>
+        {favorite ? (
+          <View style={styles.heart}>
+            <Icon name="heart" fill size={10} color={n.accent300} />
+          </View>
         ) : null}
-        {duration ? (
-          <Text style={[styles.badge, styles.badgeRight]}>{duration}</Text>
+        {badge ? (
+          <Text style={styles.badge} numberOfLines={1}>
+            {badge}
+          </Text>
         ) : null}
+        {progress > 0 ? <ResumeBar progress={progress} height={2} /> : null}
       </View>
-      <Text style={styles.title} numberOfLines={2}>
+      <Text style={styles.title} numberOfLines={1}>
         {videoTitle(video)}
       </Text>
-      <Text style={styles.subtitle} numberOfLines={1}>
-        {videoSubtitle(video)}
-      </Text>
+      {showStudio ? (
+        <Text style={styles.subtitle} numberOfLines={1}>
+          {videoSubtitle(video)}
+        </Text>
+      ) : null}
     </Pressable>
   );
 });
 
+/** The tile's height below its 16:9 thumbnail: the title, and the studio line in the roomier grid. */
+export function tileTextHeight(showStudio: boolean): number {
+  return 5 + 16 + (showStudio ? 1 + 15 : 0);
+}
+
+/** How far the user got: a thin accent bar along the bottom of a thumbnail. */
+export function ResumeBar({
+  progress,
+  height,
+}: {
+  progress: number;
+  height: number;
+}) {
+  return (
+    <View pointerEvents="none" style={[styles.progressTrack, { height }]}>
+      <View
+        style={[styles.progress, { width: `${Math.min(1, progress) * 100}%` }]}
+      />
+    </View>
+  );
+}
+
+// Over the video: dark in both themes.
+const SCRIM = 'rgba(10,11,18,0.72)';
+
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingBottom: 10,
-  },
-  cardHover: {
-    backgroundColor: colors.surfaceHover,
-    borderColor: colors.accent,
-  },
-  // Rounded like the card: React Native Windows does not clip children to a parent's rounded corners.
+  // Rounded on its own: React Native Windows does not clip children to a parent's rounded corners.
   thumb: {
-    aspectRatio: 16 / 9,
-    borderTopLeftRadius: 7,
-    borderTopRightRadius: 7,
+    borderRadius: 6,
     overflow: 'hidden',
-    backgroundColor: '#000',
+    backgroundColor: n.surface,
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
+  thumbHover: { borderColor: n.accent },
   placeholder: {
     ...StyleSheet.absoluteFillObject,
-    borderTopLeftRadius: 7,
-    borderTopRightRadius: 7,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#14171d',
+    backgroundColor: n.surface,
   },
-  placeholderCodec: { color: colors.textDim, fontSize: 22, fontWeight: '600' },
-  placeholderFormat: { color: colors.textDim, fontSize: 12, marginTop: 4 },
+  placeholderCodec: {
+    color: n.textAlpha(55),
+    fontSize: 14,
+    fontFamily: fonts.semiBold,
+  },
+  heart: {
+    position: 'absolute',
+    right: 4,
+    top: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(10,11,18,0.6)',
+  },
   badge: {
     position: 'absolute',
-    bottom: 6,
-    color: '#fff',
-    backgroundColor: 'rgba(0,0,0,0.75)',
-    fontSize: 12,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
+    right: 4,
+    bottom: 4,
+    color: n.text,
+    backgroundColor: SCRIM,
+    fontSize: 10,
+    fontFamily: fonts.medium,
+    fontVariant: ['tabular-nums'],
+    paddingHorizontal: 4,
+    borderRadius: 3,
     overflow: 'hidden',
   },
-  badgeLeft: { left: 6 },
-  badgeRight: { right: 6 },
-  // Fixed heights (two title lines, one subtitle line): see CARD_TEXT_HEIGHT.
-  title: {
-    color: colors.text,
-    fontSize: 14,
-    lineHeight: 18,
-    height: 36,
-    marginTop: 8,
-    marginHorizontal: 10,
+  progressTrack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(233,233,237,0.22)',
   },
-  subtitle: {
-    color: colors.textDim,
+  progress: { height: '100%', backgroundColor: n.accent },
+  // Fixed heights: see tileTextHeight.
+  title: {
+    color: n.text,
     fontSize: 12,
+    fontFamily: fonts.medium,
     lineHeight: 16,
     height: 16,
-    marginTop: 3,
-    marginHorizontal: 10,
+    marginTop: 5,
+  },
+  subtitle: {
+    color: n.textAlpha(55),
+    fontSize: 11.5,
+    fontFamily: fonts.regular,
+    lineHeight: 15,
+    height: 15,
+    marginTop: 1,
   },
 });
 
 /** A stripe sliding along the bottom of the thumbnail: this card's preview is starting. */
-function LoadingBar() {
+export function LoadingBar() {
   const x = useRef(new Animated.Value(0)).current;
   const [width, setWidth] = useState(0);
   useEffect(() => {
@@ -258,31 +313,38 @@ const loadingStyles = StyleSheet.create({
     top: 0,
     bottom: 0,
     left: 0,
-    backgroundColor: colors.accent,
+    backgroundColor: n.accent,
   },
 });
 
-/** The card's height below its 16:9 thumbnail: title, subtitle, margins, the bottom padding and the border. */
-export const CARD_TEXT_HEIGHT = 8 + 36 + 3 + 16 + 10 + 2;
-
-/** A card whose video is still loading. */
-export function PlaceholderCard({ width, height }: { width: number; height: number }) {
+/** A tile or list card whose video is still loading. */
+export function PlaceholderCard({
+  width,
+  height,
+  thumbRadius = 6,
+}: {
+  width: number;
+  height: number;
+  thumbRadius?: number;
+}) {
   return (
-    <View style={[styles.card, { width, height }]}>
-      <View style={styles.thumb} />
+    <View style={{ width, height }}>
+      <View
+        style={[
+          styles.thumb,
+          { height: Math.round((width * 9) / 16), borderRadius: thumbRadius },
+        ]}
+      />
       <View style={[skeletonStyles.skeleton, { width: '70%' }]} />
-      <View style={[skeletonStyles.skeleton, skeletonStyles.skeletonShort]} />
     </View>
   );
 }
 
 const skeletonStyles = StyleSheet.create({
   skeleton: {
-    height: 12,
+    height: 10,
     borderRadius: 4,
-    marginTop: 12,
-    marginHorizontal: 10,
-    backgroundColor: colors.surfaceHover,
+    marginTop: 8,
+    backgroundColor: n.surface,
   },
-  skeletonShort: { width: '35%', marginTop: 10 },
 });

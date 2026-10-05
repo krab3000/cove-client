@@ -36,6 +36,21 @@ const GLYPHS = {
   'arrow-line-down': 0xe05c,
   'arrow-elbow-up-left': 0xe054,
   'eraser': 0xe21e,
+  // Library (1f, 1g)
+  'sort-descending': 0xe446,
+  'shuffle': 0xe422,
+  'squares-four': 0xe464,
+  'dots-nine': 0xe1fc,
+  'rows': 0xe5a2,
+  'heart': 0xe2a8,
+  'bookmark-simple': 0xe0ea,
+  'bookmarks-simple': 0xe5f0,
+  'star': 0xe46a,
+  'stack': 0xe466,
+  'eye-slash': 0xe224,
+  'play-circle': 0xe3d2,
+  'user': 0xe4c2,
+  'sign-out': 0xe42a,
 } as const;
 
 export type IconName = keyof typeof GLYPHS;

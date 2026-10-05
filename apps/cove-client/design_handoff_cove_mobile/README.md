@@ -85,8 +85,57 @@ Phone frames are 390×844, tablet 1180×820 (landscape), phone-landscape 844×39
 **1e · Light, list-first** — Date + "Pick up where you left off" (28px). Large resume rows (132px thumb, title, 4px progress bar, "x min left"). "Your groups" — stacked-cover cards (3 offset images) for Cove groups. Light tab bar.
 
 ### Library
-**1f · Dense grid (phone)** — "Library" + search + filter (sliders) icons. Sort control ("Recently added ▾"). **2/3-column switch** (segmented, icons). Quick-filter chip row (see Filtering). Grid: 3 cols gap 12/8 or 2 cols gap 16/12; tiles = thumb + 1-line title 12px.
-**1g · Roomy list (light)** — Segmented All / Unwatched / In progress. One video per row: full-width 16:9 thumb (radius 14) with resolution badge top-left + duration bottom-right; title 17px; "source · added 2d ago"; bookmark button; people chips (avatar + name) and tag chips.
+The phone Library is **one screen with three views**: 2 columns, 3 columns (the default) and list. One header sits on top of all three; the views change only what is under it. It is built around the **filter bar**. Dark for now; the light theme comes later (open decision 5). Interactive in the standalone document.
+- **1f** shows the screen in the dense grid.
+- **1g** shows the same screen in list view with a saved filter loaded.
+- Each frame keeps its own state, so both views can be seen side by side.
+
+**Header (all views).**
+- **Title row.** "Videos" (28px, Cove's name for the page) + search (→ 2e).
+  - When a **saved filter** is loaded, the title is its name and a caret opens the saved-filter list (not designed).
+  - Above the title is a 24px line: bookmarks-simple icon + "SAVED FILTER" (11px uppercase). Once the filter is changed, an **Edited** tag and a **Save** text button follow it. They sit on this line so a long filter name keeps the title row.
+- **Count line** (12.5 muted, tabular): "{n} videos · {h} h · {size}". This is the result count plus total duration and file size, from Cove's `POST /api/videos/aggregate`.
+- **Filter bar.** Sticky: it stays pinned under the top edge while the list scrolls (bg 88% + blur 18px).
+  - **Filter button**, at the left and not scrolling: 36px pill, funnel-simple icon + "Filter". Tap → 2a.
+    - No filter: inset 1px divider, text color.
+    - Active: inset 1px accent, accent 12% fill, accent-200 text, and a count badge with the number of top-level conditions (20px pill, accent-800 / accent-100).
+  - Then a horizontally scrolling row of **condition chips**: the filter's top-level items, in the short phrases of 5a ("Unwatched", "tagged Drone", "4K and up", "added in the last year", "with Ines Ravel").
+    - 32px pills, each ending in a 28px ✕ that removes the condition. Tapping the chip itself opens that condition: in 2a for a flat filter, in 2b for a tree.
+    - Include: accent-800 / accent-100.
+    - Exclude: neutral-800 / neutral-300, minus icon, line-through.
+    - A subgroup is the 5a **group token** (brackets-curly, accent 14% / accent-200, caret-right: "any of 2 ›"), which opens it (5c).
+    - "Clear" (accent-300) ends the row.
+  - **No filter:** the row offers the user's **saved filters** instead (radius 8, bookmarks-simple; dynamic groups with the stack icon). A tap runs one: run first, build second. Then two built-in shortcuts that are real Cove criteria: **Unwatched** (Play Count = 0) and **In progress** (Resume Time > 0).
+  - Removing the last condition returns to this state. Removing or adding a condition to a loaded saved filter marks it Edited.
+- **Sort row.** From left to right:
+  - Sort button "Date ▾" (sort-descending icon; Cove's default sort, date descending).
+  - A Shuffle icon button (Cove's seeded Random sort).
+  - A primary outlined **Play all** (34px; plays the results as a feed).
+  - The **view switch**: segmented, icon-only, 38×32 each. `squares-four` = 2 columns, `dots-nine` = 3 columns, `rows` = list; the accessible labels are "2 columns", "3 columns", "List".
+  - The sort sheet is not designed. It should offer Cove's sorts: Date, Created At ("Added"), Title, Rating, Play Count, Last Played, Duration, Resolution, File Size, Random. Cove allows more than one sort key.
+- **The view travels with saved filters**, as in Cove, which saves the display mode with the filter. Loading one switches to its view (here "Northern evenings" opens in list, "Short & unwatched" in 3 columns, "Timelapses" in 2), and Save stores the current view.
+- The list view is not called "Feed": the Feed tab (1i) is the full-screen vertical swipe (Cove's "Vertical Viewer").
+- When switching views, keep the top visible video anchored.
+
+**Grid views (1f: 3 columns, the default)** — For scanning a big library. 1f is shown with an ad-hoc filter of 4 conditions (Unwatched, tagged Drone, 4K and up, not Archive).
+- Grid: 3 cols gap 12/8, or 2 cols gap 16/12.
+- Tiles:
+  - 16:9 thumb (radius 6) with one badge bottom-right, "{resolution} · {duration}" (10px, tabular).
+  - A small filled heart top-right on Favorites (18px dark scrim circle, `#d2cefd`).
+  - The 2px resume bar with glow.
+  - A 1-line title 12px. In 2 columns, the studio line follows (11.5 muted).
+
+**List view (1g)** — Decide without opening. 1g is shown with the saved filter "Northern evenings" loaded (4 conditions, one of them a subgroup). The old All / Unwatched / In progress tabs are now filter conditions.
+- One video per row:
+  - **Thumb:** full-width 16:9, radius 14. **Rating pill** top-left ("★ 4.5": Cove's rating, 0–100, shown here as stars; Cove can also show it as 0–10). "{resolution} · {duration}" bottom-right. 3px resume bar.
+  - **Text:** title 17px. Meta 12.5: "studio · date · watched N×" (or "unwatched"). Cove's date can be partial: "1962", "Oct 2022".
+  - **Buttons:** two 40px round toggles, **Save for later** (bookmark-simple, Cove's per-user bookmark) and **Favorite** (heart). On = filled icon, accent, inset accent ring.
+  - **Chips:** performer chips (22px avatar, accent-700 / accent-100, + name) and tag chips (radius 6).
+  - **Group line** when the video is in a Cove group (stack icon in accent-300: "Northern Trips · part 3").
+- **Tap a person or tag chip to add it to the filter** ("with Ines Ravel", "tagged Landscape"). This is list view only: grid tiles have no chips.
+  - All card chips look the same: surface with a divider ring. They don't show whether they are already in the filter.
+  - Tapping one that is already in the filter does nothing; ✕ in the filter bar removes it.
+  - The bar, badge, count and Edited tag follow.
 **1h · Tablet split** — 3 columns: **sidebar 232px** (brand, server switcher, Home/Library/Feed/Search, "Watch": Continue watching/Watch later/History, "Saved searches", profile + settings) · **grid** (search field, sort, chip row, 3-col grid) · **detail pane 360px** (16:9 preview with play button and marker ticks, title, meta, "Resume · x min left"/"Play" primary + bookmark, Moments list (64×36 thumb, label, timecode in accent-300), People & tags). Selected tile: 2px accent ring + glow, title in accent-300.
   - Behavior: **tap = select (updates pane); tap selected again or Play = open player; long-press = quick actions (Play, Resume, Watch later, Start over).** In portrait/narrow split-screen the pane collapses and slides in from the right on select; dismiss by swipe or tapping outside.
 
@@ -108,7 +157,10 @@ Principle: **run first, build second.** Three depths, all writing to the same Co
 **2b · Rule tree outline** — Opened from a saved filter ("Northern evenings" + "Edited" tag, Save). A generated **plain-language sentence** of the whole tree at top. Root group pill (tap cycles All of/Any of/Just one of/None of); conditions as surface rows (field label 11.5 muted, "operator value" 14, relative dates in mono with resolved range in accent-300); nested groups indented 16px with a 1px divider guide line; related-performer block outlined in accent 40% with chevron → 2c. "+ Condition" / "+ Subgroup". Footer: "Play all" + "Show {count} videos". Sentence and count update when operators change.
 **2c · Related-performer sheet** — "Every condition in this block applies to the same person." Radio cards for the 3 match modes with plain descriptions; "That performer has" All conditions / Any condition; nested conditions joined by an accent-300 "and"/"or" label; "+ Add performer detail"; toggle "Use a different performer for each" with explanation; Done.
 **2d · Tablet** — Icon rail · **380px persistent filter column** (saved filter selector + Save / Save as new / revert; the rule tree; Sort; "Open as" Grid/Feed/Vertical) · results (count 26px, sentence, Shuffle + Play all, 3-col grid). Results update live.
-Quick-filter chips on Library (1f) = built-in states (Unwatched, In progress, Watch later) + the user's saved filters + pinned (or most-used) Cove tags. Multiple chips AND together; "Clear" appears when any is active.
+The Library's **filter bar** (1f, 1g) is the way in.
+- Its chips are the current filter's top-level conditions (✕ removes one, a tap opens it); its Filter button opens 2a.
+- With no filter, the bar offers the user's saved filters and dynamic groups (one tap runs them) plus Unwatched / In progress.
+- There are no pinned tags or quick filters: Cove has neither. As in Cove's web UI, the active filter is the chips, the Filter button's count and "Clear".
 
 ### Path selector (turn 3)
 The Path condition of the rule tree (2b): match by **folder**, not by typing paths. It is **turn 3 of the main document** (top of `Cove Mobile - standalone.html` and `source/Cove Mobile.dc.html`; 3b and 3d are interactive). The same screens as separate canvas artboards: `design/source/path-selector/` (`Main` = 3a, `Browse` = 3b, `Tree` = 3c, `Typed` = 3d; `canvas.json` lays them out; their Phosphor `@font-face` points at uploaded copies of `Phosphor.ttf` / `Phosphor-Fill.ttf`).
@@ -139,7 +191,7 @@ Keeps a deeply nested filter usable on a phone. Turn 5 of the main document (5a�
 ---
 
 ## Interactions & behavior (summary)
-- Navigation: phone = bottom tab bar (1c/1e/1f/1g) **or** floating pill (1d) — pick one. Tablet = full sidebar (1h) or icon rail (1j, 1m, 2d) — rail when content needs width (feed, player, filters).
+- Navigation: phone = bottom tab bar (1c/1e/1f) **or** floating pill (1d) — pick one. Tablet = full sidebar (1h) or icon rail (1j, 1m, 2d) — rail when content needs width (feed, player, filters).
 - Chrome auto-hide in players: tap toggles; auto-hide after ~3s while playing. Fade .25s.
 - Seek ±10s; double-tap left/right on video = ±10s (recommended).
 - Marker ticks appear on **every** timeline (feed, player, previews). Tapping a moment seeks to it. "Current moment" derived from playhead.
@@ -148,15 +200,15 @@ Keeps a deeply nested filter usable on a phone. Turn 5 of the main document (5a�
 - Selected/active states always = accent ring or accent text, never solid accent fill.
 
 ## State (as prototyped — see the logic class in the source)
-`server`, `profile`, `cols` (2|3), `sel` (tablet library selection), `playing`, `chrome`, `t` (playhead 0–1), `ptab` (player side tab), `homeTab`, `fTags` (tag → 0 off / 1 include / 2 exclude), `fWatch`, `fDur`, `gOps` (operator index per group), `mMode` (related match mode), `mAny`, `distinct`, `sTokens`, `pPath` / `pSel` / `pQ` (3b: open folder, selected folder, filter text), `pText` (3d: typed path).
+`server`, `profile`, `sel` (tablet library selection), `playing`, `chrome`, `t` (playhead 0–1), `ptab` (player side tab), `homeTab`, `fTags` (tag → 0 off / 1 include / 2 exclude), `fWatch`, `fDur`, `gOps` (operator index per group), `mMode` (related match mode), `mAny`, `distinct`, `sTokens`, `pPath` / `pSel` / `pQ` (3b: open folder, selected folder, filter text), `pText` (3d: typed path), `lfConds` / `lfSaved` / `lfEdited` / `lfView` and `lgConds` / `lgSaved` / `lgEdited` / `lgView` (the Library screen in frames 1f / 1g: top-level condition keys, loaded saved filter, changed since loaded, view 2 | 3 | 'list'), `marks` (list view's Save for later / Favorite toggles).
 Real data comes from Cove's API (see https://yourcove.net/docs/developer/api/overview/): servers via LAN discovery, users/auth, videos (title, duration, resolution, source/studio, tags, performers, groups, markers/segments, generated previews/sprites), personal state (resume position, watch later, history), saved filters, dynamic groups.
 
 ## Open decisions (not yet chosen by product owner)
 1. Home: 1c vs 1d vs 1e
 2. Phone nav: tab bar vs floating pill
-3. Library default density: 1f vs 1g
+3. Library default view: 3 columns (as designed, recommended) vs 2 columns vs list
 4. Single-condition editor (operators, regex, relative-date input) — not yet designed
-5. Light theme coverage for tablet screens
+5. Light theme coverage: tablet screens and the phone Library (all three views; currently dark only)
 
 ## Assets
 - Icons: Phosphor Icons (https://phosphoricons.com), regular + fill.

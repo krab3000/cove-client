@@ -966,6 +966,11 @@ function dateValue(v: unknown): string {
 export function describeCondition(c: Condition): string {
   const f = fieldById(c.field);
   const m = c.modifier;
+  // The Library's built-in shortcuts (1f): play count 0, a resume position
+  if (f.id === 'playCount' && m === 'equals' && Number(c.value) === 0)
+    return 'unwatched';
+  if (f.id === 'resumeTime' && m === 'greaterThan' && Number(c.value) === 0)
+    return 'in progress';
   if (f.type === 'path') {
     // Design 3c / 5a: "in Drone/2024", "not in Family", "“GoPro” in path"
     if (m === 'underPath') return `in ${shortFolder(c)}`;

@@ -27,6 +27,38 @@ export interface Video {
   parentVideoId: number | null; // a clip of another video: plays the parent's file
   clipStartSec: number | null;
   clipEndSec: number | null;
+  tags?: { id: number; name: string }[];
+  performers?: { id: number; name: string }[];
+  groups?: { id: number; name: string; videoIndex: number | null }[];
+}
+
+/** The signed-in user's own data about a video (engagement/batch); not part of the video itself. */
+export interface Engagement {
+  hostId: number;
+  isFavorite: boolean;
+  rating: number | null; // 0–100
+  resumeTime: number; // seconds
+  playCount: number;
+}
+
+/** What videos/aggregate sums up for a filter. */
+export interface Aggregate {
+  count: number;
+  duration: number; // seconds
+  fileSize: number; // bytes
+}
+
+/**
+ * A saved filter (savedfilters, per user), as Cove's web UI writes it: JSON strings of its page state. objectFilter
+ * holds flat criteria and the rule tree under "_filterExpression"; uiOptions has displayMode ("grid", "list", ...).
+ */
+export interface SavedFilter {
+  id: number;
+  mode: string;
+  name: string;
+  findFilter: string | null;
+  objectFilter: string | null;
+  uiOptions: string | null;
 }
 
 export interface PaginatedResponse<T> {

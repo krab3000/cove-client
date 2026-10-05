@@ -62,6 +62,7 @@ export function FilterScreen({
   onApply,
   onPlayAll,
   onClose,
+  title,
 }: {
   client: CoveClient;
   tree: Group;
@@ -71,6 +72,8 @@ export function FilterScreen({
   onApply: (filter: FilterExpression | null) => void;
   onPlayAll: (filter: FilterExpression | null) => void;
   onClose: () => void;
+  /** The saved filter being edited, if any */
+  title?: string;
 }) {
   const wire = useMemo(() => toWire(tree), [tree]);
   const wireJson = JSON.stringify(wire);
@@ -394,7 +397,7 @@ export function FilterScreen({
         </Pressable>
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={1}>
-            New filter
+            {title ?? 'New filter'}
           </Text>
           {edited && tree.children.length ? (
             <Text style={styles.edited}>Edited</Text>

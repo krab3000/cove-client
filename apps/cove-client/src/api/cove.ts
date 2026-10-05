@@ -1,11 +1,14 @@
 import { Platform } from 'react-native';
 import type {
+  Aggregate,
   ApiTokenResponse,
+  Engagement,
   FilterExpression,
   LibraryFolder,
   LoginResponse,
   NamedEntity,
   PaginatedResponse,
+  SavedFilter,
   Video,
   VideoFile,
 } from './types';
@@ -85,25 +88,98 @@ export class CoveClient {
     }
   }
 
+  /** A page of videos, newest first, or shuffled (Cove's seeded random sort: the same seed, the same order). */
   findVideos(
     page: number,
     perPage: number,
-    filterExpression?: FilterExpression | null
+    filterExpression?: FilterExpression | null,
+    shuffleSeed?: number | null
   ) {
-    // A secondary sort keeps page boundaries stable (like Cove's CLI).
     return this.request<PaginatedResponse<Video>>('POST', 'videos/find', {
-      findFilter: {
-        page,
-        perPage,
-        sort: 'created_at',
-        direction: 'desc',
-        sorts: [
-          { key: 'created_at', direction: 'desc' },
-          { key: 'updated_at', direction: 'desc' },
-        ],
-      },
+      findFilter:
+        shuffleSeed != null
+          ? {
+              page,
+              perPage,
+              sort: 'random',
+              direction: 'asc',
+              seed: shuffleSeed,
+            }
+          : {
+              page,
+              perPage,
+              sort: 'created_at',
+              direction: 'desc',
+              // A secondary sort keeps page boundaries stable (like Cove's CLI).
+              sorts: [
+                { key: 'created_at', direction: 'desc' },
+                { key: 'updated_at', direction: 'desc' },
+              ],
+            },
       ...(filterExpression ? { filterExpression } : {}),
     });
+  }
+
+  /** How many videos match a filter, their total duration and file size. */
+  aggregateVideos(filterExpression?: FilterExpression | null) {
+    return this.request<Aggregate>('POST', 'videos/aggregate', {
+      ...(filterExpression ? { filterExpression } : {}),
+    });
+  }
+
+  /** The user's rating, favorite, play count and resume time for these videos. */
+  engagement(ids: number[]) {
+    return this.request<Engagement[]>('POST', 'engagement/batch', {
+      hostType: 'video',
+      hostIds: ids,
+    });
+  }
+
+  setFavorite(id: number, isFavorite: boolean) {
+    return this.request<Engagement>('PUT', `engagement/video/${id}/favorite`, {
+      isFavorite,
+    });
+  }
+
+  /** Which of these videos the user saved for later (Cove's bookmarks). */
+  async savedForLater(ids: number[]): Promise<Set<number>> {
+    const result = await this.request<{ hostId: number; saved: boolean }[]>(
+      'POST',
+      'me/bookmarks/batch',
+      { hostType: 'video', hostIds: ids }
+    );
+    return new Set(result.filter((b) => b.saved).map((b) => b.hostId));
+  }
+
+  setSavedForLater(id: number, saved: boolean) {
+    return this.request('POST', 'me/bookmarks', {
+      hostType: 'video',
+      hostId: id,
+      saved,
+    });
+  }
+
+  savedFilters() {
+    return this.request<SavedFilter[]>('GET', 'savedfilters?mode=videos');
+  }
+
+  updateSavedFilter(
+    id: number,
+    change: { objectFilter?: string; uiOptions?: string }
+  ) {
+    return this.request<SavedFilter>('PUT', `savedfilters/${id}`, change);
+  }
+
+  /** The name of a tag, performer, studio, group or gallery, by id. */
+  async entityName(
+    kind: 'tags' | 'performers' | 'studios' | 'groups' | 'galleries',
+    id: number
+  ): Promise<string> {
+    const item = await this.request<Record<string, unknown>>(
+      'GET',
+      `${kind}/${id}`
+    );
+    return String(item[kind === 'galleries' ? 'title' : 'name'] ?? `#${id}`);
   }
 
   /** How many videos match a filter (perPage 0: Cove only counts). */
