@@ -2,10 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, PanResponder, StyleSheet, View } from 'react-native';
 import { nocturne as n } from '../filter/theme';
 
-const WIDTH = 360;
 const INSET = 12;
-// Far enough right to be out of sight, shadow included
-const AWAY = WIDTH + 2 * INSET;
 // A swipe right this far (or this fast) closes it
 const SWIPE_CLOSE = 90;
 const SWIPE_VELOCITY = 0.5;
@@ -18,19 +15,23 @@ const SWIPE_VELOCITY = 0.5;
 export function Drawer({
   open,
   onClose,
+  width = 360,
   children,
 }: {
   open: boolean;
   onClose: () => void;
+  width?: number;
   children: ReactNode;
 }) {
+  // Far enough right to be out of sight, shadow included
+  const away = width + 2 * INSET;
   // How far right of its place the drawer is, in dp
-  const shift = useRef(new Animated.Value(AWAY)).current;
+  const shift = useRef(new Animated.Value(away)).current;
   const [mounted, setMounted] = useState(open);
   useEffect(() => {
     if (open) setMounted(true);
     const run = Animated.timing(shift, {
-      toValue: open ? 0 : AWAY,
+      toValue: open ? 0 : away,
       duration: open ? 340 : 220,
       easing: open ? Easing.bezier(0.2, 0.8, 0.2, 1) : Easing.in(Easing.quad),
       useNativeDriver: true,
@@ -39,7 +40,7 @@ export function Drawer({
       if (finished && !open) setMounted(false);
     });
     return () => run.stop();
-  }, [open, shift]);
+  }, [open, shift, away]);
 
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
@@ -71,8 +72,9 @@ export function Drawer({
       style={[
         styles.drawer,
         {
+          width,
           opacity: shift.interpolate({
-            inputRange: [0, AWAY],
+            inputRange: [0, away],
             outputRange: [1, 0],
           }),
           transform: [{ translateX: shift }],
@@ -92,7 +94,6 @@ const styles = StyleSheet.create({
     top: INSET,
     right: INSET,
     bottom: INSET,
-    width: WIDTH,
     borderRadius: 22,
     backgroundColor: n.surface,
     boxShadow: `inset 0 0 0 1px ${n.textAlpha(10)}, -12px 0 48px rgba(0,0,0,0.5), 0 24px 60px rgba(0,0,0,0.4)`,

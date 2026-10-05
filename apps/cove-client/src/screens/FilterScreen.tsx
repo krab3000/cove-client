@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentRef,
+  createContext,
+  useContext,
+} from 'react';
 import {
   Animated,
   BackHandler,
@@ -64,6 +72,9 @@ export function FilterScreen({
   onClose,
   title,
   docked,
+  savedEdited,
+  saveLabel,
+  onSave,
 }: {
   client: CoveClient;
   tree: Group;
@@ -77,9 +88,15 @@ export function FilterScreen({
   title?: string;
   /**
    * Tablet (design 2d): a column beside the results instead of a screen over them. "Filter · N conditions" and
-   * close on top; no Show / Play all footer, as the results beside it follow the tree as it changes.
+   * close on top, the live count and Done at the bottom; no Show / Play all, as the results behind it follow the tree
+   * as it changes.
    */
   docked?: boolean;
+  // Docked: the saved filter is changed (Edited by its name). What saving does ("Save" / "Save as…", or null when
+  // there is nothing to save) and doing it: saving is the editor's (the phone's header, the tablet drawer's footer).
+  savedEdited?: boolean;
+  saveLabel?: string | null;
+  onSave?: () => void;
 }) {
   const wire = useMemo(() => toWire(tree), [tree]);
   const wireJson = JSON.stringify(wire);
@@ -391,341 +408,401 @@ export function FilterScreen({
   };
 
   return (
-    <View style={docked ? styles.docked : styles.screen}>
-      {docked ? (
-        <View style={styles.dockedHeader}>
-          {atRoot ? null : (
+    <Raised.Provider value={!!docked}>
+      <View style={docked ? styles.docked : styles.screen}>
+        {docked ? (
+          <View style={styles.dockedHeader}>
+            {atRoot ? null : (
+              <Pressable
+                onPress={up}
+                style={styles.back}
+                hitSlop={4}
+                accessibilityLabel="Up one level"
+              >
+                <Icon name="caret-left" size={20} color={n.text} />
+              </Pressable>
+            )}
+            <Text style={styles.dockedTitle}>Filter</Text>
+            <Text style={styles.dockedCount}>
+              {conditionCount(tree) === 1
+                ? '1 condition'
+                : `${conditionCount(tree)} conditions`}
+            </Text>
+            <View style={styles.dockedSpacer} />
             <Pressable
-              onPress={up}
-              style={styles.back}
-              hitSlop={4}
-              accessibilityLabel="Up one level"
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.dockedClose,
+                pressed && styles.dockedClosePressed,
+              ]}
+              hitSlop={6}
+              accessibilityLabel="Close the filter"
             >
-              <Icon name="caret-left" size={20} color={n.text} />
+              <Icon name="x" size={16} color={n.text} />
             </Pressable>
-          )}
-          <Text style={styles.dockedTitle}>Filter</Text>
-          <Text style={styles.dockedCount}>
-            {conditionCount(tree) === 1
-              ? '1 condition'
-              : `${conditionCount(tree)} conditions`}
-          </Text>
-          <View style={styles.dockedSpacer} />
+          </View>
+        ) : null}
+        {docked && title ? (
+          <View style={styles.dockedSaved}>
+            <Icon name="bookmarks-simple" fill size={15} color={n.accent300} />
+            <Text style={styles.dockedSavedName} numberOfLines={1}>
+              {title}
+            </Text>
+            {savedEdited ? (
+              <Text style={styles.dockedEdited}>Edited</Text>
+            ) : null}
+          </View>
+        ) : null}
+        <View style={[styles.header, docked && styles.hidden]}>
           <Pressable
-            onPress={onClose}
+            onPress={atRoot ? onClose : up}
             style={styles.back}
             hitSlop={4}
-            accessibilityLabel="Close the filter"
+            accessibilityLabel={atRoot ? 'Close the filter' : 'Up one level'}
           >
-            <Icon name="x" size={18} color={n.text} />
+            <Icon name="caret-left" size={20} color={n.text} />
           </Pressable>
-        </View>
-      ) : null}
-      <View style={[styles.header, docked && styles.hidden]}>
-        <Pressable
-          onPress={atRoot ? onClose : up}
-          style={styles.back}
-          hitSlop={4}
-          accessibilityLabel={atRoot ? 'Close the filter' : 'Up one level'}
-        >
-          <Icon name="caret-left" size={20} color={n.text} />
-        </Pressable>
-        <View style={styles.titleRow}>
-          <Text style={styles.title} numberOfLines={1}>
-            {title ?? 'New filter'}
-          </Text>
-          {edited && tree.children.length ? (
-            <Text style={styles.edited}>Edited</Text>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={1}>
+              {title ?? 'New filter'}
+            </Text>
+            {edited && tree.children.length ? (
+              <Text style={styles.edited}>Edited</Text>
+            ) : null}
+          </View>
+          {saveLabel && onSave ? (
+            <Pressable
+              onPress={onSave}
+              style={({ pressed }) => [
+                styles.headerSave,
+                pressed && styles.primaryPressed,
+              ]}
+            >
+              <Text style={styles.headerSaveText}>{saveLabel}</Text>
+            </Pressable>
           ) : null}
         </View>
-      </View>
-      {atRoot ? null : (
-        <Crumbs
-          chain={chain}
-          visited={visited}
-          levelsOpen={levels}
-          onGo={(g) => goTo(g, false)}
-          onLevels={() => setLevels(true)}
-        />
-      )}
-
-      <ScrollView
-        ref={scroll}
-        style={styles.body}
-        contentContainerStyle={styles.bodyContent}
-        scrollEventThrottle={32}
-        onScroll={(e) =>
-          offsets.current.set(focus.id, e.nativeEvent.contentOffset.y)
-        }
-      >
-        <Animated.View
-          style={{
-            transform: [{ translateX: slide }],
-            opacity: slide.interpolate({
-              inputRange: [-48, 0, 48],
-              outputRange: [0, 1, 0],
-            }),
-          }}
-        >
-          {lines.length ? (
-            <Pressable
-              onPress={
-                folds || summaryOpen
-                  ? () => setSummaryOpen((o) => !o)
-                  : undefined
-              }
-              style={styles.summary}
-            >
-              {lines.map((runs, i) => (
-                <Text
-                  key={i}
-                  style={styles.summaryLine}
-                  numberOfLines={summaryOpen ? undefined : 1}
-                >
-                  <Runs runs={runs} onOpen={open} />
-                </Text>
-              ))}
-            </Pressable>
-          ) : (
-            <Text style={[styles.summary, styles.summaryLine]}>
-              {atRoot
-                ? 'All videos. Add a condition to narrow them down.'
-                : 'No conditions in this group yet.'}
-            </Text>
-          )}
-          <View style={styles.rootRow}>
-            <Pressable
-              onPress={() => cycle(focus)}
-              style={[styles.pill, styles.rootPill]}
-            >
-              <Text style={[styles.pillText, styles.rootPillText]}>
-                {GROUP_LABELS[focus.op]}
-              </Text>
-              <Icon name="caret-up-down" size={13} color={n.accent200} />
-            </Pressable>
-            {focus.id === cutId ? <CutTag /> : null}
-            <Text style={styles.these}>
-              {focus.children.length === 0
-                ? 'empty'
-                : focus.children.length === 1
-                  ? 'this 1'
-                  : `these ${focus.children.length}`}
-            </Text>
-            <Pressable
-              onPress={() => setMenu(focus)}
-              hitSlop={8}
-              style={styles.groupMenu}
-              accessibilityLabel="Group menu"
-            >
-              <Icon
-                name="dots-three-vertical"
-                size={16}
-                color={n.textAlpha(45)}
-              />
-            </Pressable>
-          </View>
-          <View style={styles.children}>
-            <View style={[styles.guide, styles.guideRoot]} />
-            {focus.children.map((child) =>
-              child.kind === 'condition' ? (
-                <ConditionRow
-                  key={child.id}
-                  condition={child}
-                  cut={child.id === cutId}
-                  onPress={() =>
-                    setEditing({ groupId: focus.id, condition: child })
-                  }
-                  onMenu={() => setMenu(child)}
-                />
-              ) : (
-                <Subgroup
-                  key={child.id}
-                  group={child}
-                  cutId={cutId}
-                  cameFrom={cameFrom}
-                  clipboard={clipboard}
-                  onCycle={cycle}
-                  onEdit={(groupId, condition) =>
-                    setEditing({ groupId, condition })
-                  }
-                  onMenu={setMenu}
-                  onOpen={open}
-                  onAdd={setAdding}
-                  onPaste={pasteInto}
-                />
-              )
-            )}
-            <AddRow
-              group={focus}
-              clipboard={clipboard}
-              onAdd={setAdding}
-              onPaste={pasteInto}
-            />
-          </View>
-        </Animated.View>
-      </ScrollView>
-
-      {clipboard ? (
-        <View style={styles.clipboardBar}>
-          <Icon
-            name={clipboard.mode === 'cut' ? 'scissors' : 'copy'}
-            size={18}
-            color={n.accent300}
+        {atRoot ? null : (
+          <Crumbs
+            chain={chain}
+            visited={visited}
+            levelsOpen={levels}
+            onGo={(g) => goTo(g, false)}
+            onLevels={() => setLevels(true)}
           />
-          <View style={styles.clipboardBody}>
-            <Text style={styles.clipboardLabel}>
-              {clipboard.mode === 'cut'
-                ? 'Cut · paste it where it goes'
-                : 'Copied · paste as many copies as you need'}
-            </Text>
-            <Text style={styles.clipboardText} numberOfLines={1}>
-              {summary(clipboard.node)}
-            </Text>
-          </View>
-          <Pressable
-            onPress={() => setClipboard(null)}
-            hitSlop={10}
-            accessibilityLabel="Clear the clipboard"
+        )}
+
+        <ScrollView
+          ref={scroll}
+          style={styles.body}
+          contentContainerStyle={styles.bodyContent}
+          scrollEventThrottle={32}
+          onScroll={(e) =>
+            offsets.current.set(focus.id, e.nativeEvent.contentOffset.y)
+          }
+        >
+          <Animated.View
+            style={{
+              transform: [{ translateX: slide }],
+              opacity: slide.interpolate({
+                inputRange: [-48, 0, 48],
+                outputRange: [0, 1, 0],
+              }),
+            }}
           >
-            <Icon name="x" size={16} color={n.textAlpha(55)} />
-          </Pressable>
-        </View>
-      ) : null}
-
-      <View style={[styles.footer, docked && styles.hidden]}>
-        <Pressable
-          onPress={() => onPlayAll(wire)}
-          style={({ pressed }) => [
-            styles.secondary,
-            pressed && styles.secondaryPressed,
-          ]}
-        >
-          <Icon name="play" fill size={14} color={n.text} />
-          <Text style={styles.secondaryText}>Play all</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => onApply(wire)}
-          style={({ pressed }) => [
-            styles.primary,
-            pressed && styles.primaryPressed,
-          ]}
-        >
-          <Text style={styles.primaryText}>
-            Show {count == null ? '…' : count.toLocaleString('en-US')} videos
-          </Text>
-        </Pressable>
-      </View>
-
-      {editing ? (
-        <ConditionSheet
-          client={client}
-          condition={editing.condition}
-          onCancel={() => setEditing(null)}
-          onSave={(condition) => {
-            onChange(
-              editing.condition
-                ? replaceNode(tree, editing.condition.id, condition)
-                : appendTo(tree, editing.groupId, condition)
-            );
-            setEditing(null);
-          }}
-        />
-      ) : null}
-
-      <Modal
-        visible={sheet !== null}
-        transparent
-        animationType="fade"
-        onRequestClose={closeSheet}
-      >
-        <Pressable style={styles.menuScrim} onPress={closeSheet}>
-          {sheet ? (
-            <View style={styles.menu}>
-              {menu && clipboard ? (
-                <View style={styles.menuClipboard}>
-                  <Icon
-                    name={clipboard.mode === 'cut' ? 'scissors' : 'copy'}
-                    size={14}
-                    color={n.accent300}
-                  />
-                  <Text style={styles.menuClipboardText} numberOfLines={1}>
-                    {clipboard.mode === 'cut' ? 'Cut: ' : 'Copied: '}
-                    <Text style={styles.menuClipboardItem}>
-                      {summary(clipboard.node)}
-                    </Text>
-                  </Text>
-                </View>
-              ) : (
-                <Text style={styles.menuTitle} numberOfLines={1}>
-                  {sheet.title}
-                </Text>
-              )}
-              {sheet.actions.map((action, i) =>
-                action === 'rule' ? (
-                  <View key={i} style={styles.menuRule} />
-                ) : (
-                  <MenuItem
-                    key={action.label}
-                    icon={action.icon}
-                    label={action.label}
-                    detail={action.detail}
-                    onPress={() => {
-                      closeSheet();
-                      action.run();
-                    }}
-                  />
-                )
-              )}
-            </View>
-          ) : null}
-        </Pressable>
-      </Modal>
-
-      <Modal
-        visible={levels}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setLevels(false)}
-      >
-        <Pressable style={styles.levelsScrim} onPress={() => setLevels(false)}>
-          <View style={styles.levels}>
-            {chain.slice(1, -2).map((g, i) => (
+            {lines.length ? (
               <Pressable
-                key={g.id}
-                onPress={visited.has(g.id) ? () => goTo(g, false) : undefined}
-                style={({ pressed }) => [
-                  styles.level,
-                  { paddingLeft: 12 + i * 14 },
-                  !visited.has(g.id) && styles.levelSkipped,
-                  pressed && styles.menuItemPressed,
-                ]}
+                onPress={
+                  folds || summaryOpen
+                    ? () => setSummaryOpen((o) => !o)
+                    : undefined
+                }
+                style={styles.summary}
+              >
+                {lines.map((runs, i) => (
+                  <Text
+                    key={i}
+                    style={styles.summaryLine}
+                    numberOfLines={summaryOpen ? undefined : 1}
+                  >
+                    <Runs runs={runs} onOpen={open} />
+                  </Text>
+                ))}
+              </Pressable>
+            ) : (
+              <Text style={[styles.summary, styles.summaryLine]}>
+                {atRoot
+                  ? 'All videos. Add a condition to narrow them down.'
+                  : 'No conditions in this group yet.'}
+              </Text>
+            )}
+            <View style={styles.rootRow}>
+              <Pressable
+                onPress={() => cycle(focus)}
+                style={[styles.pill, styles.rootPill]}
+              >
+                <Text style={[styles.pillText, styles.rootPillText]}>
+                  {GROUP_LABELS[focus.op]}
+                </Text>
+                <Icon name="caret-up-down" size={13} color={n.accent200} />
+              </Pressable>
+              {focus.id === cutId ? <CutTag /> : null}
+              <Text style={styles.these}>
+                {focus.children.length === 0
+                  ? 'empty'
+                  : focus.children.length === 1
+                    ? 'this 1'
+                    : `these ${focus.children.length}`}
+              </Text>
+              <Pressable
+                onPress={() => setMenu(focus)}
+                hitSlop={8}
+                style={styles.groupMenu}
+                accessibilityLabel="Group menu"
               >
                 <Icon
-                  name="arrow-elbow-down-right"
+                  name="dots-three-vertical"
                   size={16}
                   color={n.textAlpha(45)}
                 />
-                <View style={styles.menuItemBody}>
-                  <Text style={styles.levelName}>{GROUP_LABELS[g.op]}</Text>
-                  <Text style={styles.menuDetail} numberOfLines={1}>
-                    {runsText(groupPhrase(g))}
-                  </Text>
-                </View>
               </Pressable>
-            ))}
-            <View style={styles.levelsRule} />
-            <Text style={styles.levelsHere}>
-              Then{' '}
-              {chain
-                .slice(-2)
-                .map((g) => GROUP_LABELS[g.op])
-                .join(' › ')}{' '}
-              (here)
-            </Text>
+            </View>
+            <View style={styles.children}>
+              <View style={[styles.guide, styles.guideRoot]} />
+              {focus.children.map((child) =>
+                child.kind === 'condition' ? (
+                  <ConditionRow
+                    key={child.id}
+                    condition={child}
+                    cut={child.id === cutId}
+                    onPress={() =>
+                      setEditing({ groupId: focus.id, condition: child })
+                    }
+                    onMenu={() => setMenu(child)}
+                  />
+                ) : (
+                  <Subgroup
+                    key={child.id}
+                    group={child}
+                    cutId={cutId}
+                    cameFrom={cameFrom}
+                    clipboard={clipboard}
+                    onCycle={cycle}
+                    onEdit={(groupId, condition) =>
+                      setEditing({ groupId, condition })
+                    }
+                    onMenu={setMenu}
+                    onOpen={open}
+                    onAdd={setAdding}
+                    onPaste={pasteInto}
+                  />
+                )
+              )}
+              <AddRow
+                group={focus}
+                clipboard={clipboard}
+                onAdd={setAdding}
+                onPaste={pasteInto}
+              />
+            </View>
+          </Animated.View>
+        </ScrollView>
+
+        {clipboard ? (
+          <View style={styles.clipboardBar}>
+            <Icon
+              name={clipboard.mode === 'cut' ? 'scissors' : 'copy'}
+              size={18}
+              color={n.accent300}
+            />
+            <View style={styles.clipboardBody}>
+              <Text style={styles.clipboardLabel}>
+                {clipboard.mode === 'cut'
+                  ? 'Cut · paste it where it goes'
+                  : 'Copied · paste as many copies as you need'}
+              </Text>
+              <Text style={styles.clipboardText} numberOfLines={1}>
+                {summary(clipboard.node)}
+              </Text>
+            </View>
+            <Pressable
+              onPress={() => setClipboard(null)}
+              hitSlop={10}
+              accessibilityLabel="Clear the clipboard"
+            >
+              <Icon name="x" size={16} color={n.textAlpha(55)} />
+            </Pressable>
           </View>
-        </Pressable>
-      </Modal>
-    </View>
+        ) : null}
+
+        {docked ? (
+          <View style={styles.dockedFooter}>
+            <Text style={styles.dockedMatch}>
+              <Text style={styles.dockedMatchCount}>
+                {count == null ? '…' : count.toLocaleString('en-US')}
+              </Text>{' '}
+              videos match
+            </Text>
+            {saveLabel && onSave ? (
+              <Pressable
+                onPress={onSave}
+                style={({ pressed }) => [
+                  styles.saveButton,
+                  pressed && styles.primaryPressed,
+                ]}
+              >
+                <Text style={styles.saveButtonText}>{saveLabel}</Text>
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={onClose}
+              style={({ pressed }) => [
+                styles.done,
+                pressed && styles.secondaryPressed,
+              ]}
+            >
+              <Text style={styles.doneText}>Done</Text>
+            </Pressable>
+          </View>
+        ) : null}
+        <View style={[styles.footer, docked && styles.hidden]}>
+          <Pressable
+            onPress={() => onPlayAll(wire)}
+            style={({ pressed }) => [
+              styles.secondary,
+              pressed && styles.secondaryPressed,
+            ]}
+          >
+            <Icon name="play" fill size={14} color={n.text} />
+            <Text style={styles.secondaryText}>Play all</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => onApply(wire)}
+            style={({ pressed }) => [
+              styles.primary,
+              pressed && styles.primaryPressed,
+            ]}
+          >
+            <Text style={styles.primaryText}>
+              Show {count == null ? '…' : count.toLocaleString('en-US')} videos
+            </Text>
+          </Pressable>
+        </View>
+
+        {editing ? (
+          <ConditionSheet
+            client={client}
+            condition={editing.condition}
+            onCancel={() => setEditing(null)}
+            onSave={(condition) => {
+              onChange(
+                editing.condition
+                  ? replaceNode(tree, editing.condition.id, condition)
+                  : appendTo(tree, editing.groupId, condition)
+              );
+              setEditing(null);
+            }}
+          />
+        ) : null}
+
+        <Modal
+          visible={sheet !== null}
+          transparent
+          animationType="fade"
+          onRequestClose={closeSheet}
+        >
+          <Pressable style={styles.menuScrim} onPress={closeSheet}>
+            {sheet ? (
+              <View style={styles.menu}>
+                {menu && clipboard ? (
+                  <View style={styles.menuClipboard}>
+                    <Icon
+                      name={clipboard.mode === 'cut' ? 'scissors' : 'copy'}
+                      size={14}
+                      color={n.accent300}
+                    />
+                    <Text style={styles.menuClipboardText} numberOfLines={1}>
+                      {clipboard.mode === 'cut' ? 'Cut: ' : 'Copied: '}
+                      <Text style={styles.menuClipboardItem}>
+                        {summary(clipboard.node)}
+                      </Text>
+                    </Text>
+                  </View>
+                ) : (
+                  <Text style={styles.menuTitle} numberOfLines={1}>
+                    {sheet.title}
+                  </Text>
+                )}
+                {sheet.actions.map((action, i) =>
+                  action === 'rule' ? (
+                    <View key={i} style={styles.menuRule} />
+                  ) : (
+                    <MenuItem
+                      key={action.label}
+                      icon={action.icon}
+                      label={action.label}
+                      detail={action.detail}
+                      onPress={() => {
+                        closeSheet();
+                        action.run();
+                      }}
+                    />
+                  )
+                )}
+              </View>
+            ) : null}
+          </Pressable>
+        </Modal>
+
+        <Modal
+          visible={levels}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setLevels(false)}
+        >
+          <Pressable
+            style={styles.levelsScrim}
+            onPress={() => setLevels(false)}
+          >
+            <View style={styles.levels}>
+              {chain.slice(1, -2).map((g, i) => (
+                <Pressable
+                  key={g.id}
+                  onPress={visited.has(g.id) ? () => goTo(g, false) : undefined}
+                  style={({ pressed }) => [
+                    styles.level,
+                    { paddingLeft: 12 + i * 14 },
+                    !visited.has(g.id) && styles.levelSkipped,
+                    pressed && styles.menuItemPressed,
+                  ]}
+                >
+                  <Icon
+                    name="arrow-elbow-down-right"
+                    size={16}
+                    color={n.textAlpha(45)}
+                  />
+                  <View style={styles.menuItemBody}>
+                    <Text style={styles.levelName}>{GROUP_LABELS[g.op]}</Text>
+                    <Text style={styles.menuDetail} numberOfLines={1}>
+                      {runsText(groupPhrase(g))}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+              <View style={styles.levelsRule} />
+              <Text style={styles.levelsHere}>
+                Then{' '}
+                {chain
+                  .slice(-2)
+                  .map((g) => GROUP_LABELS[g.op])
+                  .join(' › ')}{' '}
+                (here)
+              </Text>
+            </View>
+          </Pressable>
+        </Modal>
+      </View>
+    </Raised.Provider>
   );
 }
 
@@ -935,6 +1012,10 @@ function Subgroup({
   );
 }
 
+// Rows in the tablet's drawer (on the surface) sit a step lighter than on the phone's ground: text 6% over the surface
+const RAISED = '#2f313d';
+const Raised = createContext(false);
+
 /** Design 5b: a group two levels down, as one row: operator, count and its short summary. Tap opens it. */
 function GroupRow({
   group,
@@ -949,6 +1030,7 @@ function GroupRow({
   onPress: () => void;
   onMenu: () => void;
 }) {
+  const raised = useContext(Raised);
   const inside = conditionCount(group);
   const phrase = groupPhrase(group);
   return (
@@ -956,6 +1038,7 @@ function GroupRow({
       onPress={onPress}
       style={[
         styles.row,
+        raised && styles.rowRaised,
         styles.groupRow,
         ring && styles.ringRow,
         cut && styles.cutRow,
@@ -1062,9 +1145,13 @@ function ConditionRow({
   onPress: () => void;
   onMenu: () => void;
 }) {
+  const raised = useContext(Raised);
   const { label, runs, resolved, resolvedMono } = rowText(condition);
   return (
-    <Pressable onPress={onPress} style={[styles.row, cut && styles.cutRow]}>
+    <Pressable
+      onPress={onPress}
+      style={[styles.row, raised && styles.rowRaised, cut && styles.cutRow]}
+    >
       <View style={styles.rowBody}>
         <View style={styles.rowLabelLine}>
           <Text style={styles.rowLabel}>{label}</Text>
@@ -1157,12 +1244,12 @@ const styles = StyleSheet.create({
     paddingBottom: INSET_BOTTOM,
     backgroundColor: n.bg,
   },
-  // Docked (tablet, 2d): fills its column
-  docked: { flex: 1, backgroundColor: '#1e202e' },
+  // Docked (tablet, 2d): fills its drawer, on the drawer's surface
+  docked: { flex: 1 },
   dockedHeader: {
-    paddingTop: 16,
-    paddingLeft: 18,
-    paddingRight: 8,
+    paddingTop: 14,
+    paddingLeft: 20,
+    paddingRight: 12,
     paddingBottom: 4,
     flexDirection: 'row',
     alignItems: 'center',
@@ -1175,6 +1262,84 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
   dockedSpacer: { flex: 1 },
+  dockedClose: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: n.textAlpha(8),
+  },
+  dockedClosePressed: { backgroundColor: n.textAlpha(14) },
+  dockedFooter: {
+    paddingTop: 12,
+    paddingBottom: 14,
+    paddingLeft: 20,
+    paddingRight: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderTopWidth: 1,
+    borderTopColor: n.divider,
+  },
+  dockedMatch: {
+    flex: 1,
+    color: n.textAlpha(60),
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    fontVariant: ['tabular-nums'],
+  },
+  dockedMatchCount: { color: n.text, fontFamily: fonts.medium },
+  dockedSaved: {
+    paddingLeft: 20,
+    paddingRight: 20,
+    paddingBottom: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dockedSavedName: {
+    flexShrink: 1,
+    color: n.textAlpha(75),
+    fontSize: 13,
+    fontFamily: fonts.regular,
+  },
+  dockedEdited: {
+    paddingHorizontal: 6,
+    lineHeight: 17,
+    borderRadius: 5,
+    overflow: 'hidden',
+    fontSize: 11,
+    fontFamily: fonts.regular,
+    color: n.accent100,
+    backgroundColor: n.accent800,
+  },
+  saveButton: {
+    height: 40,
+    paddingHorizontal: 18,
+    borderRadius: n.radiusMd,
+    borderWidth: 1,
+    borderColor: n.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  saveButtonText: {
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    color: n.accent200,
+  },
+  done: {
+    height: 40,
+    paddingHorizontal: 20,
+    borderRadius: n.radiusMd,
+    borderWidth: 1,
+    borderColor: n.divider,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  doneText: { fontFamily: fonts.medium, fontSize: 14, color: n.text },
+  // In the drawer the ground is the surface: rows sit a step lighter
+  rowRaised: { backgroundColor: RAISED },
   hidden: { display: 'none' },
   header: {
     paddingTop: 4,
@@ -1201,6 +1366,21 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: n.text,
     flexShrink: 1,
+  },
+  headerSave: {
+    height: 34,
+    paddingHorizontal: 12,
+    marginRight: 4,
+    borderRadius: n.radiusMd,
+    borderWidth: 1,
+    borderColor: n.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerSaveText: {
+    fontFamily: fonts.medium,
+    fontSize: 13,
+    color: n.accent200,
   },
   edited: {
     fontFamily: fonts.regular,

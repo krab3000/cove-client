@@ -13,10 +13,11 @@ const VIEWS: { view: LibraryView; icon: IconName; label: string }[] = [
 /**
  * The Library's header (design turn 6), the same over all three views. Each control has one place: the search field
  * (Cove's search) and the avatar (the account) on top; the title, which says what is shown and opens the Show sheet,
- * with the count line under it and Save / Save as… when there is something to save; then the toolbar: Filter with its
+ * with the count line under it (on a large screen it shares its row with the search); then the toolbar: Filter with its
  * count, the sort, Shuffle, Play all and the view switch. No screen lists the filter's conditions (only the editor
  * does). A phone held sideways (compact, design 6f–6h) gets all of it in one row; on a large screen (large, 1h) the
  * sidebar holds the account and the saved filters, so there is no avatar and the title picks nothing.
+ * Saving is the filter editor's, not the header's.
  */
 export function LibraryHeader({
   query,
@@ -28,8 +29,7 @@ export function LibraryHeader({
   savedFilter,
   countLine,
   edited,
-  saveLabel,
-  onSave,
+
   onOpenShow,
   filterCount,
   onOpenFilter,
@@ -40,6 +40,7 @@ export function LibraryHeader({
   onView,
   compact,
   large,
+  filterOpen,
 }: {
   query: string;
   onQuery: (q: string) => void;
@@ -51,9 +52,7 @@ export function LibraryHeader({
   savedFilter: boolean;
   countLine: string;
   edited: boolean;
-  // "Save" or "Save as…", or null when there is nothing to save
-  saveLabel: string | null;
-  onSave: () => void;
+
   onOpenShow: () => void;
   filterCount: number;
   onOpenFilter: () => void;
@@ -66,6 +65,8 @@ export function LibraryHeader({
   compact: boolean;
   // A large screen (tablet, desktop): the sidebar has the account and the saved filters
   large: boolean;
+  // The filter editor is open (the tablet's drawer): Filter shows pressed, and closes it
+  filterOpen?: boolean;
 }) {
   const active = filterCount > 0;
   if (compact)
@@ -134,20 +135,6 @@ export function LibraryHeader({
             </Text>
           </View>
         </Pressable>
-        {saveLabel ? (
-          <Pressable
-            onPress={onSave}
-            style={({ pressed }) => [
-              styles.save,
-              styles.saveCompact,
-              pressed && styles.accentBg,
-            ]}
-          >
-            <Text style={[styles.saveText, styles.saveTextCompact]}>
-              {saveLabel}
-            </Text>
-          </Pressable>
-        ) : null}
         <Pressable
           onPress={onOpenFilter}
           accessibilityRole="button"
@@ -229,93 +216,98 @@ export function LibraryHeader({
         </Pressable>
       </View>
     );
-  return (
-    <View>
-      <View style={styles.searchRow}>
-        <View style={[styles.search, query ? styles.searchActive : null]}>
-          <Icon name="magnifying-glass" size={18} color={n.textAlpha(55)} />
-          <TextInput
-            value={query}
-            onChangeText={onQuery}
-            onSubmitEditing={onSubmitQuery}
-            placeholder="Search videos, tags, performers…"
-            placeholderTextColor={n.textAlpha(45)}
-            returnKeyType="search"
-            autoCorrect={false}
-            autoCapitalize="none"
-            accessibilityLabel="Search"
-            style={styles.searchInput}
-          />
-          {query ? (
-            <Pressable
-              onPress={() => onQuery('')}
-              accessibilityLabel="Clear search"
-              hitSlop={4}
-              style={styles.searchClear}
-            >
-              <Icon name="x" size={15} color={n.textAlpha(60)} />
-            </Pressable>
-          ) : null}
-        </View>
+  const searchField = (
+    <View
+      style={[
+        styles.search,
+        query ? styles.searchActive : null,
+        large && styles.searchLarge,
+      ]}
+    >
+      <Icon name="magnifying-glass" size={18} color={n.textAlpha(55)} />
+      <TextInput
+        value={query}
+        onChangeText={onQuery}
+        onSubmitEditing={onSubmitQuery}
+        placeholder="Search videos, tags, performers…"
+        placeholderTextColor={n.textAlpha(45)}
+        returnKeyType="search"
+        autoCorrect={false}
+        autoCapitalize="none"
+        accessibilityLabel="Search"
+        style={styles.searchInput}
+      />
+      {query ? (
+        <Pressable
+          onPress={() => onQuery('')}
+          accessibilityLabel="Clear search"
+          hitSlop={4}
+          style={styles.searchClear}
+        >
+          <Icon name="x" size={15} color={n.textAlpha(60)} />
+        </Pressable>
+      ) : null}
+    </View>
+  );
+  const titleBlock = (
+    <Pressable
+      onPress={large ? undefined : onOpenShow}
+      disabled={large}
+      accessibilityRole={large ? 'header' : 'button'}
+      accessibilityLabel={large ? title : `Show: ${title}`}
+      style={({ pressed }) => [
+        styles.titleButton,
+        large && styles.titleButtonLarge,
+        pressed && styles.pressedBg,
+      ]}
+    >
+      <View style={styles.titleLine}>
+        {savedFilter ? (
+          <Icon name="bookmarks-simple" fill size={17} color={n.accent300} />
+        ) : null}
+        <Text
+          style={[styles.title, large && styles.titleLarge]}
+          numberOfLines={1}
+        >
+          {title}
+        </Text>
         {large ? null : (
-          <Pressable
-            onPress={onOpenAccount}
-            accessibilityLabel="Account"
-            style={styles.avatarButton}
-          >
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{avatar}</Text>
-            </View>
-          </Pressable>
+          <Icon name="caret-down" size={14} color={n.textAlpha(55)} />
         )}
       </View>
-
-      <View style={styles.titleRow}>
-        <Pressable
-          onPress={large ? undefined : onOpenShow}
-          disabled={large}
-          accessibilityRole={large ? 'header' : 'button'}
-          accessibilityLabel={large ? title : `Show: ${title}`}
-          style={({ pressed }) => [
-            styles.titleButton,
-            pressed && styles.pressedBg,
-          ]}
-        >
-          <View style={styles.titleLine}>
-            {savedFilter ? (
-              <Icon
-                name="bookmarks-simple"
-                fill
-                size={17}
-                color={n.accent300}
-              />
-            ) : null}
-            <Text
-              style={[styles.title, large && styles.titleLarge]}
-              numberOfLines={1}
-            >
-              {title}
-            </Text>
-            {large ? null : (
-              <Icon name="caret-down" size={14} color={n.textAlpha(55)} />
-            )}
-          </View>
-          <View style={styles.countLine}>
-            {edited ? <Text style={styles.edited}>Edited</Text> : null}
-            <Text style={styles.count} numberOfLines={1}>
-              {countLine}
-            </Text>
-          </View>
-        </Pressable>
-        {saveLabel ? (
-          <Pressable
-            onPress={onSave}
-            style={({ pressed }) => [styles.save, pressed && styles.accentBg]}
-          >
-            <Text style={styles.saveText}>{saveLabel}</Text>
-          </Pressable>
-        ) : null}
+      <View style={styles.countLine}>
+        {edited ? <Text style={styles.edited}>Edited</Text> : null}
+        <Text style={styles.count} numberOfLines={1}>
+          {countLine}
+        </Text>
       </View>
+    </Pressable>
+  );
+  return (
+    <View>
+      {large ? (
+        // A large screen (1h): the title and the search share one row; no Save here (saving is the editor's)
+        <View style={styles.largeTop}>
+          {titleBlock}
+          {searchField}
+        </View>
+      ) : (
+        <>
+          <View style={styles.searchRow}>
+            {searchField}
+            <Pressable
+              onPress={onOpenAccount}
+              accessibilityLabel="Account"
+              style={styles.avatarButton}
+            >
+              <View style={styles.avatar}>
+                <Text style={styles.avatarText}>{avatar}</Text>
+              </View>
+            </Pressable>
+          </View>
+          <View style={styles.titleRow}>{titleBlock}</View>
+        </>
+      )}
 
       <View style={styles.toolbar}>
         <Pressable
@@ -324,12 +316,17 @@ export function LibraryHeader({
           accessibilityLabel={
             active ? `Filter, ${filterCount} conditions` : 'Filter'
           }
-          style={[styles.filterButton, active && styles.filterButtonActive]}
+          style={[
+            styles.filterButton,
+            active && styles.filterButtonActive,
+            filterOpen && styles.filterButtonOpen,
+          ]}
         >
           <Icon
             name="funnel-simple"
+            fill={filterOpen}
             size={17}
-            color={active ? n.accent200 : n.text}
+            color={active || filterOpen ? n.accent200 : n.text}
           />
           <Text style={[styles.filterText, active && styles.filterTextActive]}>
             Filter
@@ -433,8 +430,7 @@ const styles = StyleSheet.create({
   },
   editedCompact: { fontSize: 10.5, lineHeight: 15, paddingHorizontal: 5 },
   countCompact: { fontSize: 11.5 },
-  saveCompact: { height: 32, paddingHorizontal: 10 },
-  saveTextCompact: { fontSize: 12.5 },
+
   viewButtonCompact: { width: 30, height: 30 },
   avatarButtonCompact: {
     width: 40,
@@ -525,8 +521,19 @@ const styles = StyleSheet.create({
     gap: 1,
   },
   pressedBg: { backgroundColor: n.textAlpha(6) },
+  accentBg: { backgroundColor: n.accentAlpha(12) },
   titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   titleLarge: { fontSize: 26, lineHeight: 32 },
+  largeTop: {
+    paddingTop: 8,
+    paddingLeft: 8,
+    paddingRight: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 20,
+  },
+  titleButtonLarge: { flex: 0, flexShrink: 1, maxWidth: '55%' },
+  searchLarge: { flex: 1, minWidth: 200, height: 40, borderRadius: 20 },
   title: {
     flexShrink: 1,
     color: n.text,
@@ -553,16 +560,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontVariant: ['tabular-nums'],
   },
-  save: {
-    height: 34,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.accent,
-  },
-  accentBg: { backgroundColor: n.accentAlpha(12) },
-  saveText: { color: n.accent200, fontSize: 13, fontFamily: fonts.medium },
   toolbar: {
     paddingVertical: 8,
     paddingHorizontal: 16,
@@ -584,6 +581,10 @@ const styles = StyleSheet.create({
   filterButtonActive: {
     borderColor: n.accent,
     backgroundColor: n.accentAlpha(12),
+  },
+  filterButtonOpen: {
+    borderColor: n.accent,
+    backgroundColor: n.accentAlpha(22),
   },
   filterText: { color: n.text, fontSize: 13.5, fontFamily: fonts.medium },
   filterTextActive: { color: n.accent200 },

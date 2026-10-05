@@ -699,6 +699,18 @@ export function BrowseScreen({
     [applyFilter, fillNames]
   );
 
+  // What saving saves: the tree in the filter editor while it is open (the phone's draft, or the tablet drawer's before
+  // it applies), else the filter shown. Saving from the editor also shows it.
+  const savingTree = filterOpen ? filterTree : appliedTree;
+  const showSaved = useCallback(
+    (tree: Group) => {
+      const wire = toWire(tree);
+      if (JSON.stringify(wire) === JSON.stringify(appliedRef.current)) return;
+      setAppliedTree(tree);
+      applyFilter(wire);
+    },
+    [applyFilter]
+  );
   const save = useCallback(async () => {
     if (!saved) return;
     try {
@@ -706,7 +718,7 @@ export function BrowseScreen({
         saved.filter.id,
         savedFilterChange(
           saved.filter,
-          appliedTree,
+          savingTree,
           view === 'list' ? 'list' : 'grid',
           searched
         )
@@ -715,10 +727,11 @@ export function BrowseScreen({
         list.map((f) => (f.id === updated.id ? updated : f))
       );
       setSaved({ filter: updated, loaded: loadSavedFilter(updated) });
+      showSaved(savingTree);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client, saved, appliedTree, view, searched]);
+  }, [client, saved, savingTree, showSaved, view, searched]);
 
   // Save as…: the filter, search and view as a new saved filter, under a name.
   const saveAs = useCallback(async () => {
@@ -727,7 +740,7 @@ export function BrowseScreen({
       const created = await client.createSavedFilter(
         newSavedFilter(
           newName,
-          appliedTree,
+          savingTree,
           view === 'list' ? 'list' : 'grid',
           searched
         )
@@ -736,11 +749,12 @@ export function BrowseScreen({
         [...list, created].sort((a, b) => a.name.localeCompare(b.name))
       );
       setSaved({ filter: created, loaded: loadSavedFilter(created) });
+      showSaved(savingTree);
       setSheet(null);
     } catch (e) {
       setSheetError(e instanceof Error ? e.message : String(e));
     }
-  }, [client, newName, appliedTree, view, searched]);
+  }, [client, newName, savingTree, showSaved, view, searched]);
 
   // The filter screen's Show / Play: the tree being edited becomes the one shown.
   const showFilter = useCallback(
@@ -782,6 +796,8 @@ export function BrowseScreen({
       if (!largeRef.current || shownRef.current?.id === video.id)
         playVideo(video);
       else {
+        // One drawer at a time: the preview takes the filter editor's place
+        setFilterOpen(false);
         setSelected(video);
         setDrawerOpen(true);
       }
@@ -930,13 +946,18 @@ export function BrowseScreen({
     : conditions || searched
       ? 'Videos'
       : 'All videos';
-  // Save for a changed saved filter, Save as… for an unnamed filter or a search. A saved filter with parts the app
-  // can't show isn't saved from here: they would be lost.
+  // The filter editor's Save (the only one): Save for a changed saved filter, Save as… for an unnamed filter or a
+  // search, judged by what it would save. A saved filter with parts the app can't show isn't saved from here: they
+  // would be lost; nor is an empty filter saved over one.
+  const savingEdited =
+    !!saved &&
+    (JSON.stringify(toWire(savingTree)) !== JSON.stringify(saved.loaded.wire) ||
+      searched !== saved.loaded.q.trim());
   const saveLabel = saved
-    ? edited && !saved.loaded.dropped
+    ? savingEdited && !saved.loaded.dropped && savingTree.children.length
       ? 'Save'
       : null
-    : conditions || searched
+    : savingTree.children.length || searched
       ? 'Save as…'
       : null;
   const openSaveAs = useCallback(() => {
@@ -1162,7 +1183,7 @@ export function BrowseScreen({
     >
       {large ? (
         <LibrarySidebar
-          rail={filterOpen}
+          rail={false}
           server={client.server}
           username={client.username}
           allCount={sheetCounts.all ?? null}
@@ -1188,27 +1209,15 @@ export function BrowseScreen({
           onAccount={() => setSheet('account')}
         />
       ) : null}
-      {docked ? (
-        <View style={styles.filterColumn}>
-          <FilterScreen
-            docked
-            client={client}
-            tree={filterTree}
-            onChange={setFilterTree}
-            applied={applied}
-            onApply={showFilter}
-            onPlayAll={playFilter}
-            onClose={closeFilter}
-            title={saved?.filter.name}
-          />
-        </View>
-      ) : null}
       <View
         style={styles.main}
         onLayout={(e) => setMainWidth(Math.round(e.nativeEvent.layout.width))}
         // A tap on the Library outside a video (and its controls) closes the preview
-        onStartShouldSetResponder={() => drawerOpen}
-        onResponderRelease={closeDrawer}
+        onStartShouldSetResponder={() => drawerOpen || docked}
+        onResponderRelease={() => {
+          setDrawerOpen(false);
+          setFilterOpen(false);
+        }}
       >
         <LibraryHeader
           query={query}
@@ -1220,8 +1229,6 @@ export function BrowseScreen({
           savedFilter={!!saved}
           countLine={countLine}
           edited={edited}
-          saveLabel={saveLabel}
-          onSave={saved ? save : openSaveAs}
           onOpenShow={() => setSheet('show')}
           filterCount={conditions + hidden}
           onOpenFilter={filterOpen ? closeFilter : openFilter}
@@ -1232,6 +1239,7 @@ export function BrowseScreen({
           onView={setView}
           compact={compact}
           large={large}
+          filterOpen={docked}
         />
         {error ? (
           <View style={styles.errorRow}>
@@ -1303,6 +1311,25 @@ export function BrowseScreen({
             />
           </Drawer>
         ) : null}
+        {large ? (
+          // The filter editor (2d): over the Library like the preview; the results behind it follow the tree
+          <Drawer open={filterOpen} onClose={closeFilter} width={420}>
+            <FilterScreen
+              docked
+              client={client}
+              tree={filterTree}
+              onChange={setFilterTree}
+              applied={applied}
+              onApply={showFilter}
+              onPlayAll={playFilter}
+              onClose={closeFilter}
+              title={saved?.filter.name}
+              savedEdited={savingEdited}
+              saveLabel={saveLabel}
+              onSave={saved ? save : openSaveAs}
+            />
+          </Drawer>
+        ) : null}
       </View>
       {filterOpen && !large ? (
         <FilterScreen
@@ -1314,6 +1341,8 @@ export function BrowseScreen({
           onPlayAll={playFilter}
           onClose={closeFilter}
           title={saved?.filter.name}
+          saveLabel={saveLabel}
+          onSave={saved ? save : openSaveAs}
         />
       ) : null}
 
@@ -1463,7 +1492,6 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: n.bg },
   screenLarge: { flexDirection: 'row' },
   main: { flex: 1, minWidth: 0 },
-  filterColumn: { width: 380 },
   listArea: { flex: 1 },
   center: {
     ...StyleSheet.absoluteFillObject,
