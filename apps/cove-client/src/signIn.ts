@@ -1,5 +1,3 @@
-import { NativeModules } from 'react-native';
-
 /** An account signed in on this device: its session (Cove's refresh token), or null once it ran out or signed out. */
 export interface KeptAccount {
   username: string;
@@ -20,35 +18,6 @@ export interface SignIn {
   servers: KeptServer[];
   // The session the app was in: it resumes there on the next launch
   last: { serverId: string; username: string } | null;
-}
-
-// The app's own Android module (KeyValueStoreModule.kt); elsewhere, and in builds older than it, nothing outlives the
-// app (a map in memory).
-const native = NativeModules.KeyValueStore as
-  | {
-      get(key: string): string | null;
-      set(key: string, value: string | null): boolean;
-    }
-  | undefined;
-const memory = new Map<string, string>();
-const KEY = 'signIn';
-
-export function loadSignIn(): SignIn {
-  try {
-    const json = native ? native.get(KEY) : (memory.get(KEY) ?? null);
-    if (json) {
-      const state = JSON.parse(json) as SignIn;
-      if (Array.isArray(state.servers))
-        return { servers: state.servers, last: state.last ?? null };
-    }
-  } catch {}
-  return { servers: [], last: null };
-}
-
-export function saveSignIn(state: SignIn) {
-  const json = JSON.stringify(state);
-  if (native) native.set(KEY, json);
-  else memory.set(KEY, json);
 }
 
 /** What was typed as an address, as a base URL: https:// unless it says otherwise, no trailing slash. */

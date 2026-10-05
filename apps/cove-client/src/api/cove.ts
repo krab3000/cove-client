@@ -24,6 +24,17 @@ export class CoveError extends Error {
   }
 }
 
+/**
+ * What a failure means for a session: it ran out ('expired': refused, or its refresh token rotated elsewhere: sign in
+ * again), the server didn't answer ('offline'), or something else (null).
+ */
+export function authFailure(error: unknown): 'expired' | 'offline' | null {
+  if (!(error instanceof CoveError)) return null;
+  if (error.status === 401 || error.status === 409) return 'expired';
+  if (error.status === 0) return 'offline';
+  return null;
+}
+
 // Sprite sheets (seek-bar and card frames) are off for now: one is a 2880×1620 JPEG, 19 MB decoded, to show a
 // 300 px frame, which starves weak devices' memory and GPU. Turn back on once frames come cropped.
 const SPRITE_SHEETS = false;

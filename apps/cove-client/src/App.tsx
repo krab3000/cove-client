@@ -1,185 +1,99 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
-import { CoveClient, CoveError } from './api/cove';
-import type { Video } from './api/types';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, useMemo } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { useSnapshot } from 'valtio';
+import { createQueryClient } from './app/queryClient';
+import { useSafeInsets } from './platform/insets';
 import { BrowseScreen } from './screens/BrowseScreen';
-import { nocturne } from './theme/tokens';
 import { PlayerScreen } from './screens/PlayerScreen';
 import { SignInScreen } from './screens/SignInScreen';
-import {
-  loadSignIn,
-  saveSignIn,
-  withAccount,
-  withServer,
-  type SignIn,
-} from './signIn';
-import { useSafeInsets } from './platform/insets';
+import type { SignIn } from './signIn';
+import { accounts, changeAccounts } from './state/accounts';
+import { closePlayer, play, player } from './state/player';
+import { prefs } from './state/prefs';
+import { enter, logout, session, startSession } from './state/session';
+import { nocturne } from './theme/tokens';
+import { Spinner } from './ui/Text';
 
+/**
+ * The app's shell: what was kept is read and the last session resumed (a spinner meanwhile), then signing in or the
+ * Library, with the player over the Library when a video plays. The Library stays mounted under the player, so going
+ * back keeps its scroll position.
+ */
 export default function App() {
-  // The servers and the sessions kept on this device (persisted), and the session the app is in
-  const [signIn, setSignIn] = useState<SignIn>(loadSignIn);
-  const changeSignIn = useCallback((change: (state: SignIn) => SignIn) => {
-    setSignIn((state) => {
-      const next = change(state);
-      saveSignIn(next);
-      return next;
-    });
-  }, []);
-  const [session, setSession] = useState<{
-    client: CoveClient;
-    serverId: string;
-  } | null>(null);
-  const client = session?.client ?? null;
-  // Where signing in opens: the accounts of the server last signed out of (or whose session didn't resume)
-  const [signInServer, setSignInServer] = useState<string | undefined>(
-    () => loadSignIn().last?.serverId
-  );
-  // Signed in: the session is kept (its refresh token follows every rotation) and resumes on the next launch.
-  const enter = useCallback(
-    (signedIn: CoveClient, serverId: string) => {
-      const keep = (refreshToken: string | null) =>
-        changeSignIn((state) =>
-          withServer(state, serverId, (server) =>
-            withAccount(server, signedIn.username, refreshToken)
-          )
-        );
-      signedIn.onRefreshToken = keep;
-      changeSignIn((state) => ({
-        ...withServer(state, serverId, (server) => ({
-          ...withAccount(
-            server,
-            signedIn.username,
-            signedIn.currentRefreshToken
-          ),
-          lastReached: Date.now(),
-        })),
-        last: { serverId, username: signedIn.username },
-      }));
-      setSession({ client: signedIn, serverId });
-    },
-    [changeSignIn]
-  );
-  // On launch, the session the app was in, if it is still good
-  const [resuming, setResuming] = useState(() => {
-    const { servers, last } = loadSignIn();
-    const server = servers.find((s) => s.id === last?.serverId);
-    return !!server?.accounts.find((a) => a.username === last?.username)
-      ?.refreshToken;
-  });
+  // Snapshots re-render on change; the client and the videos are plain objects (ref), passed as they are
+  const { status, signInServerId } = useSnapshot(session);
+  const client = useSnapshot(session).client ? session.client : null;
+  const playing = useSnapshot(player).playing ? player.playing : null;
+  const { autoplay } = useSnapshot(prefs);
+  const signIn = useSnapshot(accounts) as SignIn;
   useEffect(() => {
-    if (!resuming) return;
-    const { servers, last } = signIn;
-    const server = servers.find((s) => s.id === last?.serverId);
-    const account = server?.accounts.find((a) => a.username === last?.username);
-    if (!server || !account?.refreshToken) {
-      setResuming(false);
-      return;
-    }
-    CoveClient.resume(server.address, account.username, account.refreshToken)
-      .then((resumed) => enter(resumed, server.id))
-      .catch((e) => {
-        // Ran out: the account asks for its password; offline: it is tried again from the list
-        if (e instanceof CoveError && (e.status === 401 || e.status === 409))
-          changeSignIn((state) =>
-            withServer(state, server.id, (x) =>
-              withAccount(x, account.username, null)
-            )
-          );
-        setSignInServer(server.id);
-      })
-      .finally(() => setResuming(false));
-    // Once, at launch
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    startSession();
   }, []);
+  // A new session starts with an empty cache
+  const queryClient = useMemo(() => createQueryClient(), [client]);
   // Android draws edge to edge: the content keeps clear of the system bars and the camera cutout
   const insets = useSafeInsets();
-  // The video playing and the ones after it (the player's Up next); Autoplay plays the next one at the end.
-  const [playing, setPlaying] = useState<{
-    video: Video;
-    upNext: Video[];
-    startAt?: number;
-  } | null>(null);
-  const [autoplay, setAutoplay] = useState(true);
-  const play = useCallback(
-    (video: Video, upNext: Video[], startAt?: number) =>
-      setPlaying({ video, upNext, startAt }),
-    []
-  );
-
-  // Log out: the session ends (on the server too); the account stays on the device, asking for its password.
-  const logout = useCallback(() => {
-    if (!session) return;
-    const { client: ending, serverId } = session;
-    ending.onRefreshToken = null;
-    ending.logout();
-    changeSignIn((state) => ({
-      ...withServer(state, serverId, (server) =>
-        withAccount(server, ending.username, null)
-      ),
-      last: null,
-    }));
-    setSignInServer(serverId);
-    setPlaying(null);
-    setSession(null);
-  }, [session, changeSignIn]);
-  const closePlayer = useCallback(() => setPlaying(null), []);
 
   return (
-    <View style={styles.app}>
-      <View
-        style={[
-          styles.content,
-          {
-            paddingTop: insets.top,
-            paddingRight: insets.right,
-            paddingBottom: insets.bottom,
-            paddingLeft: insets.left,
-          },
-        ]}
-      >
-        {resuming ? (
-          <View style={styles.resuming}>
-            <ActivityIndicator color={nocturne.accent} />
-          </View>
-        ) : !client ? (
-          <SignInScreen
-            state={signIn}
-            onChange={changeSignIn}
-            onSignedIn={enter}
-            initialServerId={signInServer}
-          />
-        ) : (
-          // The grid stays mounted under the player, so going back keeps the scroll position.
-          <BrowseScreen
+    <QueryClientProvider client={queryClient}>
+      <View style={styles.app}>
+        <View
+          style={[
+            styles.content,
+            {
+              paddingTop: insets.top,
+              paddingRight: insets.right,
+              paddingBottom: insets.bottom,
+              paddingLeft: insets.left,
+            },
+          ]}
+        >
+          {status === 'hydrating' || status === 'resuming' ? (
+            <View style={styles.waiting}>
+              <Spinner />
+            </View>
+          ) : status === 'signedIn' && client ? (
+            <BrowseScreen
+              client={client}
+              onPlay={play}
+              onLogout={logout}
+              // No previews under the player: the hardware decoder is shared, and a 4K stream needs all of it.
+              previews={!playing}
+            />
+          ) : (
+            <SignInScreen
+              state={signIn}
+              onChange={changeAccounts}
+              onSignedIn={enter}
+              initialServerId={signInServerId}
+            />
+          )}
+        </View>
+        {/* Edge to edge, outside the content's system bar padding: the player keeps its own insets. */}
+        {client && playing ? (
+          <PlayerScreen
+            // A new video is a new player (its own state, session and resume position).
+            key={playing.video.id}
             client={client}
-            onPlay={play}
-            onLogout={logout}
-            // No previews under the player: the hardware decoder is shared, and a 4K stream needs all of it.
-            previews={!playing}
+            video={playing.video}
+            upNext={playing.upNext}
+            onPlayNext={play}
+            autoplay={autoplay}
+            onAutoplay={(on) => {
+              prefs.autoplay = on;
+            }}
+            onClose={closePlayer}
+            startAt={playing.startAt}
           />
-        )}
+        ) : null}
       </View>
-      {/* Edge to edge, outside the content's system bar padding: the player keeps its own insets. */}
-      {client && playing ? (
-        <PlayerScreen
-          // A new video is a new player (its own state, session and resume position).
-          key={playing.video.id}
-          client={client}
-          video={playing.video}
-          upNext={playing.upNext}
-          onPlayNext={play}
-          autoplay={autoplay}
-          onAutoplay={setAutoplay}
-          onClose={closePlayer}
-          startAt={playing.startAt}
-        />
-      ) : null}
-    </View>
+    </QueryClientProvider>
   );
 }
 
 const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: nocturne.bg },
   content: { flex: 1 },
-  resuming: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  waiting: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

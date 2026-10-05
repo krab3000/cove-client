@@ -7,7 +7,6 @@ import {
   type ReactNode,
 } from 'react';
 import {
-  BackHandler,
   FlatList,
   Platform,
   StyleSheet,
@@ -79,6 +78,9 @@ import { Button } from '../ui/Button';
 import { ErrorText, Spinner, StatusDot } from '../ui/Text';
 import { TextField } from '../ui/TextField';
 import { Avatar } from '../ui/Avatar';
+import { Layer, useBackHandler } from '../app/back';
+import { prefs } from '../state/prefs';
+import { useSnapshot } from 'valtio';
 
 const PER_PAGE = 40;
 // Space above the first row.
@@ -200,7 +202,11 @@ export function BrowseScreen({
   const [seed, setSeed] = useState<number | null>(null);
   const seedRef = useRef<number | null>(null);
   seedRef.current = seed;
-  const [view, setView] = useState<LibraryView>('grid3');
+  // The view is the user's: kept across launches
+  const view = useSnapshot(prefs).libraryView;
+  const setView = useCallback((next: LibraryView) => {
+    prefs.libraryView = next;
+  }, []);
   // No previews under the filter screen either.
   const previews = previewsAllowed && !filterOpen;
 
@@ -218,14 +224,7 @@ export function BrowseScreen({
   const [selected, setSelected] = useState<Video | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
-  useEffect(() => {
-    if (!drawerOpen) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setDrawerOpen(false);
-      return true;
-    });
-    return () => sub.remove();
-  }, [drawerOpen]);
+  useBackHandler(drawerOpen && (() => setDrawerOpen(false)), Layer.drawer);
   const spec = useMemo(
     () =>
       view === 'list' && compact
@@ -683,8 +682,9 @@ export function BrowseScreen({
       setAppliedTree(loaded.tree);
       // The saved display mode: a list opens the list; a grid keeps the grid you use
       if (loaded.view === 'list') setView('list');
-      else if (loaded.view === 'grid')
-        setView((v) => (v === 'list' ? 'grid3' : v));
+      else if (loaded.view === 'grid') {
+        if (prefs.libraryView === 'list') setView('grid3');
+      }
       applyFilter(loaded.wire);
       fillNames(loaded.tree);
     },

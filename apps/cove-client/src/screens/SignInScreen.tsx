@@ -7,7 +7,6 @@ import {
   type ComponentRef,
 } from 'react';
 import {
-  BackHandler,
   KeyboardAvoidingView,
   Pressable,
   ScrollView,
@@ -17,7 +16,7 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { CoveClient, CoveError } from '../api/cove';
+import { CoveClient, authFailure } from '../api/cove';
 import { Drawer } from '../ui/Drawer';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
@@ -40,6 +39,7 @@ import {
 import { ago, initialOf } from '../lib/format';
 import { isLarge } from '../theme/layout';
 import { MenuSheet, Popover, type MenuEntry } from '../ui/Menu';
+import { Layer, useBackHandler } from '../app/back';
 
 const RADIUS_LG = 14;
 // A large screen (tablet): the servers and the selected one's accounts side by side (design 1n)
@@ -89,14 +89,10 @@ export function SignInScreen({
         null)
       : null);
 
-  useEffect(() => {
-    if (!serverId || large) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      setServerId(null);
-      return true;
-    });
-    return () => sub.remove();
-  }, [serverId, large]);
+  useBackHandler(
+    !!serverId && !large && (() => setServerId(null)),
+    Layer.screen
+  );
 
   // Which servers answer (undefined: still asking); asked again on Try again
   const [reached, setReached] = useState<Record<string, boolean>>({});
@@ -594,7 +590,7 @@ function Accounts({
       );
     } catch (e) {
       setBusy(null);
-      if (e instanceof CoveError && (e.status === 401 || e.status === 409)) {
+      if (authFailure(e) === 'expired') {
         // The session ran out (or was ended elsewhere): the password, then
         lock(account.username);
         setCard(account.username);

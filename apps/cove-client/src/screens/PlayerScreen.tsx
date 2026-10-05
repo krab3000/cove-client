@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
-  BackHandler,
   Image,
   Platform,
   Pressable,
@@ -41,6 +40,7 @@ import { BackButton, IconButton } from '../ui/IconButton';
 import { PersonChip, TagChip } from '../ui/Chip';
 import { ThumbBadge } from '../ui/Thumb';
 import { Pill } from '../ui/Toggle';
+import { Layer, useBackHandler } from '../app/back';
 
 const touch = Platform.OS === 'android';
 // Controls hide after this long without input while playing.
@@ -203,15 +203,11 @@ export function PlayerScreen({
   const current = momentAt(position);
 
   // Android: the back gesture leaves full screen, then closes the player; the status bar hides while it is open.
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (sheet) setSheet(null);
-      else if (fullscreen) setFullscreen(false);
-      else onClose();
-      return true;
-    });
-    return () => sub.remove();
-  }, [onClose, fullscreen, sheet]);
+  useBackHandler(() => {
+    if (sheet) setSheet(null);
+    else if (fullscreen) setFullscreen(false);
+    else onClose();
+  }, Layer.player);
   useEffect(() => {
     if (!touch) return;
     StatusBar.setHidden(true, 'fade');

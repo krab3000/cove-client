@@ -9,7 +9,6 @@ import {
 } from 'react';
 import {
   Animated,
-  BackHandler,
   Easing,
   Modal,
   Platform,
@@ -61,6 +60,7 @@ import { fonts, nocturne as n } from '../theme/tokens';
 import { useSafeInsets } from '../platform/insets';
 import { EditedTag } from '../ui/Chip';
 import { MenuSheet } from '../ui/Menu';
+import { Layer, useBackHandler } from '../app/back';
 
 /**
  * Design 2b (design_handoff_cove_mobile, "Rule tree as an outline"), for phones: a Cove filter as an outline of
@@ -231,19 +231,15 @@ export function FilterScreen({
     };
   }, [client, wireJson]);
 
-  useEffect(() => {
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      if (editing) setEditing(null);
-      else if (menu) setMenu(null);
-      else if (adding) setAdding(null);
-      else if (levels) setLevels(false);
-      else if (!atRoot) up();
-      else if (clipboard) setClipboard(null);
-      else onClose();
-      return true;
-    });
-    return () => sub.remove();
-  });
+  useBackHandler(() => {
+    if (editing) setEditing(null);
+    else if (menu) setMenu(null);
+    else if (adding) setAdding(null);
+    else if (levels) setLevels(false);
+    else if (!atRoot) up();
+    else if (clipboard) setClipboard(null);
+    else onClose();
+  }, Layer.editor);
 
   // Design 4a / 4c: what an item's ⋮ offers, only what applies there.
   type Action = {
