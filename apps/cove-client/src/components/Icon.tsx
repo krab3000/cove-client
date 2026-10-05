@@ -53,6 +53,21 @@ const GLYPHS = {
   'sign-out': 0xe42a,
   'arrow-clockwise': 0xe036,
   'film-strip': 0xe792,
+  // Player (1k, 1l)
+  'clock-counter-clockwise': 0xe1a0,
+  'clock-clockwise': 0xe19e,
+  'corners-out': 0xe1d0,
+  'corners-in': 0xe1ce,
+  'gear-six': 0xe272,
+  'lock-simple-open': 0xe30a,
+  'list-bullets': 0xe2f2,
+  'skip-forward': 0xe5a6,
+  'arrow-counter-clockwise': 0xe038,
+  'gauge': 0xe628,
+  'pause': 0xe39e,
+  'speaker-high': 0xe44a,
+  'speaker-slash': 0xe45a,
+  'waveform': 0xe802,
 } as const;
 
 export type IconName = keyof typeof GLYPHS;

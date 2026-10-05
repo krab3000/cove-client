@@ -103,6 +103,8 @@ const LOAD_DELAY_MS = 120;
 const PREFETCH_SCREENS = 1;
 // Touch: the card in the middle of the screen plays its preview, switching as soon as another one gets there.
 const touch = Platform.OS === 'android';
+// The player's Up next: this many videos after the one played.
+const UP_NEXT = 20;
 // The search applies once typing pauses this long.
 const SEARCH_DELAY_MS = 400;
 // From this width the toolbar lists the filter's conditions as chips (a phone doesn't: the editor does).
@@ -190,7 +192,8 @@ export function BrowseScreen({
   previews: previewsAllowed,
 }: {
   client: CoveClient;
-  onPlay: (video: Video) => void;
+  // The video, and the ones after it in the Library's order (the player's Up next)
+  onPlay: (video: Video, upNext: Video[]) => void;
   onLogout: () => void;
   // Off while the player is open over the grid.
   previews: boolean;
@@ -742,13 +745,38 @@ export function BrowseScreen({
     },
     [applyFilter]
   );
+  // A card's video, with the loaded videos after it as Up next.
+  const playVideo = useCallback(
+    (video: Video) => {
+      const after: Video[] = [];
+      let found = false;
+      const keys = [...pages.current.keys()].sort((a, b) => a - b);
+      for (const k of keys) {
+        for (const v of pages.current.get(k)!) {
+          if (found) after.push(v);
+          else if (v.id === video.id) found = true;
+          if (after.length >= UP_NEXT) break;
+        }
+        if (after.length >= UP_NEXT) break;
+      }
+      onPlay(video, after);
+    },
+    [onPlay]
+  );
   const playFirst = useCallback(
     (filter: FilterExpression | null) => {
       client
-        .findVideos(1, 1, filter, seedRef.current, searchedRef.current)
+        .findVideos(
+          1,
+          UP_NEXT + 1,
+          filter,
+          seedRef.current,
+          searchedRef.current
+        )
         .then(
           (result) => {
-            if (result.items[0]) onPlay(result.items[0]);
+            const [first, ...rest] = result.items;
+            if (first) onPlay(first, rest);
           },
           () => {}
         );
@@ -999,7 +1027,7 @@ export function BrowseScreen({
               imageUrl={client.imageUrl(video)}
               width={cardWidth}
               personal={mine}
-              onPress={onPlay}
+              onPress={playVideo}
               onAddTag={onAddTag}
               onAddPerformer={onAddPerformer}
               onToggleFavorite={onToggleFavorite}
@@ -1018,7 +1046,7 @@ export function BrowseScreen({
               imageUrl={client.imageUrl(video, view === 'grid3' ? 320 : 640)}
               width={cardWidth}
               height={cardHeight}
-              onPress={onPlay}
+              onPress={playVideo}
               index={index}
               focus={focus}
               held={held}
@@ -1059,7 +1087,7 @@ export function BrowseScreen({
       cardWidth,
       cardHeight,
       rowHeight,
-      onPlay,
+      playVideo,
       focus,
       held,
       onHold,

@@ -217,6 +217,7 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     const bool paused = newProps->paused.value_or(false);
     const bool muted = newProps->muted.value_or(false);
     const float volume = newProps->volume;
+    const float rate = newProps->rate;
     const int audioTrack = newProps->audioTrack;
     const int subtitleTrack = newProps->subtitleTrack;
 
@@ -236,6 +237,7 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
       m_paused = paused;
       m_muted = muted;
       m_volume = volume;
+      m_rate = rate;
       m_audioTrack = audioTrack;
       m_subtitleTrack = subtitleTrack;
       Load();
@@ -263,6 +265,10 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
       m_muted = muted;
       m_volume = volume;
       ApplyAudio();
+    }
+    if (rate != m_rate) {
+      m_rate = rate;
+      libvlc_media_player_set_rate(player, m_rate);
     }
     if (audioTrack != m_audioTrack) {
       m_audioTrack = audioTrack;
@@ -364,6 +370,7 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
 
     m_session = std::move(session);
     ApplyAudio();
+    libvlc_media_player_set_rate(m_session->player, m_rate);
     // Starting paused: play up to the first frame and pause there (a player paused from the start shows nothing).
     if (m_paused) {
       StepToFrame();
@@ -662,6 +669,7 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
   bool m_paused = false;
   bool m_muted = false;
   float m_volume = 1.0f;
+  float m_rate = 1.0f;
   int m_audioTrack = -1;
   int m_subtitleTrack = -1;
   uint64_t m_generation = 0;

@@ -9,7 +9,16 @@ import { PlayerScreen } from './screens/PlayerScreen';
 
 export default function App() {
   const [client, setClient] = useState<CoveClient | null>(null);
-  const [playing, setPlaying] = useState<Video | null>(null);
+  // The video playing and the ones after it (the player's Up next); Autoplay plays the next one at the end.
+  const [playing, setPlaying] = useState<{
+    video: Video;
+    upNext: Video[];
+  } | null>(null);
+  const [autoplay, setAutoplay] = useState(true);
+  const play = useCallback(
+    (video: Video, upNext: Video[]) => setPlaying({ video, upNext }),
+    []
+  );
 
   const logout = useCallback(() => {
     client?.logout();
@@ -27,7 +36,7 @@ export default function App() {
           // The grid stays mounted under the player, so going back keeps the scroll position.
           <BrowseScreen
             client={client}
-            onPlay={setPlaying}
+            onPlay={play}
             onLogout={logout}
             // No previews under the player: the hardware decoder is shared, and a 4K stream needs all of it.
             previews={!playing}
@@ -36,7 +45,17 @@ export default function App() {
       </View>
       {/* Edge to edge, outside the content's system bar padding: the player keeps its own insets. */}
       {client && playing ? (
-        <PlayerScreen client={client} video={playing} onClose={closePlayer} />
+        <PlayerScreen
+          // A new video is a new player (its own state, session and resume position).
+          key={playing.video.id}
+          client={client}
+          video={playing.video}
+          upNext={playing.upNext}
+          onPlayNext={play}
+          autoplay={autoplay}
+          onAutoplay={setAutoplay}
+          onClose={closePlayer}
+        />
       ) : null}
     </View>
   );

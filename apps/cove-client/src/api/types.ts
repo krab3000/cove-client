@@ -41,6 +41,16 @@ export interface Engagement {
   playCount: number;
 }
 
+/** A segment of a video (Cove's segments; the design calls them moments): a span with a name. */
+export interface Segment {
+  id: number;
+  startSec: number;
+  endSec: number | null;
+  title: string | null;
+  tagName: string | null;
+  kind: string | null;
+}
+
 /** What videos/aggregate sums up for a filter. */
 export interface Aggregate {
   count: number;

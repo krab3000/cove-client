@@ -4,6 +4,7 @@ import type {
   ApiTokenResponse,
   Engagement,
   FilterExpression,
+  Segment,
   LibraryFolder,
   LoginResponse,
   NamedEntity,
@@ -131,6 +132,48 @@ export class CoveClient {
     return this.request<Aggregate>('POST', 'videos/aggregate', {
       findFilter: searchFilter(q),
       ...(filterExpression ? { filterExpression } : {}),
+    });
+  }
+
+  /** The video's segments, in time order ([] when the account may not read segments). */
+  async segments(video: Video): Promise<Segment[]> {
+    try {
+      return await this.request<Segment[]>(
+        'GET',
+        `videos/${video.id}/segments`
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * A frame of the video at a time (seconds in its file): Cove serves its generated thumbnails or a cell of the
+   * sprite sheet, cropped (nothing is decoded on request), else the cover.
+   */
+  frameUrl(video: Video, seconds: number): string {
+    return (
+      `${this.server}/api/stream/video/${video.id}/screenshot?seconds=${Math.max(0, Math.round(seconds))}` +
+      `&access_token=${encodeURIComponent(this.mediaAccessToken)}`
+    );
+  }
+
+  /**
+   * Reports what was watched, like Cove's web player: the spans played since the last report, the position and the
+   * state ('active', 'paused', 'ended'). Cove keeps the resume position and counts views from these.
+   */
+  recordPlayback(report: {
+    hostId: number;
+    sessionId: string;
+    mediaDurationSec: number;
+    currentPositionSec: number;
+    state: 'active' | 'paused' | 'ended';
+    intervals: { startSec: number; endSec: number }[];
+  }) {
+    return this.request<void>('POST', 'playback/intervals', {
+      hostType: 'video',
+      surface: 'mobile-player',
+      ...report,
     });
   }
 

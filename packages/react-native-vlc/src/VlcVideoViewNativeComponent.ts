@@ -73,6 +73,8 @@ export interface NativeProps extends ViewProps {
   muted?: CodegenTypes.WithDefault<boolean, false>;
   /** 0..1 */
   volume?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
+  /** Playback speed: 1 is normal, 2 twice as fast (audio keeps its pitch). */
+  rate?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
   loop?: CodegenTypes.WithDefault<boolean, false>;
   /** Set to false to force software decoding (frames are still rendered on the GPU). */
   hardwareDecoding?: CodegenTypes.WithDefault<boolean, true>;

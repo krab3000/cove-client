@@ -96,6 +96,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
   var paused = false
   var muted = false
   var volume = 1f
+  var rate = 1f
   var loop = false
   var hardwareDecoding = true
   var tlsVerify = true
@@ -139,6 +140,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       s.setPaused(paused)
     }
     s.applyVolume()
+    s.applyRate()
     if (audioTrack != openedAudioTrack) {
       openedAudioTrack = audioTrack
       s.selectAudioTrack(audioTrack)
@@ -300,6 +302,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       media.release()
       player = p
       applyVolume()
+      applyRate()
       // Starting paused: play up to the first frame and pause there (a player paused from the start shows nothing).
       if (paused) stepToFrame() else p.play()
     }
@@ -344,6 +347,11 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
         }
         p.play()
       }
+    }
+
+    fun applyRate() {
+      val p = player ?: return
+      if (p.rate != rate) p.rate = rate
     }
 
     fun applyVolume() {

@@ -34,6 +34,10 @@ class VlcVideoViewManager : SimpleViewManager<VlcVideoView>(), VlcVideoViewManag
     view.volume = value
   }
 
+  override fun setRate(view: VlcVideoView, value: Float) {
+    view.rate = value
+  }
+
   override fun setLoop(view: VlcVideoView, value: Boolean) {
     view.loop = value
   }
