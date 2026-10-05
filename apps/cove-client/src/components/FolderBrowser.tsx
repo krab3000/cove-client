@@ -11,7 +11,7 @@ import {
 import { CoveError, type CoveClient } from '../api/cove';
 import type { FilterExpression, LibraryFolder } from '../api/types';
 import { folderChain, type FolderRef } from '../filter/model';
-import { fonts, nocturne as n } from '../filter/theme';
+import { fonts, nocturne as n } from '../theme/tokens';
 import { Icon } from './Icon';
 
 /** What a folder pick hands back: the folders from the library root down to it, and its subfolder count. */
@@ -571,8 +571,6 @@ export function TypedPath({
   );
 }
 
-const INSET_BOTTOM = Platform.OS === 'android' ? 48 : 0;
-
 const styles = StyleSheet.create({
   fill: { flex: 1 },
   header: {
@@ -697,7 +695,7 @@ const styles = StyleSheet.create({
   footer: {
     paddingTop: 12,
     paddingHorizontal: 16,
-    paddingBottom: 16 + (INSET_BOTTOM ? 0 : 14),
+    paddingBottom: Platform.OS === 'android' ? 16 : 30,
     gap: 8,
     borderTopWidth: 1,
     borderTopColor: n.divider,

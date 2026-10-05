@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,11 +26,11 @@ import {
   type Condition,
   type Modifier,
 } from '../filter/model';
-import { fonts, nocturne as n } from '../filter/theme';
+import { fonts, nocturne as n } from '../theme/tokens';
 import { FolderBrowser, TypedPath, type FolderPick } from './FolderBrowser';
 import { Icon } from './Icon';
+import { useSafeInsets } from '../platform/insets';
 
-const INSET_BOTTOM = Platform.OS === 'android' ? 48 : 0;
 const QUICK_DATES = ['-7d', '-1m', '-1y', '0d'];
 
 /**
@@ -51,6 +50,7 @@ export function ConditionSheet({
   onSave: (condition: Condition) => void;
   onCancel: () => void;
 }) {
+  const insets = useSafeInsets();
   const [condition, setCondition] = useState<Condition | null>(initial ?? null);
   // Path conditions: the folder browser (3b) or the typed path (3d) in place of the editor.
   const [folders, setFolders] = useState<null | 'browse' | 'type' | 'noAccess'>(
@@ -97,7 +97,13 @@ export function ConditionSheet({
     >
       <View style={styles.scrim}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
-        <View style={[styles.sheet, folders && styles.sheetTall]}>
+        <View
+          style={[
+            styles.sheet,
+            folders && styles.sheetTall,
+            { paddingBottom: insets.bottom },
+          ]}
+        >
           <View style={styles.grabber} />
           {condition && folders === 'browse' ? (
             <FolderBrowser
@@ -785,7 +791,6 @@ const styles = StyleSheet.create({
     backgroundColor: n.surface,
     borderTopLeftRadius: n.radiusSheet,
     borderTopRightRadius: n.radiusSheet,
-    paddingBottom: INSET_BOTTOM,
   },
   sheetTall: { height: '92%', maxHeight: '92%' },
   chipTall: { height: 34 },

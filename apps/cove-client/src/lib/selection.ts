@@ -36,7 +36,10 @@ export interface IndexRange {
 export const NO_RANGE: IndexRange = { first: 0, last: -1 };
 
 /** Whether `index` is in the selected range (re-renders on changes of that answer only). */
-export function useInRange(selection: Selection<IndexRange>, index: number): boolean {
+export function useInRange(
+  selection: Selection<IndexRange>,
+  index: number
+): boolean {
   const inRange = useCallback(() => {
     const range = selection.get();
     return index >= range.first && index <= range.last;

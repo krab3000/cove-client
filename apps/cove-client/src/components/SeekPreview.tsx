@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { SpriteSheet } from '../api/cove';
-import { formatDuration } from '../format';
-import { colors } from './Controls';
+import { formatDuration } from '../lib/format';
+import { nocturne as n } from '../theme/tokens';
 import { SpriteCell } from './SpriteCell';
 
 const WIDTH = 240;
@@ -60,11 +60,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#000',
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: n.divider,
     overflow: 'hidden',
   },
   time: {
-    color: colors.text,
+    color: n.text,
     backgroundColor: 'rgba(0,0,0,0.75)',
     paddingHorizontal: 6,
     paddingVertical: 2,

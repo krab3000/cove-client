@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { fonts, nocturne as n } from '../filter/theme';
+import { fonts, nocturne as n } from '../theme/tokens';
 import { Icon, type IconName } from './Icon';
 
 export type LibraryView = 'grid2' | 'grid3' | 'list';

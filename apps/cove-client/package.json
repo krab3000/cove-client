@@ -10,10 +10,13 @@
     "android": "react-native run-android"
   },
   "dependencies": {
+    "@react-native-async-storage/async-storage": "^3.1.1",
+    "@tanstack/react-query": "^5.104.1",
     "react": "19.2.3",
     "react-native": "0.84.1",
     "react-native-vlc": "workspace:*",
-    "react-native-windows": "0.84.0"
+    "react-native-windows": "0.84.0",
+    "valtio": "^2.3.2"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

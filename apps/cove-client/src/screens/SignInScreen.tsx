@@ -23,7 +23,7 @@ import { CoveClient, CoveError } from '../api/cove';
 import { Drawer } from '../components/Drawer';
 import { Icon } from '../components/Icon';
 import { Sheet, SheetHeading, SheetRow, SheetRule } from '../components/Sheet';
-import { fonts, nocturne as n } from '../filter/theme';
+import { fonts, nocturne as n } from '../theme/tokens';
 import {
   hostOf,
   newServerId,
@@ -34,10 +34,12 @@ import {
   type KeptServer,
   type SignIn,
 } from '../signIn';
+import { ago, initialOf } from '../lib/format';
+import { isLarge } from '../theme/layout';
 
 const RADIUS_LG = 14;
 // A large screen (tablet): the servers and the selected one's accounts side by side (design 1n)
-const LARGE = 600;
+
 const LIST_WIDTH = 380;
 // Avatar fills, in turn (design 1b)
 const AVATARS = [
@@ -68,7 +70,7 @@ export function SignInScreen({
   initialServerId?: string;
 }) {
   const window = useWindowDimensions();
-  const large = Math.min(window.width, window.height) >= LARGE;
+  const large = isLarge(window.width, window.height);
   const [serverId, setServerId] = useState<string | null>(
     initialServerId && state.servers.some((s) => s.id === initialServerId)
       ? initialServerId
@@ -816,7 +818,7 @@ function Accounts({
                       <ActivityIndicator color={ink} />
                     ) : (
                       <Text style={[styles.initial, { color: ink }]}>
-                        {(account.username[0] ?? '?').toUpperCase()}
+                        {initialOf(account.username)}
                       </Text>
                     )}
                     {account.refreshToken ? null : (
@@ -954,17 +956,6 @@ function Accounts({
       </>
     );
   }
-}
-
-/** "3 days ago", "5 min ago": how long since a time. */
-function ago(time: number): string {
-  const minutes = Math.round((Date.now() - time) / 60000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  const days = Math.round(hours / 24);
-  return days === 1 ? 'yesterday' : `${days} days ago`;
 }
 
 const styles = StyleSheet.create({

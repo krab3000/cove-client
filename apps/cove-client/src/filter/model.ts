@@ -1,4 +1,5 @@
 import type { FilterExpression, FilterNode } from '../api/types';
+import { MONTHS } from '../lib/format';
 
 // The rule tree of a Cove video filter (design 2b), and its translation to Cove's API: a filterExpression of groups
 // (AND / OR / JUST_ONE / NOT) whose leaves are one-criterion VideoFilter objects. Fields, modifiers and value encodings
@@ -859,21 +860,6 @@ export function resolveDate(value: string, allowHours: boolean): Date | null {
   }
   return result;
 }
-
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
 
 function formatDay(value: string, allowHours: boolean): string {
   if (/^0d$/i.test(value.trim())) return 'today';

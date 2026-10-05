@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Animated, Easing, PanResponder, StyleSheet, View } from 'react-native';
-import { nocturne as n } from '../filter/theme';
+import { nocturne as n } from '../theme/tokens';
 
 const INSET = 12;
 // A swipe right this far (or this fast) closes it

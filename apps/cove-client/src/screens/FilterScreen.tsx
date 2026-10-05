@@ -53,7 +53,8 @@ import {
   type Node,
   type SummaryRun,
 } from '../filter/model';
-import { fonts, nocturne as n } from '../filter/theme';
+import { fonts, nocturne as n } from '../theme/tokens';
+import { useSafeInsets } from '../platform/insets';
 
 /**
  * Design 2b (design_handoff_cove_mobile, "Rule tree as an outline"), for phones: a Cove filter as an outline of
@@ -98,6 +99,7 @@ export function FilterScreen({
   saveLabel?: string | null;
   onSave?: () => void;
 }) {
+  const insets = useSafeInsets();
   const wire = useMemo(() => toWire(tree), [tree]);
   const wireJson = JSON.stringify(wire);
   const edited = wireJson !== JSON.stringify(applied ?? null);
@@ -409,7 +411,21 @@ export function FilterScreen({
 
   return (
     <Raised.Provider value={!!docked}>
-      <View style={docked ? styles.docked : styles.screen}>
+      <View
+        style={
+          docked
+            ? styles.docked
+            : [
+                styles.screen,
+                {
+                  top: -insets.top,
+                  bottom: -insets.bottom,
+                  paddingTop: insets.top,
+                  paddingBottom: insets.bottom,
+                },
+              ]
+        }
+      >
         {docked ? (
           <View style={styles.dockedHeader}>
             {atRoot ? null : (
@@ -713,7 +729,9 @@ export function FilterScreen({
         >
           <Pressable style={styles.menuScrim} onPress={closeSheet}>
             {sheet ? (
-              <View style={styles.menu}>
+              <View
+                style={[styles.menu, { paddingBottom: 12 + insets.bottom }]}
+              >
                 {menu && clipboard ? (
                   <View style={styles.menuClipboard}>
                     <Icon
@@ -1229,19 +1247,13 @@ function MenuItem({
   );
 }
 
-// App pads its content clear of Android's system bars (App.tsx); the screen reaches under them, as in the design.
-const INSET_TOP = Platform.OS === 'android' ? 36 : 0;
-const INSET_BOTTOM = Platform.OS === 'android' ? 48 : 0;
-
 const styles = StyleSheet.create({
   screen: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: -INSET_TOP,
-    bottom: -INSET_BOTTOM,
-    paddingTop: INSET_TOP,
-    paddingBottom: INSET_BOTTOM,
+    // App pads its content clear of the system bars; the phone screen reaches under them (by the insets), as in the
+    // design
     backgroundColor: n.bg,
   },
   // Docked (tablet, 2d): fills its drawer, on the drawer's surface
@@ -1674,7 +1686,7 @@ const styles = StyleSheet.create({
   footer: {
     paddingTop: 12,
     paddingHorizontal: 16,
-    paddingBottom: 30 - (INSET_BOTTOM ? 18 : 0),
+    paddingBottom: Platform.OS === 'android' ? 12 : 30,
     flexDirection: 'row',
     gap: 8,
     borderTopWidth: 1,
@@ -1710,7 +1722,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: n.radiusSheet,
     borderTopRightRadius: n.radiusSheet,
     paddingTop: 12,
-    paddingBottom: 12 + INSET_BOTTOM,
     paddingHorizontal: 12,
   },
   menuItem: {

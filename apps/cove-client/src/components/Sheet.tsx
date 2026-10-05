@@ -10,8 +10,9 @@ import {
   View,
   useWindowDimensions,
 } from 'react-native';
-import { fonts, nocturne as n } from '../filter/theme';
+import { fonts, nocturne as n } from '../theme/tokens';
 import { Icon, type IconName } from './Icon';
+import { useSafeInsets } from '../platform/insets';
 
 /**
  * A bottom sheet (Nocturne): surface, 22 px top corners, grabber, over a dimmed screen. A tap on the dim, or Android
@@ -29,6 +30,7 @@ export function Sheet({
 }) {
   const window = useWindowDimensions();
   const sideways = window.width > window.height;
+  const insets = useSafeInsets();
   return (
     <Modal
       visible={visible}
@@ -50,6 +52,7 @@ export function Sheet({
             styles.sheet,
             sideways && styles.sheetSideways,
             sideways && { width: Math.min(640, window.width - 96) },
+            { paddingBottom: Math.max(30, insets.bottom + 8) },
           ]}
         >
           <View style={styles.grabber} />
@@ -126,13 +129,13 @@ const styles = StyleSheet.create({
   scrim: { ...StyleSheet.absoluteFillObject, backgroundColor: n.scrim },
   sheet: {
     paddingTop: 8,
-    paddingBottom: Platform.OS === 'android' ? 56 : 30,
+
     borderTopLeftRadius: n.radiusSheet,
     borderTopRightRadius: n.radiusSheet,
     backgroundColor: n.surface,
     maxHeight: '85%',
   },
-  sheetSideways: { alignSelf: 'center', paddingBottom: 20 },
+  sheetSideways: { alignSelf: 'center' },
   scroll: { flexGrow: 0 },
   grabber: {
     width: 40,

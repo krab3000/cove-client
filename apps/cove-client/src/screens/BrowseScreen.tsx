@@ -59,13 +59,9 @@ import {
   savedFilterChange,
   type LoadedFilter,
 } from '../filter/saved';
-import { fonts, nocturne as n } from '../filter/theme';
+import { fonts, nocturne as n } from '../theme/tokens';
 import { FilterScreen } from './FilterScreen';
-import {
-  createSelection,
-  NO_RANGE,
-  type IndexRange,
-} from '../components/selection';
+import { createSelection, NO_RANGE, type IndexRange } from '../lib/selection';
 import {
   PlaceholderCard,
   tileTextHeight,
@@ -80,6 +76,8 @@ import { prefetchMedia } from '../player';
 import WheelCapture, {
   type WheelEvent,
 } from '../native/WheelCaptureNativeComponent';
+import { formatSize, initialOf } from '../lib/format';
+import { isLarge } from '../theme/layout';
 
 const PER_PAGE = 40;
 // Space above the first row.
@@ -108,7 +106,7 @@ const UP_NEXT = 20;
 const SEARCH_DELAY_MS = 400;
 // A large screen (tablet, desktop): the shorter side of the window at least this. It gets the sidebar, the preview
 // drawer and the docked filter (design 1h, 2d). No screen lists the filter's conditions; only the editor does.
-const LARGE = 600;
+
 // The docked filter (2d) applies to the results once editing pauses this long.
 const DOCKED_APPLY_MS = 500;
 // A phone held sideways: the list view's cards get this narrow, two in a row (one would be taller than the screen).
@@ -148,12 +146,6 @@ const BUILT_IN: {
     make: () => condition('resumeTime', 'greaterThan', 0),
   },
 ];
-
-function formatSize(bytes: number): string {
-  if (bytes >= 1e12) return `${(bytes / 1e12).toFixed(1)} TB`;
-  if (bytes >= 1e9) return `${Math.round(bytes / 1e9)} GB`;
-  return `${Math.round(bytes / 1e6)} MB`;
-}
 
 /**
  * The Library (design 1f/1g): one screen, three views (2 columns, 3 columns, list) under one header with the filter
@@ -216,7 +208,7 @@ export function BrowseScreen({
   const [height, setHeight] = useState(800);
   // A large screen (design 1h): sidebar and Library, a preview drawer over it. A phone held sideways (6f–6h): the header in one row,
   // two list cards in a row. Both from the window's own size, so split screen, rotation and resizing just work.
-  const large = Math.min(width, height) >= LARGE;
+  const large = isLarge(width, height);
   const compact = !large && width > height;
   // The Library column's width (the grid's), measured: on a large screen the sidebar and the filter take the rest.
   const [mainWidth, setMainWidth] = useState(0);
@@ -1223,7 +1215,7 @@ export function BrowseScreen({
           query={query}
           onQuery={onQuery}
           onSubmitQuery={() => applySearch(query)}
-          avatar={(client.username[0] ?? '?').toUpperCase()}
+          avatar={initialOf(client.username)}
           onOpenAccount={() => setSheet('account')}
           title={title}
           savedFilter={!!saved}
@@ -1409,7 +1401,7 @@ export function BrowseScreen({
         <View style={styles.account}>
           <View style={styles.accountAvatar}>
             <Text style={styles.accountInitial}>
-              {(client.username[0] ?? '?').toUpperCase()}
+              {initialOf(client.username)}
             </Text>
           </View>
           <View style={styles.accountText}>

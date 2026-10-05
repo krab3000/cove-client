@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
 import type { Engagement, Segment, Video } from '../api/types';
-import { Bar } from '../components/Controls';
+import { Bar } from '../components/Bar';
 import { Icon, type IconName } from '../components/Icon';
 import { SeekTrack } from '../components/SeekTrack';
 import {
@@ -24,16 +24,24 @@ import {
   SheetRow,
   SheetSection,
 } from '../components/Sheet';
-import { partialDate } from '../components/VideoRow';
-import { fonts, nocturne as n } from '../filter/theme';
-import { formatDuration, resolutionLabel, videoTitle } from '../format';
+import { fonts, nocturne as n } from '../theme/tokens';
+import {
+  formatDuration,
+  resolutionLabel,
+  videoTitle,
+  groupLabel,
+  initials,
+  partialDate,
+  stars,
+} from '../lib/format';
 import {
   playerEngine,
   VideoView,
   type LoadEvent,
   type VideoViewHandle,
 } from '../player';
-import { useSystemInsets } from '../systemInsets';
+import { useSafeInsets } from '../platform/insets';
+import { isLarge } from '../theme/layout';
 
 const touch = Platform.OS === 'android';
 // Controls hide after this long without input while playing.
@@ -53,7 +61,7 @@ const FRAME_REST_MS = 150;
 // Playback reports to Cove while playing (resume position, views).
 const REPORT_EVERY_MS = 10000;
 // A large screen (shorter side at least this) held sideways gets the tablet player (1m).
-const LARGE = 600;
+
 // 1m: the side panel's width, the space around the video, and the back row above it.
 const PANEL = 360;
 const TABLET_PAD = 24;
@@ -134,7 +142,7 @@ export function PlayerScreen({
   const [savedForLater, setSavedForLater] = useState(false);
 
   const landscape = size.width > size.height;
-  const large = Math.min(size.width, size.height) >= LARGE;
+  const large = isLarge(size.width, size.height);
   // 1l: full screen (asked for, or a phone held sideways, or a small desktop window). 1m: a large screen held
   // sideways (tablet, desktop window). 1k: upright (phone or tablet).
   const immersive = fullscreen || (landscape && !large) || (!touch && !large);
@@ -454,7 +462,7 @@ export function PlayerScreen({
   // --- Layout --------------------------------------------------------------------------------------------------
   // Room for the system bars and the camera cutout on Android (drawn edge to edge, status bar hidden).
   // 1m keeps its details and side panel above the navigation bar (a tablet's taskbar)
-  const barBottom = useSystemInsets()?.bottom ?? 0;
+  const barBottom = useSafeInsets().bottom;
   const insets = touch
     ? landscape
       ? { top: 12, bottom: 18, side: 48 }
@@ -1175,9 +1183,7 @@ export function PlayerScreen({
                     engagement?.playCount
                       ? `watched ${engagement.playCount}×`
                       : null,
-                    engagement?.rating
-                      ? `★ ${(Math.round(engagement.rating / 10) / 2).toFixed(1)}`
-                      : null,
+                    engagement?.rating ? `★ ${stars(engagement.rating)}` : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -1371,18 +1377,14 @@ export function PlayerScreen({
                     [
                       'Rating',
                       engagement?.rating
-                        ? `★ ${(Math.round(engagement.rating / 10) / 2).toFixed(1)}`
+                        ? `★ ${stars(engagement.rating)}`
                         : 'Not rated',
                     ],
                     ['Date', video.date ? partialDate(video.date) : '—'],
                     ['Studio', video.studioName ?? '—'],
                     [
                       'Group',
-                      video.groups?.[0]
-                        ? video.groups[0].videoIndex != null
-                          ? `${video.groups[0].name} · part ${video.groups[0].videoIndex + 1}`
-                          : video.groups[0].name
-                        : '—',
+                      video.groups?.[0] ? groupLabel(video.groups[0]) : '—',
                     ],
                     [
                       'Watched',
@@ -1517,15 +1519,6 @@ function Shade({ edge }: { edge: 'top' | 'bottom' }) {
       ]}
     />
   );
-}
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('');
 }
 
 /** A random v4 UUID (the playback session's id). */

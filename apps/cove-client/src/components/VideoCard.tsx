@@ -11,13 +11,13 @@ import {
 } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
-import { fonts, nocturne as n } from '../filter/theme';
+import { fonts, nocturne as n } from '../theme/tokens';
 import {
   formatDuration,
   resolutionLabel,
   videoSubtitle,
   videoTitle,
-} from '../format';
+} from '../lib/format';
 import { HoverPreview } from './HoverPreview';
 import { Icon } from './Icon';
 import {
@@ -25,7 +25,7 @@ import {
   useIsSelected,
   type IndexRange,
   type Selection,
-} from './selection';
+} from '../lib/selection';
 
 /**
  * A Library grid tile (design 1f): the cover (or a placeholder until Cove's generate task has made one) with one

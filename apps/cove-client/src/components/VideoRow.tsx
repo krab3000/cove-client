@@ -9,8 +9,16 @@ import {
 } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
-import { fonts, nocturne as n } from '../filter/theme';
-import { formatDuration, resolutionLabel, videoTitle } from '../format';
+import { fonts, nocturne as n } from '../theme/tokens';
+import {
+  formatDuration,
+  resolutionLabel,
+  videoTitle,
+  groupLabel,
+  initials,
+  stars,
+  videoMeta,
+} from '../lib/format';
 import { Icon } from './Icon';
 import { HoverPreview } from './HoverPreview';
 import {
@@ -18,31 +26,8 @@ import {
   useIsSelected,
   type IndexRange,
   type Selection,
-} from './selection';
+} from '../lib/selection';
 import { LoadingBar, ResumeBar } from './VideoCard';
-
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-];
-
-/** Cove's partial dates as people write them: "1962", "Oct 2022", "Jun 12, 2024". */
-export function partialDate(date: string): string {
-  const [y, m, d] = date.split('-');
-  if (!m) return y ?? date;
-  const month = MONTHS[Number(m) - 1] ?? m;
-  return d ? `${month} ${Number(d)}, ${y}` : `${month} ${y}`;
-}
 
 /** The list card's height for a width: the 16:9 thumbnail, the title block and the chip row (all fixed). */
 export function listCardHeight(width: number): number {
@@ -113,20 +98,8 @@ export const VideoRow = memo(function VideoRow({
   const badge = [resolutionLabel(video), formatDuration(file?.duration)]
     .filter(Boolean)
     .join(' · ');
-  const stars = personal?.rating
-    ? (Math.round(personal.rating / 10) / 2).toFixed(1)
-    : null;
-  const meta = [
-    video.studioName,
-    video.date ? partialDate(video.date) : null,
-    personal
-      ? personal.playCount
-        ? `watched ${personal.playCount}×`
-        : 'unwatched'
-      : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const rating = personal?.rating ? stars(personal.rating) : null;
+  const meta = videoMeta(video, personal ? personal.playCount : null);
   const group = video.groups?.[0];
 
   return (
@@ -159,10 +132,10 @@ export const VideoRow = memo(function VideoRow({
           />
         ) : null}
         {showPreview && previewState === 'loading' ? <LoadingBar /> : null}
-        {stars ? (
+        {rating ? (
           <View style={styles.rating}>
             <Icon name="star" fill size={11} color={n.accent300} />
-            <Text style={styles.ratingText}>{stars}</Text>
+            <Text style={styles.ratingText}>{rating}</Text>
           </View>
         ) : null}
         {badge ? <Text style={styles.badge}>{badge}</Text> : null}
@@ -202,9 +175,7 @@ export const VideoRow = memo(function VideoRow({
           <View style={styles.group}>
             <Icon name="stack" size={14} color={n.accent300} />
             <Text style={styles.groupText} numberOfLines={1}>
-              {group.videoIndex != null
-                ? `${group.name} · part ${group.videoIndex + 1}`
-                : group.name}
+              {groupLabel(group)}
             </Text>
           </View>
         ) : null}
@@ -235,15 +206,6 @@ export const VideoRow = memo(function VideoRow({
     </View>
   );
 });
-
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]!.toUpperCase())
-    .join('');
-}
 
 function RoundToggle({
   icon,

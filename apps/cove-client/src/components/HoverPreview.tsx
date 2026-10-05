@@ -3,7 +3,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import type { CoveClient, SpriteSheet } from '../api/cove';
 import type { Video } from '../api/types';
 import { VideoView } from '../player';
-import { colors } from './Controls';
+import { nocturne as n } from '../theme/tokens';
 import { SpriteCell } from './SpriteCell';
 
 // Phones and tablets: no sprite-sheet fallback. A sheet is one 2880×1620 JPEG (19 MB decoded) for a 300 px frame;
@@ -174,5 +174,5 @@ const styles = StyleSheet.create({
     height: 3,
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
-  progress: { height: '100%', backgroundColor: colors.accent },
+  progress: { height: '100%', backgroundColor: n.accent },
 });

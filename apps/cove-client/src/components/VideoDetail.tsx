@@ -9,11 +9,19 @@ import {
 } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
 import type { Segment, Video } from '../api/types';
-import { fonts, nocturne as n } from '../filter/theme';
-import { formatDuration, resolutionLabel, videoTitle } from '../format';
+import { fonts, nocturne as n } from '../theme/tokens';
+import {
+  formatDuration,
+  resolutionLabel,
+  videoTitle,
+  groupLabel,
+  initials,
+  stars,
+  videoMeta,
+} from '../lib/format';
 import { Icon } from './Icon';
 import { ResumeBar } from './VideoCard';
-import { partialDate, type Personal } from './VideoRow';
+import { type Personal } from './VideoRow';
 
 /**
  * The tablet Library's preview (design 1h, in a Drawer): the video picked in the grid — a header with ✕; its cover with the rating, the resume
@@ -57,20 +65,8 @@ export function VideoDetail({
   const badge = [resolutionLabel(video), formatDuration(duration)]
     .filter(Boolean)
     .join(' · ');
-  const stars = personal?.rating
-    ? (Math.round(personal.rating / 10) / 2).toFixed(1)
-    : null;
-  const meta = [
-    video.studioName,
-    video.date ? partialDate(video.date) : null,
-    personal
-      ? personal.playCount
-        ? `watched ${personal.playCount}×`
-        : 'unwatched'
-      : null,
-  ]
-    .filter(Boolean)
-    .join(' · ');
+  const rating = personal?.rating ? stars(personal.rating) : null;
+  const meta = videoMeta(video, personal ? personal.playCount : null);
   const progress = personal?.progress ?? 0;
   const left = Math.round((duration * (1 - progress)) / 60);
   const group = video.groups?.[0];
@@ -104,10 +100,10 @@ export function VideoDetail({
           resizeMode="cover"
           resizeMethod="resize"
         />
-        {stars ? (
+        {rating ? (
           <View style={styles.rating}>
             <Icon name="star" fill size={11} color={n.accent300} />
-            <Text style={styles.ratingText}>{stars}</Text>
+            <Text style={styles.ratingText}>{rating}</Text>
           </View>
         ) : null}
         <View style={styles.playRound}>
@@ -203,13 +199,7 @@ export function VideoDetail({
                 ]}
               >
                 <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>
-                    {p.name
-                      .split(/\s+/)
-                      .slice(0, 2)
-                      .map((w) => w[0]?.toUpperCase() ?? '')
-                      .join('')}
-                  </Text>
+                  <Text style={styles.avatarText}>{initials(p.name)}</Text>
                 </View>
                 <Text style={styles.chipText}>{p.name}</Text>
               </Pressable>
@@ -230,11 +220,7 @@ export function VideoDetail({
       {group ? (
         <View style={styles.group}>
           <Icon name="stack" size={14} color={n.accent300} />
-          <Text style={styles.groupText}>
-            {group.videoIndex != null
-              ? `${group.name} · part ${group.videoIndex + 1}`
-              : group.name}
-          </Text>
+          <Text style={styles.groupText}>{groupLabel(group)}</Text>
         </View>
       ) : null}
     </ScrollView>

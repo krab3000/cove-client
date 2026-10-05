@@ -1,15 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  Platform,
-  StyleSheet,
-  View,
-  useWindowDimensions,
-} from 'react-native';
+import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { CoveClient, CoveError } from './api/cove';
 import type { Video } from './api/types';
-import { colors } from './components/Controls';
 import { BrowseScreen } from './screens/BrowseScreen';
+import { nocturne } from './theme/tokens';
 import { PlayerScreen } from './screens/PlayerScreen';
 import { SignInScreen } from './screens/SignInScreen';
 import {
@@ -19,7 +13,7 @@ import {
   withServer,
   type SignIn,
 } from './signIn';
-import { useSystemInsets } from './systemInsets';
+import { useSafeInsets } from './platform/insets';
 
 export default function App() {
   // The servers and the sessions kept on this device (persisted), and the session the app is in
@@ -97,11 +91,8 @@ export default function App() {
     // Once, at launch
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  const window = useWindowDimensions();
-  const bars = useSystemInsets();
-  const sideways = window.width > window.height;
-  // A phone held sideways has its camera cutout on a side; a tablet's is in the bezel.
-  const phone = Math.min(window.width, window.height) < 600;
+  // Android draws edge to edge: the content keeps clear of the system bars and the camera cutout
+  const insets = useSafeInsets();
   // The video playing and the ones after it (the player's Up next); Autoplay plays the next one at the end.
   const [playing, setPlaying] = useState<{
     video: Video;
@@ -138,24 +129,17 @@ export default function App() {
       <View
         style={[
           styles.content,
-          bars
-            ? {
-                paddingTop: bars.top,
-                paddingRight: bars.right,
-                paddingBottom: bars.bottom,
-                paddingLeft: bars.left,
-              }
-            : Platform.OS === 'android' &&
-              (!sideways
-                ? styles.androidUpright
-                : phone
-                  ? styles.androidSideways
-                  : styles.androidTablet),
+          {
+            paddingTop: insets.top,
+            paddingRight: insets.right,
+            paddingBottom: insets.bottom,
+            paddingLeft: insets.left,
+          },
         ]}
       >
         {resuming ? (
           <View style={styles.resuming}>
-            <ActivityIndicator color={colors.accent} />
+            <ActivityIndicator color={nocturne.accent} />
           </View>
         ) : !client ? (
           <SignInScreen
@@ -195,12 +179,7 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  app: { flex: 1, backgroundColor: colors.background },
+  app: { flex: 1, backgroundColor: nocturne.bg },
   content: { flex: 1 },
   resuming: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  // Android draws edge to edge: the content keeps clear of the system bars and the camera cutout by their measured
-  // sizes. Guesses for a build without the module that measures them.
-  androidUpright: { paddingTop: 36, paddingBottom: 48 },
-  androidSideways: { paddingTop: 28, paddingBottom: 12, paddingHorizontal: 40 },
-  androidTablet: { paddingTop: 28, paddingBottom: 16 },
 });

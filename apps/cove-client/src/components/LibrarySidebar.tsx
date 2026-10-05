@@ -1,7 +1,8 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { SavedFilter } from '../api/types';
-import { fonts, nocturne as n } from '../filter/theme';
+import { fonts, nocturne as n } from '../theme/tokens';
 import { Icon, type IconName } from './Icon';
+import { initialOf } from '../lib/format';
 
 /** What the Library shows, as the sidebar marks it. */
 export type SidebarActive =
@@ -52,7 +53,7 @@ export function LibrarySidebar({
   onSaveNew: () => void;
   onAccount: () => void;
 }) {
-  const initial = (username[0] ?? '?').toUpperCase();
+  const initial = initialOf(username);
   if (rail)
     return (
       <View style={styles.rail}>
