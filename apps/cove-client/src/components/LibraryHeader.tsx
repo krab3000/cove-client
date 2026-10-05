@@ -1,33 +1,22 @@
-import { useRef, useState, type ComponentRef } from 'react';
 import {
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
-  useWindowDimensions,
 } from 'react-native';
 import { fonts, nocturne as n } from '../filter/theme';
 import { Icon, type IconName } from './Icon';
 
 export type LibraryView = 'grid2' | 'grid3' | 'list';
 
-/** A condition of the filter as a chip in the filter bar. */
+/** A condition of the filter as a chip (wide screens only). */
 export interface FilterChip {
   id: string;
   label: string;
   // An include, an exclude (struck through), a subgroup (a token), or what the app can't show
   kind: 'in' | 'ex' | 'group' | 'more';
-}
-
-/** A one-tap filter offered while there is none: a saved filter, or a built-in shortcut. */
-export interface FilterPreset {
-  key: string;
-  label: string;
-  icon: IconName;
-  saved: boolean;
-  onPress: () => void;
 }
 
 const VIEWS: { view: LibraryView; icon: IconName; label: string }[] = [
@@ -37,99 +26,150 @@ const VIEWS: { view: LibraryView; icon: IconName; label: string }[] = [
 ];
 
 /**
- * The Library's header (design 1f/1g), the same over all three views: "Videos" or the saved filter's name (with
- * Edited and Save once it is changed), the count line, the filter bar (Filter with its count, the filter's
- * conditions as chips, Clear; the saved filters while there is no filter) and the sort row with the view switch.
+ * The Library's header (design turn 6), the same over all three views. Each control has one place: the search field
+ * (Cove's search) and the avatar (the account) on top; the title, which says what is shown and opens the Show sheet,
+ * with the count line under it and Save / Save as… when there is something to save; then the toolbar: Filter with its
+ * count, the sort, Shuffle, Play all and the view switch. A phone lists no conditions (the editor does); a wide
+ * screen shows them as chips on the toolbar.
  */
 export function LibraryHeader({
+  query,
+  onQuery,
+  onSubmitQuery,
+  avatar,
+  onOpenAccount,
   title,
-  saved,
-  edited,
-  onSave,
+  savedFilter,
   countLine,
-  chips,
-  presets,
+  edited,
+  saveLabel,
+  onSave,
+  onOpenShow,
+  filterCount,
   onOpenFilter,
-  onOpenChip,
-  onRemoveChip,
-  onClear,
   shuffled,
   onShuffle,
   onPlayAll,
   view,
   onView,
-  username,
-  onRefresh,
-  onLogout,
+  chips,
+  onOpenChip,
+  onRemoveChip,
 }: {
+  query: string;
+  onQuery: (q: string) => void;
+  onSubmitQuery: () => void;
+  avatar: string;
+  onOpenAccount: () => void;
   title: string;
-  saved: boolean;
-  edited: boolean;
-  // Absent when this filter can't be saved from here
-  onSave?: () => void;
+  // The title is a saved filter's name
+  savedFilter: boolean;
   countLine: string;
-  chips: FilterChip[];
-  presets: FilterPreset[];
+  edited: boolean;
+  // "Save" or "Save as…", or null when there is nothing to save
+  saveLabel: string | null;
+  onSave: () => void;
+  onOpenShow: () => void;
+  filterCount: number;
   onOpenFilter: () => void;
-  onOpenChip: (id: string) => void;
-  onRemoveChip: (id: string) => void;
-  onClear: () => void;
   shuffled: boolean;
   onShuffle: () => void;
   onPlayAll: () => void;
   view: LibraryView;
   onView: (view: LibraryView) => void;
-  username: string;
-  onRefresh: () => void;
-  onLogout: () => void;
+  // Wide screens only
+  chips: FilterChip[] | null;
+  onOpenChip: (id: string) => void;
+  onRemoveChip: (id: string) => void;
 }) {
-  // The ⋮ menu, under its button: in a Modal, so it draws over the list (and nothing in the header has to sit
-  // above its siblings, which on Android would put it above the player too).
-  const [menu, setMenu] = useState<{ top: number; right: number } | null>(null);
-  const menuButton = useRef<ComponentRef<typeof View>>(null);
-  const window = useWindowDimensions();
-  const openMenu = () =>
-    menuButton.current?.measureInWindow((x, y, w, h) =>
-      setMenu({ top: y + h, right: Math.max(8, window.width - x - w) })
-    );
-  const active = chips.length > 0;
-  const badge = chips.filter((c) => c.kind !== 'more').length;
+  const active = filterCount > 0;
   return (
     <View>
-      <View style={styles.titleRow}>
-        <View style={styles.titleBlock}>
-          {saved ? (
-            <View style={styles.kicker}>
-              <Icon name="bookmarks-simple" size={13} color={n.accent300} />
-              <Text style={styles.kickerText}>SAVED FILTER</Text>
-              {edited ? <Text style={styles.edited}>Edited</Text> : null}
-              {edited && onSave ? (
-                <Pressable onPress={onSave} hitSlop={8}>
-                  <Text style={styles.save}>Save</Text>
-                </Pressable>
-              ) : null}
-            </View>
+      <View style={styles.searchRow}>
+        <View style={[styles.search, query ? styles.searchActive : null]}>
+          <Icon name="magnifying-glass" size={18} color={n.textAlpha(55)} />
+          <TextInput
+            value={query}
+            onChangeText={onQuery}
+            onSubmitEditing={onSubmitQuery}
+            placeholder="Search videos, tags, performers…"
+            placeholderTextColor={n.textAlpha(45)}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+            accessibilityLabel="Search"
+            style={styles.searchInput}
+          />
+          {query ? (
+            <Pressable
+              onPress={() => onQuery('')}
+              accessibilityLabel="Clear search"
+              hitSlop={4}
+              style={styles.searchClear}
+            >
+              <Icon name="x" size={15} color={n.textAlpha(60)} />
+            </Pressable>
           ) : null}
-          <Text style={styles.title} numberOfLines={1}>
-            {title}
-          </Text>
         </View>
         <Pressable
-          ref={menuButton}
-          onPress={openMenu}
-          accessibilityLabel="More"
-          style={styles.iconButton}
+          onPress={onOpenAccount}
+          accessibilityLabel="Account"
+          style={styles.avatarButton}
         >
-          <Icon name="dots-three-vertical" size={22} color={n.text} />
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{avatar}</Text>
+          </View>
         </Pressable>
       </View>
-      <Text style={styles.count}>{countLine}</Text>
 
-      <View style={styles.bar}>
+      <View style={styles.titleRow}>
+        <Pressable
+          onPress={onOpenShow}
+          accessibilityRole="button"
+          accessibilityLabel={`Show: ${title}`}
+          style={({ pressed }) => [
+            styles.titleButton,
+            pressed && styles.pressedBg,
+          ]}
+        >
+          <View style={styles.titleLine}>
+            {savedFilter ? (
+              <Icon
+                name="bookmarks-simple"
+                fill
+                size={17}
+                color={n.accent300}
+              />
+            ) : null}
+            <Text style={styles.title} numberOfLines={1}>
+              {title}
+            </Text>
+            <Icon name="caret-down" size={14} color={n.textAlpha(55)} />
+          </View>
+          <View style={styles.countLine}>
+            {edited ? <Text style={styles.edited}>Edited</Text> : null}
+            <Text style={styles.count} numberOfLines={1}>
+              {countLine}
+            </Text>
+          </View>
+        </Pressable>
+        {saveLabel ? (
+          <Pressable
+            onPress={onSave}
+            style={({ pressed }) => [styles.save, pressed && styles.accentBg]}
+          >
+            <Text style={styles.saveText}>{saveLabel}</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <View style={styles.toolbar}>
         <Pressable
           onPress={onOpenFilter}
           accessibilityRole="button"
-          accessibilityLabel={active ? `Filter, ${badge} conditions` : 'Filter'}
+          accessibilityLabel={
+            active ? `Filter, ${filterCount} conditions` : 'Filter'
+          }
           style={[styles.filterButton, active && styles.filterButtonActive]}
         >
           <Icon
@@ -142,49 +182,11 @@ export function LibraryHeader({
           </Text>
           {active ? (
             <View style={styles.badge}>
-              <Text style={styles.badgeText}>{badge}</Text>
+              <Text style={styles.badgeText}>{filterCount}</Text>
             </View>
           ) : null}
         </Pressable>
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.chipScroll}
-          contentContainerStyle={styles.chips}
-        >
-          {chips.map((c) => (
-            <Chip
-              key={c.id}
-              chip={c}
-              onOpen={() => onOpenChip(c.id)}
-              onRemove={() => onRemoveChip(c.id)}
-            />
-          ))}
-          {active ? (
-            <Pressable onPress={onClear} hitSlop={6} style={styles.clear}>
-              <Text style={styles.clearText}>Clear</Text>
-            </Pressable>
-          ) : (
-            presets.map((p) => (
-              <Pressable
-                key={p.key}
-                onPress={p.onPress}
-                style={({ pressed }) => [
-                  styles.preset,
-                  p.saved ? styles.presetSaved : styles.presetPill,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <Icon name={p.icon} size={14} color={n.accent300} />
-                <Text style={styles.presetText}>{p.label}</Text>
-              </Pressable>
-            ))
-          )}
-        </ScrollView>
-      </View>
-
-      <View style={styles.sortRow}>
-        {/* Cove's seeded random sort; off = newest first */}
+        {/* Newest added first, or Cove's seeded random sort while shuffled */}
         <View style={styles.sort}>
           <Icon name="sort-descending" size={16} color={n.textAlpha(75)} />
           <Text style={styles.sortText}>{shuffled ? 'Random' : 'Added'}</Text>
@@ -193,7 +195,7 @@ export function LibraryHeader({
           onPress={onShuffle}
           accessibilityLabel="Shuffle"
           accessibilityState={{ selected: shuffled }}
-          style={[styles.iconButton40, shuffled && styles.shuffleOn]}
+          style={[styles.icon36, shuffled && styles.shuffleOn]}
         >
           <Icon
             name="shuffle"
@@ -201,16 +203,31 @@ export function LibraryHeader({
             color={shuffled ? n.accent : n.textAlpha(75)}
           />
         </Pressable>
-        <View style={styles.spacer} />
+        {chips ? (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.chipScroll}
+            contentContainerStyle={styles.chips}
+          >
+            {chips.map((c) => (
+              <Chip
+                key={c.id}
+                chip={c}
+                onOpen={() => onOpenChip(c.id)}
+                onRemove={() => onRemoveChip(c.id)}
+              />
+            ))}
+          </ScrollView>
+        ) : (
+          <View style={styles.spacer} />
+        )}
         <Pressable
           onPress={onPlayAll}
-          style={({ pressed }) => [
-            styles.playAll,
-            pressed && styles.playAllPressed,
-          ]}
+          accessibilityLabel="Play all"
+          style={({ pressed }) => [styles.play, pressed && styles.accentBg]}
         >
-          <Icon name="play" fill size={12} color={n.accent200} />
-          <Text style={styles.playAllText}>Play all</Text>
+          <Icon name="play" fill size={14} color={n.accent200} />
         </Pressable>
         <View style={styles.views}>
           {VIEWS.map((v) => (
@@ -230,36 +247,6 @@ export function LibraryHeader({
           ))}
         </View>
       </View>
-
-      <Modal
-        visible={!!menu}
-        transparent
-        statusBarTranslucent
-        animationType="fade"
-        onRequestClose={() => setMenu(null)}
-      >
-        <Pressable style={styles.backdrop} onPress={() => setMenu(null)} />
-        <View style={[styles.menu, menu]}>
-          <Text style={styles.menuUser} numberOfLines={1}>
-            {username}
-          </Text>
-          <MenuItem
-            label="Refresh"
-            onPress={() => {
-              setMenu(null);
-              onRefresh();
-            }}
-          />
-          <MenuItem
-            label="Log out"
-            icon="sign-out"
-            onPress={() => {
-              setMenu(null);
-              onLogout();
-            }}
-          />
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -319,82 +306,120 @@ const CHIP_LOOK: Record<FilterChip['kind'], { bg: string; ink: string }> = {
   more: { bg: 'transparent', ink: n.textAlpha(60) },
 };
 
-function MenuItem({
-  label,
-  icon,
-  onPress,
-}: {
-  label: string;
-  icon?: IconName;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.menuItem, pressed && styles.menuPressed]}
-    >
-      {icon ? <Icon name={icon} size={18} color={n.accent300} /> : null}
-      <Text style={styles.menuText}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  titleRow: {
+  searchRow: {
     paddingTop: 6,
-    paddingLeft: 20,
-    paddingRight: 8,
+    paddingHorizontal: 16,
     flexDirection: 'row',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     gap: 8,
   },
-  titleBlock: { flex: 1, minWidth: 0, gap: 2 },
-  kicker: { height: 24, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  kickerText: {
-    color: n.textAlpha(50),
-    fontSize: 11,
-    letterSpacing: 0.9,
+  search: {
+    flex: 1,
+    minWidth: 0,
+    height: 44,
+    paddingLeft: 14,
+    paddingRight: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    backgroundColor: n.surface,
+  },
+  searchActive: { borderColor: n.accent },
+  searchInput: {
+    flex: 1,
+    minWidth: 0,
+    paddingVertical: 0,
+    color: n.text,
+    fontSize: 15,
     fontFamily: fonts.regular,
   },
-  edited: {
-    marginLeft: 2,
-    fontSize: 11,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: n.accent800,
-    color: n.accent100,
-    fontFamily: fonts.regular,
+  searchClear: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  save: {
-    paddingHorizontal: 6,
-    fontSize: 13,
-    color: n.accent300,
-    fontFamily: fonts.medium,
-  },
-  title: { color: n.text, fontSize: 28, fontFamily: fonts.medium },
-  iconButton: {
+  avatarButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: n.accent800,
+  },
+  avatarText: { color: n.accent100, fontSize: 15, fontFamily: fonts.medium },
+  titleRow: {
+    minHeight: 52,
+    paddingTop: 8,
+    paddingLeft: 8,
+    paddingRight: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  titleButton: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: n.radiusMd,
+    gap: 1,
+  },
+  pressedBg: { backgroundColor: n.textAlpha(6) },
+  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  title: {
+    flexShrink: 1,
+    color: n.text,
+    fontSize: 22,
+    lineHeight: 28,
+    letterSpacing: -0.3,
+    fontFamily: fonts.medium,
+  },
+  countLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  edited: {
+    fontSize: 11,
+    lineHeight: 17,
+    paddingHorizontal: 6,
+    borderRadius: 5,
+    overflow: 'hidden',
+    backgroundColor: n.accent800,
+    color: n.accent100,
+    fontFamily: fonts.regular,
+  },
   count: {
-    paddingHorizontal: 20,
-    paddingTop: 2,
+    flexShrink: 1,
     color: n.textAlpha(55),
     fontSize: 12.5,
     fontFamily: fonts.regular,
     fontVariant: ['tabular-nums'],
   },
-  bar: {
-    marginTop: 8,
+  save: {
+    height: 34,
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+    borderRadius: n.radiusMd,
+    borderWidth: 1,
+    borderColor: n.accent,
+  },
+  accentBg: { backgroundColor: n.accentAlpha(12) },
+  saveText: { color: n.accent200, fontSize: 13, fontFamily: fonts.medium },
+  toolbar: {
     paddingVertical: 8,
-    paddingLeft: 16,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 4,
   },
   filterButton: {
     height: 36,
@@ -428,8 +453,25 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semiBold,
     fontVariant: ['tabular-nums'],
   },
-  chipScroll: { flex: 1 },
-  chips: { gap: 6, alignItems: 'center', paddingRight: 16 },
+  sort: {
+    height: 36,
+    paddingHorizontal: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  sortText: { color: n.textAlpha(75), fontSize: 13, fontFamily: fonts.regular },
+  icon36: {
+    width: 36,
+    height: 36,
+    borderRadius: n.radiusMd,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  shuffleOn: { backgroundColor: n.accentAlpha(12) },
+  spacer: { flex: 1 },
+  chipScroll: { flex: 1, marginHorizontal: 4 },
+  chips: { gap: 6, alignItems: 'center' },
   chip: {
     height: 32,
     paddingLeft: 11,
@@ -448,62 +490,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipEnd: { width: 9 },
-  clear: { height: 32, paddingHorizontal: 6, justifyContent: 'center' },
-  clearText: { color: n.accent300, fontSize: 13, fontFamily: fonts.regular },
-  preset: {
-    height: 32,
-    paddingLeft: 10,
-    paddingRight: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: n.divider,
-  },
-  presetSaved: { borderRadius: n.radiusMd },
-  presetPill: { borderRadius: 16 },
-  presetText: { color: n.text, fontSize: 12.5, fontFamily: fonts.regular },
-  pressed: { opacity: 0.7 },
-  sortRow: {
-    paddingTop: 2,
-    paddingLeft: 12,
-    paddingRight: 16,
-    paddingBottom: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  sort: {
-    height: 40,
-    paddingHorizontal: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  sortText: { color: n.textAlpha(75), fontSize: 13, fontFamily: fonts.regular },
-  iconButton40: {
-    width: 40,
-    height: 40,
-    borderRadius: n.radiusMd,
+  play: {
+    width: 36,
+    height: 36,
+    marginRight: 4,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  shuffleOn: { backgroundColor: n.accentAlpha(12) },
-  spacer: { flex: 1 },
-  playAll: {
-    height: 34,
-    marginRight: 8,
-    paddingLeft: 10,
-    paddingRight: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: n.radiusMd,
     borderWidth: 1,
     borderColor: n.accent,
   },
-  playAllPressed: { backgroundColor: n.accentAlpha(12) },
-  playAllText: { color: n.accent200, fontSize: 13, fontFamily: fonts.medium },
   views: {
     flexDirection: 'row',
     borderWidth: 1,
@@ -512,7 +508,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   viewButton: {
-    width: 38,
+    width: 32,
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
@@ -521,31 +517,4 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   viewOn: { borderColor: n.accent },
-  backdrop: { ...StyleSheet.absoluteFillObject },
-  menu: {
-    position: 'absolute',
-    minWidth: 200,
-    paddingVertical: 6,
-    borderRadius: 14,
-    backgroundColor: n.surface,
-    borderWidth: 1,
-    borderColor: n.divider,
-    elevation: 8,
-  },
-  menuUser: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    color: n.textAlpha(55),
-    fontSize: 12.5,
-    fontFamily: fonts.regular,
-  },
-  menuItem: {
-    height: 48,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  menuPressed: { backgroundColor: n.textAlpha(7) },
-  menuText: { color: n.text, fontSize: 15, fontFamily: fonts.regular },
 });

@@ -15,14 +15,12 @@ A phone + tablet client for **Cove** (https://yourcove.net), a self-hosted, open
 
 ## Behaviors agreed in design review
 - Tablet library (1h): tap = select into detail pane; tap again / Play = open player; long-press = quick actions. Narrow/portrait: pane becomes a slide-in panel.
-- Phone Library = **one screen, three views**: 2 columns / 3 columns (default) / list, picked with an icon switch in the sort row. 1f = dense grid, 1g = the same screen in list view. Dark for now.
+- Phone Library = **one screen, three views**: 2 columns / 3 columns (default) / list, picked with an icon switch in the toolbar. 1f = dense grid, 1g = the same screen in list view. Dark for now.
   - A saved filter brings its view along, and Save stores it.
   - The list view is not called "Feed": that name belongs to the vertical Feed tab (1i).
-- Library header (all views):
-  - "Videos" (or the loaded saved filter's name, with Edited + Save once it is changed) and a count line (videos · hours · size, from Cove's aggregate).
-  - A sticky **filter bar**: a Filter button with a count badge (→ 2a), then the filter's top-level conditions as chips (✕ removes one, a tap opens it, subgroups as tokens), then Clear.
-  - With no filter, the bar offers the user's saved filters / dynamic groups plus Unwatched / In progress. No pinned tags: Cove has none.
-- Sort row: Date ▾ · Shuffle · Play all · view switch.
+- Library header (all views, turn 6): search field (Cove's search, like the web UI) + avatar (account sheet: Refresh, Log out); the title says what is shown (All videos / Videos / the saved filter's name) and opens the Show sheet (all videos, saved filters, Unwatched / In progress, Save as new filter); the count line under it (Edited at its start when a saved filter changed); Save / Save as… only when there is something to save.
+  - Sticky toolbar: Filter with its count (→ 2a) · Added · Shuffle · Play all (round) · view switch.
+  - No condition chips on phones (the editor lists them); wide screens may show them.
 - List view (1g): tapping a person or tag on a card adds it to the filter. Cards show Cove's rating, studio, date, play count, Save for later, Favorite and group.
 - Moments (Cove markers) appear as ticks on every timeline and as a tappable list that seeks.
 

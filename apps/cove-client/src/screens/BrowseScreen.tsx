@@ -13,6 +13,7 @@ import {
   Pressable,
   StyleSheet,
   Text,
+  TextInput,
   View,
   type LayoutChangeEvent,
   type NativeScrollEvent,
@@ -30,9 +31,15 @@ import type {
 import {
   LibraryHeader,
   type FilterChip,
-  type FilterPreset,
   type LibraryView,
 } from '../components/LibraryHeader';
+import {
+  Sheet,
+  SheetHeading,
+  SheetRow,
+  SheetRule,
+  SheetSection,
+} from '../components/Sheet';
 import {
   GROUP_LABELS,
   appendTo,
@@ -49,6 +56,7 @@ import {
 } from '../filter/model';
 import {
   loadSavedFilter,
+  newSavedFilter,
   savedFilterChange,
   type LoadedFilter,
 } from '../filter/saved';
@@ -95,6 +103,10 @@ const LOAD_DELAY_MS = 120;
 const PREFETCH_SCREENS = 1;
 // Touch: the card in the middle of the screen plays its preview, switching as soon as another one gets there.
 const touch = Platform.OS === 'android';
+// The search applies once typing pauses this long.
+const SEARCH_DELAY_MS = 400;
+// From this width the toolbar lists the filter's conditions as chips (a phone doesn't: the editor does).
+const WIDE = 720;
 
 // Negative conditions show as struck-through chips (without their "not").
 const NEGATIVE = [
@@ -192,12 +204,22 @@ export function BrowseScreen({
   const [appliedTree, setAppliedTree] = useState<Group>(emptyTree);
   const [applied, setApplied] = useState<FilterExpression | null>(null);
   const appliedRef = useRef<FilterExpression | null>(null);
-  // The saved filter loaded, if any, and whether the filter changed since.
+  // The saved filter loaded, if any (changed or not: see edited).
   const [saved, setSaved] = useState<{
     filter: SavedFilter;
     loaded: LoadedFilter;
-    edited: boolean;
   } | null>(null);
+  // Cove's search: what is typed, and what the grid shows (once typing pauses).
+  const [query, setQuery] = useState('');
+  const [searched, setSearched] = useState('');
+  const searchedRef = useRef('');
+  // The Show sheet (the title), the account sheet (the avatar), naming a new saved filter (Save as…).
+  const [sheet, setSheet] = useState<'show' | 'account' | 'saveAs' | null>(
+    null
+  );
+  const [sheetCounts, setSheetCounts] = useState<Record<string, number>>({});
+  const [newName, setNewName] = useState('');
+  const [sheetError, setSheetError] = useState('');
   const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
   const [aggregate, setAggregate] = useState<Aggregate | null>(null);
   // Cove's seeded random sort while shuffled; null = newest first.
@@ -275,7 +297,8 @@ export function BrowseScreen({
           page + 1,
           PER_PAGE,
           appliedRef.current,
-          seedRef.current
+          seedRef.current,
+          searchedRef.current
         );
         if (gen !== generation.current) return; // refreshed meanwhile
         pages.current.set(page, result.items);
@@ -536,20 +559,57 @@ export function BrowseScreen({
     [restart]
   );
 
-  // The count line: count, total duration and size of what the filter matches.
+  // The count line: count, total duration and size of what the filter and search match.
   useEffect(() => {
     let alive = true;
     setAggregate(null);
-    client.aggregateVideos(applied).then(
+    client.aggregateVideos(applied, searched).then(
       (a) => alive && setAggregate(a),
       () => {}
     );
     return () => {
       alive = false;
     };
-  }, [client, applied]);
+  }, [client, applied, searched]);
 
-  // The user's saved filters (the filter bar offers them while there is no filter).
+  // The search: the grid follows once typing pauses (or at once on the keyboard's search key).
+  const applySearch = useCallback(
+    (text: string) => {
+      const q = text.trim();
+      if (q === searchedRef.current) return;
+      searchedRef.current = q;
+      setSearched(q);
+      restart();
+    },
+    [restart]
+  );
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onQuery = useCallback(
+    (text: string) => {
+      setQuery(text);
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+      searchTimer.current = setTimeout(
+        () => applySearch(text),
+        text ? SEARCH_DELAY_MS : 0
+      );
+    },
+    [applySearch]
+  );
+  useEffect(
+    () => () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    },
+    []
+  );
+  /** Sets the search without waiting (the grid restarts with whatever applies next). */
+  const setSearchNow = (text: string) => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    setQuery(text);
+    searchedRef.current = text.trim();
+    setSearched(text.trim());
+  };
+
+  // The user's saved filters (the Show sheet lists them).
   useEffect(() => {
     client.savedFilters().then(setSavedFilters, () => {});
   }, [client]);
@@ -560,7 +620,6 @@ export function BrowseScreen({
       setFilterTree(tree);
       setAppliedTree(tree);
       if (!tree.children.length) setSaved(null);
-      else setSaved((s) => (s ? { ...s, edited: true } : s));
       applyFilter(toWire(tree));
     },
     [applyFilter]
@@ -614,7 +673,8 @@ export function BrowseScreen({
   const loadSaved = useCallback(
     (filter: SavedFilter) => {
       const loaded = loadSavedFilter(filter);
-      setSaved({ filter, loaded, edited: false });
+      setSaved({ filter, loaded });
+      setSearchNow(loaded.q);
       setFilterTree(loaded.tree);
       setAppliedTree(loaded.tree);
       // The saved display mode: a list opens the list; a grid keeps the grid you use
@@ -624,6 +684,7 @@ export function BrowseScreen({
       applyFilter(loaded.wire);
       fillNames(loaded.tree);
     },
+
     [applyFilter, fillNames]
   );
 
@@ -635,21 +696,40 @@ export function BrowseScreen({
         savedFilterChange(
           saved.filter,
           appliedTree,
-          view === 'list' ? 'list' : 'grid'
+          view === 'list' ? 'list' : 'grid',
+          searched
         )
       );
       setSavedFilters((list) =>
         list.map((f) => (f.id === updated.id ? updated : f))
       );
-      setSaved({
-        filter: updated,
-        loaded: loadSavedFilter(updated),
-        edited: false,
-      });
+      setSaved({ filter: updated, loaded: loadSavedFilter(updated) });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client, saved, appliedTree, view]);
+  }, [client, saved, appliedTree, view, searched]);
+
+  // Save as…: the filter, search and view as a new saved filter, under a name.
+  const saveAs = useCallback(async () => {
+    if (!newName.trim()) return;
+    try {
+      const created = await client.createSavedFilter(
+        newSavedFilter(
+          newName,
+          appliedTree,
+          view === 'list' ? 'list' : 'grid',
+          searched
+        )
+      );
+      setSavedFilters((list) =>
+        [...list, created].sort((a, b) => a.name.localeCompare(b.name))
+      );
+      setSaved({ filter: created, loaded: loadSavedFilter(created) });
+      setSheet(null);
+    } catch (e) {
+      setSheetError(e instanceof Error ? e.message : String(e));
+    }
+  }, [client, newName, appliedTree, view, searched]);
 
   // The filter screen's Show / Play: the tree being edited becomes the one shown.
   const showFilter = useCallback(
@@ -657,7 +737,6 @@ export function BrowseScreen({
       const tree = filterTreeRef.current;
       setAppliedTree(tree);
       if (!filter) setSaved(null);
-      else setSaved((s) => (s ? { ...s, edited: true } : s));
       applyFilter(filter);
       setFilterOpen(false);
     },
@@ -665,12 +744,14 @@ export function BrowseScreen({
   );
   const playFirst = useCallback(
     (filter: FilterExpression | null) => {
-      client.findVideos(1, 1, filter, seedRef.current).then(
-        (result) => {
-          if (result.items[0]) onPlay(result.items[0]);
-        },
-        () => {}
-      );
+      client
+        .findVideos(1, 1, filter, seedRef.current, searchedRef.current)
+        .then(
+          (result) => {
+            if (result.items[0]) onPlay(result.items[0]);
+          },
+          () => {}
+        );
     },
     [client, onPlay]
   );
@@ -764,52 +845,92 @@ export function BrowseScreen({
     else loadVisible();
   }, [total, loadPage, loadVisible]);
 
-  // --- The header's filter bar ---------------------------------------------------------------------------------
+  // --- The header (design turn 6) ------------------------------------------------------------------------------
+  const conditions = appliedTree.children.length;
+  // Parts of a saved filter the app can't show still apply (and count) until the filter changes.
+  const hidden =
+    saved &&
+    saved.loaded.dropped &&
+    JSON.stringify(applied) === JSON.stringify(saved.loaded.wire)
+      ? saved.loaded.dropped
+      : 0;
+  // Changed since loaded, and not back to what was saved (adding a condition and removing it again is no edit).
+  const edited =
+    !!saved &&
+    (JSON.stringify(applied) !== JSON.stringify(saved.loaded.wire) ||
+      searched !== saved.loaded.q.trim());
+  const title = saved
+    ? saved.filter.name
+    : conditions || searched
+      ? 'Videos'
+      : 'All videos';
+  // Save for a changed saved filter, Save as… for an unnamed filter or a search. A saved filter with parts the app
+  // can't show isn't saved from here: they would be lost.
+  const saveLabel = saved
+    ? edited && !saved.loaded.dropped
+      ? 'Save'
+      : null
+    : conditions || searched
+      ? 'Save as…'
+      : null;
+  const openSaveAs = useCallback(() => {
+    setNewName('');
+    setSheetError('');
+    setSheet('saveAs');
+  }, []);
   const chips = useMemo(() => {
+    if (width < WIDE) return null;
     const list = appliedTree.children.map(chipOf);
-    // Parts of a saved filter the app can't show still apply; they are listed as one chip until the filter changes.
-    if (saved && !saved.edited && saved.loaded.dropped)
-      list.push({
-        id: 'more',
-        label: `+ ${saved.loaded.dropped} more`,
-        kind: 'more',
-      });
+    if (hidden)
+      list.push({ id: 'more', label: `+ ${hidden} more`, kind: 'more' });
     return list;
-  }, [appliedTree, saved]);
-  const presets = useMemo<FilterPreset[]>(
-    () => [
-      ...savedFilters.map((f) => ({
-        key: `saved-${f.id}`,
-        label: f.name,
-        icon: 'bookmarks-simple' as const,
-        saved: true,
-        onPress: () => loadSaved(f),
-      })),
-      ...BUILT_IN.map((b) => ({
-        key: b.key,
-        label: b.label,
-        icon: b.icon,
-        saved: false,
-        onPress: () => {
-          setSaved(null);
-          commit({ ...emptyTree(), children: [b.make()] });
-        },
-      })),
-    ],
-    [savedFilters, loadSaved, commit]
-  );
+  }, [width, appliedTree, hidden]);
   const removeChip = useCallback(
     (id: string) => commit(removeNode(appliedTree, id)),
     [appliedTree, commit]
   );
-  const clear = useCallback(() => {
+  const showAll = useCallback(() => {
+    setSheet(null);
     setSaved(null);
+    setSearchNow('');
     commit(emptyTree());
   }, [commit]);
-  // Changed since loaded, and not back to what was saved (adding a chip and removing it again is no edit).
-  const edited =
-    !!saved?.edited &&
-    JSON.stringify(applied) !== JSON.stringify(saved.loaded.wire);
+  const showQuick = useCallback(
+    (make: () => Condition) => {
+      setSheet(null);
+      setSaved(null);
+      commit({ ...emptyTree(), children: [make()] });
+    },
+    [commit]
+  );
+  // The Show sheet's counts: all videos, and each saved filter as it runs (with its search).
+  useEffect(() => {
+    if (sheet !== 'show') return;
+    let alive = true;
+    const counted = (key: string, num: number) =>
+      alive && setSheetCounts((c) => ({ ...c, [key]: num }));
+    client.countVideos(null).then(
+      (num) => counted('all', num),
+      () => {}
+    );
+    for (const f of savedFilters) {
+      const loaded = loadSavedFilter(f);
+      client.countVideos(loaded.wire, loaded.q).then(
+        (num) => counted(`saved-${f.id}`, num),
+        () => {}
+      );
+    }
+    return () => {
+      alive = false;
+    };
+  }, [sheet, client, savedFilters]);
+  const quickOn = (c: Condition) =>
+    !saved &&
+    conditions === 1 &&
+    JSON.stringify(toWire(appliedTree)) ===
+      JSON.stringify(toWire({ ...emptyTree(), children: [c] }));
+  const videos = (num: number | undefined) =>
+    num == null ? '…' : `${num.toLocaleString('en-US')} videos`;
   const count = aggregate?.count ?? total;
   const countLine =
     count == null
@@ -965,26 +1086,28 @@ export function BrowseScreen({
       onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
     >
       <LibraryHeader
-        title={saved ? saved.filter.name : 'Videos'}
-        saved={!!saved}
-        edited={edited}
-        // A saved filter with parts the app can't show isn't saved from here: they would be lost.
-        onSave={saved && !saved.loaded.dropped ? save : undefined}
+        query={query}
+        onQuery={onQuery}
+        onSubmitQuery={() => applySearch(query)}
+        avatar={(client.username[0] ?? '?').toUpperCase()}
+        onOpenAccount={() => setSheet('account')}
+        title={title}
+        savedFilter={!!saved}
         countLine={countLine}
-        chips={chips}
-        presets={presets}
+        edited={edited}
+        saveLabel={saveLabel}
+        onSave={saved ? save : openSaveAs}
+        onOpenShow={() => setSheet('show')}
+        filterCount={conditions + hidden}
         onOpenFilter={openFilter}
-        onOpenChip={openFilter}
-        onRemoveChip={removeChip}
-        onClear={clear}
         shuffled={seed != null}
         onShuffle={shuffle}
         onPlayAll={() => playFirst(applied)}
         view={view}
         onView={setView}
-        username={client.username}
-        onRefresh={refresh}
-        onLogout={onLogout}
+        chips={chips}
+        onOpenChip={openFilter}
+        onRemoveChip={removeChip}
       />
       {error ? (
         <View style={styles.errorRow}>
@@ -1053,6 +1176,145 @@ export function BrowseScreen({
           title={saved?.filter.name}
         />
       ) : null}
+
+      {/* The title's Show sheet (6d) */}
+      <Sheet visible={sheet === 'show'} onClose={() => setSheet(null)}>
+        <SheetHeading>Show</SheetHeading>
+        <SheetRow
+          icon="film-strip"
+          label="All videos"
+          meta={videos(sheetCounts.all)}
+          checked={!saved && !conditions && !searched}
+          onPress={showAll}
+        />
+        {savedFilters.length ? (
+          <SheetSection>Saved filters</SheetSection>
+        ) : null}
+        {savedFilters.map((f) => {
+          const opens = loadSavedFilter(f).view;
+          return (
+            <SheetRow
+              key={f.id}
+              icon="bookmarks-simple"
+              label={f.name}
+              meta={[
+                videos(sheetCounts[`saved-${f.id}`]),
+                opens ? `opens in ${opens}` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+              checked={saved?.filter.id === f.id}
+              onPress={() => {
+                setSheet(null);
+                loadSaved(f);
+              }}
+            />
+          );
+        })}
+        <SheetSection>Quick</SheetSection>
+        {BUILT_IN.map((q) => (
+          <SheetRow
+            key={q.key}
+            icon={q.icon}
+            label={q.label}
+            checked={quickOn(q.make())}
+            onPress={() => showQuick(q.make)}
+          />
+        ))}
+        {conditions || searched ? (
+          <>
+            <SheetRule />
+            <SheetRow
+              icon="plus"
+              label="Save as new filter…"
+              meta="The filter, search and view"
+              accent
+              onPress={openSaveAs}
+            />
+          </>
+        ) : null}
+      </Sheet>
+
+      {/* The avatar's account sheet (6e) */}
+      <Sheet visible={sheet === 'account'} onClose={() => setSheet(null)}>
+        <View style={styles.account}>
+          <View style={styles.accountAvatar}>
+            <Text style={styles.accountInitial}>
+              {(client.username[0] ?? '?').toUpperCase()}
+            </Text>
+          </View>
+          <View style={styles.accountText}>
+            <Text style={styles.accountName} numberOfLines={1}>
+              {client.username}
+            </Text>
+            <View style={styles.accountServer}>
+              <View style={styles.serverDot} />
+              <Text style={styles.accountServerText} numberOfLines={1}>
+                {client.server.replace(/^https?:\/\//, '')}
+              </Text>
+            </View>
+          </View>
+        </View>
+        <SheetRule />
+        <SheetRow
+          icon="arrow-clockwise"
+          label="Refresh library"
+          onPress={() => {
+            setSheet(null);
+            refresh();
+          }}
+        />
+        <SheetRow
+          icon="sign-out"
+          label="Log out"
+          onPress={() => {
+            setSheet(null);
+            onLogout();
+          }}
+        />
+      </Sheet>
+
+      {/* Save as…: a name for the new saved filter */}
+      <Sheet visible={sheet === 'saveAs'} onClose={() => setSheet(null)}>
+        <SheetHeading>Save as a new filter</SheetHeading>
+        <Text style={styles.saveAsHint}>
+          The filter, the search and the view, as a saved filter in Cove.
+        </Text>
+        <TextInput
+          value={newName}
+          onChangeText={(t) => {
+            setNewName(t);
+            setSheetError('');
+          }}
+          onSubmitEditing={saveAs}
+          placeholder="Name"
+          placeholderTextColor={n.textAlpha(45)}
+          autoFocus
+          returnKeyType="done"
+          style={styles.nameInput}
+        />
+        {sheetError ? (
+          <Text style={styles.sheetError}>{sheetError}</Text>
+        ) : null}
+        <Pressable
+          onPress={saveAs}
+          disabled={!newName.trim()}
+          style={({ pressed }) => [
+            styles.primary,
+            !newName.trim() && styles.primaryDisabled,
+            pressed && styles.primaryPressed,
+          ]}
+        >
+          <Text
+            style={[
+              styles.primaryText,
+              !newName.trim() && styles.primaryTextDisabled,
+            ]}
+          >
+            Save
+          </Text>
+        </Pressable>
+      </Sheet>
     </View>
   );
 }
@@ -1087,4 +1349,80 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
   retry: { color: n.accent300, fontSize: 13, fontFamily: fonts.medium },
+  account: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  accountAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: n.accent800,
+  },
+  accountInitial: {
+    color: n.accent100,
+    fontSize: 19,
+    fontFamily: fonts.medium,
+  },
+  accountText: { flex: 1, minWidth: 0, gap: 2 },
+  accountName: { color: n.text, fontSize: 17, fontFamily: fonts.medium },
+  accountServer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  serverDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: n.accent,
+  },
+  accountServerText: {
+    flexShrink: 1,
+    color: n.textAlpha(55),
+    fontSize: 12.5,
+    fontFamily: fonts.regular,
+  },
+  saveAsHint: {
+    paddingHorizontal: 20,
+    paddingBottom: 12,
+    color: n.textAlpha(55),
+    fontSize: 13,
+    fontFamily: fonts.regular,
+  },
+  nameInput: {
+    marginHorizontal: 20,
+    height: 48,
+    paddingHorizontal: 14,
+    borderRadius: n.radiusMd,
+    borderWidth: 1,
+    borderColor: n.accent,
+    backgroundColor: n.bg,
+    color: n.text,
+    fontSize: 15,
+    fontFamily: fonts.regular,
+  },
+  sheetError: {
+    marginHorizontal: 20,
+    marginTop: 8,
+    color: '#ff8a8a',
+    fontSize: 12.5,
+    fontFamily: fonts.regular,
+  },
+  primary: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    height: 50,
+    borderRadius: n.radiusMd,
+    borderWidth: 1,
+    borderColor: n.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryDisabled: { borderColor: n.divider },
+  primaryPressed: { backgroundColor: n.accentAlpha(12) },
+  primaryText: { color: n.accent200, fontSize: 15, fontFamily: fonts.medium },
+  primaryTextDisabled: { color: n.textAlpha(40) },
 });

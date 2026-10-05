@@ -88,16 +88,21 @@ export class CoveClient {
     }
   }
 
-  /** A page of videos, newest first, or shuffled (Cove's seeded random sort: the same seed, the same order). */
+  /**
+   * A page of videos, newest first, or shuffled (Cove's seeded random sort: the same seed, the same order). q is
+   * Cove's search (title, tags, performers, ... as in its web UI), on top of the filter.
+   */
   findVideos(
     page: number,
     perPage: number,
     filterExpression?: FilterExpression | null,
-    shuffleSeed?: number | null
+    shuffleSeed?: number | null,
+    q?: string
   ) {
     return this.request<PaginatedResponse<Video>>('POST', 'videos/find', {
-      findFilter:
-        shuffleSeed != null
+      findFilter: {
+        ...searchFilter(q),
+        ...(shuffleSeed != null
           ? {
               page,
               perPage,
@@ -115,14 +120,16 @@ export class CoveClient {
                 { key: 'created_at', direction: 'desc' },
                 { key: 'updated_at', direction: 'desc' },
               ],
-            },
+            }),
+      },
       ...(filterExpression ? { filterExpression } : {}),
     });
   }
 
-  /** How many videos match a filter, their total duration and file size. */
-  aggregateVideos(filterExpression?: FilterExpression | null) {
+  /** How many videos match a filter and search, their total duration and file size. */
+  aggregateVideos(filterExpression?: FilterExpression | null, q?: string) {
     return this.request<Aggregate>('POST', 'videos/aggregate', {
+      findFilter: searchFilter(q),
       ...(filterExpression ? { filterExpression } : {}),
     });
   }
@@ -165,9 +172,14 @@ export class CoveClient {
 
   updateSavedFilter(
     id: number,
-    change: { objectFilter?: string; uiOptions?: string }
+    change: { findFilter?: string; objectFilter?: string; uiOptions?: string }
   ) {
     return this.request<SavedFilter>('PUT', `savedfilters/${id}`, change);
+  }
+
+  /** A new saved filter; Cove refuses a name already taken (409). */
+  createSavedFilter(filter: Omit<SavedFilter, 'id'>) {
+    return this.request<SavedFilter>('POST', 'savedfilters', filter);
   }
 
   /** The name of a tag, performer, studio, group or gallery, by id. */
@@ -182,15 +194,16 @@ export class CoveClient {
     return String(item[kind === 'galleries' ? 'title' : 'name'] ?? `#${id}`);
   }
 
-  /** How many videos match a filter (perPage 0: Cove only counts). */
+  /** How many videos match a filter and search (perPage 0: Cove only counts). */
   async countVideos(
-    filterExpression?: FilterExpression | null
+    filterExpression?: FilterExpression | null,
+    q?: string
   ): Promise<number> {
     const result = await this.request<PaginatedResponse<Video>>(
       'POST',
       'videos/find',
       {
-        findFilter: { page: 1, perPage: 0 },
+        findFilter: { ...searchFilter(q), page: 1, perPage: 0 },
         ...(filterExpression ? { filterExpression } : {}),
       }
     );
@@ -414,6 +427,11 @@ export class CoveClient {
   }
 }
 
+/** Cove's search text in a findFilter, when there is any. */
+function searchFilter(q?: string): { q?: string } {
+  return q?.trim() ? { q: q.trim() } : {};
+}
+
 function describe(status: number, code?: string, detail?: string): string {
   if (code === 'INVALID_CREDENTIALS') return 'Wrong username or password.';
   if (code === 'ACCOUNT_DISABLED') return 'This account is disabled.';
@@ -421,6 +439,7 @@ function describe(status: number, code?: string, detail?: string): string {
     return 'Too many attempts; wait a few seconds and try again.';
   if (status === 401) return 'The session has expired; log in again.';
   if (status === 403) return 'This account may not do that.';
+  if (status === 409 && detail) return detail; // e.g. a saved filter name already taken
   return `Server error ${status}${detail ? `: ${detail}` : ''}`;
 }
 

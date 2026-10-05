@@ -176,6 +176,8 @@ export interface LoadedFilter {
   wire: FilterExpression | null;
   /** The saved display mode as the Library's view, if it has one */
   view: 'list' | 'grid' | null;
+  /** The saved search text (findFilter.q), '' for none */
+  q: string;
 }
 
 /** A criterion with its modifier in camelCase (the API rejects "NOT_EQUALS"). */
@@ -248,7 +250,8 @@ export function loadSavedFilter(saved: SavedFilter): LoadedFilter {
   const mode = String(parseJson(saved.uiOptions).displayMode ?? '');
   const view =
     mode === 'list' || mode === 'feed' ? 'list' : mode ? 'grid' : null;
-  return { tree, dropped, wire, view };
+  const q = String(parseJson(saved.findFilter).q ?? '');
+  return { tree, dropped, wire, view, q };
 }
 
 /** The tree in the web UI's format (SCREAMING modifiers), for objectFilter._filterExpression. */
@@ -275,36 +278,61 @@ function toStored(expr: FilterExpression): FilterExpression {
   };
 }
 
+/** The display mode to store for a view, keeping a stored one of the same kind ("feed" for a list, "wall" for a grid). */
+function displayModeFor(view: 'list' | 'grid', stored: string): string {
+  if (view === 'list')
+    return stored === 'feed' || stored === 'list' ? stored : 'list';
+  return stored && stored !== 'list' && stored !== 'feed' ? stored : 'grid';
+}
+
 /**
- * The change to save: the tree as the whole objectFilter (flat criteria were read into it; page state is kept) and
- * the view in uiOptions (other options kept).
+ * The change to save: the tree as the whole objectFilter (flat criteria were read into it; page state is kept), the
+ * search in findFilter and the view in uiOptions (their other settings kept).
  */
 export function savedFilterChange(
   saved: SavedFilter,
   tree: Group,
-  view: 'list' | 'grid'
-): { objectFilter: string; uiOptions: string } {
+  view: 'list' | 'grid',
+  q: string
+): { findFilter: string; objectFilter: string; uiOptions: string } {
   const object = parseJson(saved.objectFilter);
   const state = Object.fromEntries(
     Object.entries(object).filter(([k]) => STATE_KEYS.includes(k))
   );
   const wire = toWire(tree);
   const ui = parseJson(saved.uiOptions);
-  const mode = String(ui.displayMode ?? '');
-  // Keep "feed" for a list, and any grid-like mode ("wall") for a grid
-  const displayMode =
-    view === 'list'
-      ? mode === 'feed' || mode === 'list'
-        ? mode
-        : 'list'
-      : mode && mode !== 'list' && mode !== 'feed'
-        ? mode
-        : 'grid';
   return {
+    findFilter: JSON.stringify({ ...parseJson(saved.findFilter), q: q.trim() }),
     objectFilter: JSON.stringify({
       ...state,
       ...(wire ? { [TREE_KEY]: toStored(wire) } : {}),
     }),
-    uiOptions: JSON.stringify({ ...ui, displayMode }),
+    uiOptions: JSON.stringify({
+      ...ui,
+      displayMode: displayModeFor(view, String(ui.displayMode ?? '')),
+    }),
+  };
+}
+
+/** A new saved filter (Save as…): the tree, the search, the app's sort (newest first) and the view. */
+export function newSavedFilter(
+  name: string,
+  tree: Group,
+  view: 'list' | 'grid',
+  q: string
+): Omit<SavedFilter, 'id'> {
+  const wire = toWire(tree);
+  return {
+    mode: 'videos',
+    name: name.trim(),
+    findFilter: JSON.stringify({
+      q: q.trim(),
+      page: 1,
+      perPage: 40,
+      sort: 'created_at',
+      direction: 'desc',
+    }),
+    objectFilter: JSON.stringify(wire ? { [TREE_KEY]: toStored(wire) } : {}),
+    uiOptions: JSON.stringify({ displayMode: displayModeFor(view, '') }),
   };
 }

@@ -51,6 +51,8 @@ const GLYPHS = {
   'play-circle': 0xe3d2,
   'user': 0xe4c2,
   'sign-out': 0xe42a,
+  'arrow-clockwise': 0xe036,
+  'film-strip': 0xe792,
 } as const;
 
 export type IconName = keyof typeof GLYPHS;
