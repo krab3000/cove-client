@@ -58,12 +58,8 @@ import {
 import { fonts, nocturne as n } from '../theme/tokens';
 import { FilterScreen } from './FilterScreen';
 import { createSelection, NO_RANGE, type IndexRange } from '../lib/selection';
-import {
-  PlaceholderCard,
-  tileTextHeight,
-  VideoCard,
-} from '../components/VideoCard';
-import { listCardHeight, VideoRow } from '../components/VideoRow';
+import { tileTextHeight } from '../components/VideoCard';
+import { listCardHeight } from '../components/VideoRow';
 import { prefetchMedia } from '../player';
 import WheelCapture, {
   type WheelEvent,
@@ -77,8 +73,9 @@ import { Avatar } from '../ui/Avatar';
 import { Layer, useBackHandler } from '../app/back';
 import { prefs } from '../state/prefs';
 import { useSnapshot } from 'valtio';
+import { useVideoPages } from '../data/videoPages';
+import { GridRow } from '../components/GridRow';
 
-const PER_PAGE = 40;
 // Space above the first row.
 const TOP = 8;
 // The three views of the Library (design 1f/1g). A phone gets the named number of columns; a wider window fits
@@ -244,51 +241,13 @@ export function BrowseScreen({
   const rowHeight = cardHeight + spec.gapY;
 
   // --- Pages ---------------------------------------------------------------------------------------------------
-  // Loaded pages (0-based) of PER_PAGE videos, and the user's own data about their videos. Kept in refs; `version`
-  // re-renders when something arrives.
-  const pages = useRef(new Map<number, Video[]>());
-
-  const pending = useRef(new Set<number>());
-  const failed = useRef(new Set<number>());
-  const generation = useRef(0);
-  const [version, setVersion] = useState(0);
-  const [total, setTotal] = useState<number | null>(null);
+  // The list's pages live in the query cache, keyed by the filter, the search and the order: another of those is
+  // another list (answers for the one before are simply not shown). The first page says how many there are.
+  const list = useVideoPages({ filter: applied, q: searched, seed });
+  const { total, ensure: ensurePages } = list;
+  // What went wrong saving (a page that failed to load is the list's own error)
   const [error, setError] = useState('');
-  const [refreshing, setRefreshing] = useState(false);
-
-  // Rating, favorite, play count, resume position and Save for later: not part of the videos, asked per page.
-  const loadPage = useCallback(
-    async (page: number) => {
-      if (pages.current.has(page) || pending.current.has(page)) return;
-      const gen = generation.current;
-      pending.current.add(page);
-      failed.current.delete(page);
-      try {
-        const result = await client.findVideos(
-          page + 1,
-          PER_PAGE,
-          appliedRef.current,
-          seedRef.current,
-          searchedRef.current
-        );
-        if (gen !== generation.current) return; // refreshed meanwhile
-        pages.current.set(page, result.items);
-        setTotal(result.totalCount);
-        setError('');
-      } catch (e) {
-        if (gen !== generation.current) return;
-        failed.current.add(page);
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        if (gen === generation.current) {
-          pending.current.delete(page);
-          setVersion((v) => v + 1);
-          setRefreshing(false);
-        }
-      }
-    },
-    [client]
-  );
+  const shownError = list.error || error;
 
   const rowCount = total == null ? 0 : Math.ceil(total / columns);
   const rows = useMemo(
@@ -327,14 +286,8 @@ export function BrowseScreen({
     const lastRow = Math.floor((offset + viewport + margin - TOP) / rh);
     const first = firstRow * cols;
     const last = Math.min(total - 1, (lastRow + 1) * cols - 1);
-    for (
-      let page = Math.floor(first / PER_PAGE);
-      page <= Math.floor(last / PER_PAGE);
-      page++
-    ) {
-      if (!failed.current.has(page)) loadPage(page);
-    }
-  }, [total, loadPage]);
+    ensurePages(first, last);
+  }, [total, ensurePages]);
 
   const loadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleLoad = useCallback(() => {
@@ -382,9 +335,7 @@ export function BrowseScreen({
       const lastRow = Math.floor(range.last / cols) + 1;
       for (let index = firstRow * cols; index < (lastRow + 1) * cols; index++) {
         if (index < 0 || total == null || index >= total) continue;
-        const video = pages.current.get(Math.floor(index / PER_PAGE))?.[
-          index % PER_PAGE
-        ];
+        const video = list.videoAt(index);
         if (!video || prefetched.current.has(video.id)) continue;
         prefetched.current.add(video.id);
         client.previewAvailable(video).then((has) => {
@@ -392,7 +343,7 @@ export function BrowseScreen({
         });
       }
     },
-    [client, total]
+    [client, total, list]
   );
   const updateFocus = useCallback(() => {
     if (!touch) return;
@@ -422,10 +373,7 @@ export function BrowseScreen({
     [scheduleLoad, updateFocus]
   );
 
-  // The first page tells the total; then the pages in view.
-  useEffect(() => {
-    loadPage(0);
-  }, [loadPage]);
+  // The pages in view (the first page asks itself)
   useEffect(() => {
     loadVisible();
   }, [loadVisible, scroll.viewport]);
@@ -497,19 +445,13 @@ export function BrowseScreen({
     []
   );
 
+  // The same list again from the server (pull to refresh, Refresh library)
+  const { refresh: refreshList } = list;
   const refresh = useCallback(() => {
-    generation.current++;
-    pages.current = new Map();
-
-    pending.current = new Set();
-    failed.current = new Set();
-    setRefreshing(true);
     setError('');
-    setTotal(null);
-    setVersion((v) => v + 1);
     listRef.current?.scrollToOffset({ offset: 0, animated: false });
-    loadPage(0);
-  }, [loadPage]);
+    refreshList();
+  }, [refreshList]);
 
   // A new filter or order: the grid starts over from the top with its results.
   const restart = useCallback(() => {
@@ -520,8 +462,9 @@ export function BrowseScreen({
     held.set(null);
     setSelected(null);
     setDrawerOpen(false);
-    refresh();
-  }, [refresh, focus, held]);
+    setError('');
+    listRef.current?.scrollToOffset({ offset: 0, animated: false });
+  }, [focus, held]);
   const applyFilter = useCallback(
     (filter: FilterExpression | null) => {
       appliedRef.current = filter;
@@ -732,20 +675,9 @@ export function BrowseScreen({
   // A card's video, with the loaded videos after it as Up next.
   const playVideo = useCallback(
     (video: Video, startAt?: number) => {
-      const after: Video[] = [];
-      let found = false;
-      const keys = [...pages.current.keys()].sort((a, b) => a - b);
-      for (const k of keys) {
-        for (const v of pages.current.get(k)!) {
-          if (found) after.push(v);
-          else if (v.id === video.id) found = true;
-          if (after.length >= UP_NEXT) break;
-        }
-        if (after.length >= UP_NEXT) break;
-      }
-      onPlay(video, after, startAt);
+      onPlay(video, list.after(video.id, UP_NEXT), startAt);
     },
-    [onPlay]
+    [onPlay, list]
   );
   // Large screen: a tap opens the preview drawer on the video (or switches it), a tap on the one it shows plays it.
   // Elsewhere a tap plays.
@@ -854,12 +786,12 @@ export function BrowseScreen({
     restart();
   }, [restart]);
 
+  const { retry: retryList } = list;
   const retry = useCallback(() => {
-    failed.current = new Set();
     setError('');
-    if (total == null) loadPage(0);
-    else loadVisible();
-  }, [total, loadPage, loadVisible]);
+    retryList();
+    scheduleLoad();
+  }, [retryList, scheduleLoad]);
 
   // --- The header (design turn 6) ------------------------------------------------------------------------------
   const conditions = appliedTree.children.length;
@@ -983,99 +915,54 @@ export function BrowseScreen({
     [held]
   );
 
-  const renderRow = useCallback(
-    ({ item: row }: { item: number }) => {
-      const cards: ReactNode[] = [];
-      for (let c = 0; c < columns; c++) {
-        const index = row * columns + c;
-        if (total != null && index >= total) break;
-        const video = pages.current.get(Math.floor(index / PER_PAGE))?.[
-          index % PER_PAGE
-        ];
-
-        cards.push(
-          !video ? (
-            <PlaceholderCard
-              key={`placeholder-${index}`}
-              width={cardWidth}
-              height={cardHeight}
-              thumbRadius={view === 'list' ? 14 : 6}
-            />
-          ) : view === 'list' ? (
-            <VideoRow
-              key={video.id}
-              client={client}
-              video={video}
-              imageUrl={client.imageUrl(video)}
-              width={cardWidth}
-              onPress={pressVideo}
-              onAddTag={onAddTag}
-              onAddPerformer={onAddPerformer}
-              index={index}
-              focus={focus}
-              held={held}
-              onHold={onHold}
-              onRelease={onRelease}
-            />
-          ) : (
-            <VideoCard
-              key={video.id}
-              client={client}
-              video={video}
-              imageUrl={client.imageUrl(video, view === 'grid3' ? 320 : 640)}
-              width={cardWidth}
-              height={cardHeight}
-              onPress={pressVideo}
-              selected={large && drawerOpen && selected?.id === video.id}
-              index={index}
-              focus={focus}
-              held={held}
-              onHold={onHold}
-              onRelease={onRelease}
-              showStudio={view === 'grid2'}
-            />
-          )
-        );
-      }
-      return (
-        <View
-          style={[
-            styles.row,
-            {
-              height: rowHeight,
-              gap: spec.gapX,
-              paddingHorizontal: spec.padX,
-              paddingBottom: spec.gapY,
-            },
-          ]}
-        >
-          {cards}
-        </View>
-      );
-    },
-    // version: a page or the user's data arrived (they live in refs).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [
+  // A row is a GridRow: it reads its own page(s), so a page arriving re-renders its rows only
+  const rowProps = useMemo(
+    () => ({
       columns,
-      total,
-      version,
+      total: total ?? 0,
+      pages: list.pages,
       view,
-      spec,
-      client,
       cardWidth,
       cardHeight,
       rowHeight,
-      pressVideo,
-      large,
-      drawerOpen,
-      selected,
+      gapX: spec.gapX,
+      padX: spec.padX,
+      gapY: spec.gapY,
+      client,
+      selectedId: large && drawerOpen && selected ? selected.id : null,
+      onPress: pressVideo,
+      onAddTag,
+      onAddPerformer,
       focus,
       held,
       onHold,
       onRelease,
+    }),
+    [
+      columns,
+      total,
+      list.pages,
+      view,
+      cardWidth,
+      cardHeight,
+      rowHeight,
+      spec,
+      client,
+      large,
+      drawerOpen,
+      selected,
+      pressVideo,
       onAddTag,
       onAddPerformer,
+      focus,
+      held,
+      onHold,
+      onRelease,
     ]
+  );
+  const renderRow = useCallback(
+    ({ item: row }: { item: number }) => <GridRow row={row} {...rowProps} />,
+    [rowProps]
   );
 
   const getItemLayout = useCallback(
@@ -1167,14 +1054,14 @@ export function BrowseScreen({
           large={large}
           filterOpen={docked}
         />
-        {error ? (
+        {shownError ? (
           <View style={styles.errorRow}>
-            <ErrorText style={styles.error}>{error}</ErrorText>
+            <ErrorText style={styles.error}>{shownError}</ErrorText>
             <Button label="Retry" variant="text" size="sm" onPress={retry} />
           </View>
         ) : null}
         <View style={styles.listArea}>
-          {total == null && !error ? (
+          {total == null && !shownError ? (
             <View style={styles.center}>
               <Spinner />
             </View>
@@ -1190,7 +1077,7 @@ export function BrowseScreen({
             keyExtractor={(row) => String(row)}
             renderItem={renderRow}
             getItemLayout={getItemLayout}
-            extraData={version}
+            extraData={rowProps}
             contentContainerStyle={styles.content}
             onScroll={onScroll}
             onScrollBeginDrag={() => {
@@ -1211,7 +1098,7 @@ export function BrowseScreen({
               setScroll({ viewport });
             }}
             CellRendererComponent={Platform.OS === 'windows' ? Cell : undefined}
-            refreshing={refreshing}
+            refreshing={list.refreshing}
             onRefresh={refresh}
             initialNumToRender={4}
             maxToRenderPerBatch={4}
@@ -1406,7 +1293,6 @@ const styles = StyleSheet.create({
   empty: { color: n.textAlpha(55), fontSize: 14, fontFamily: fonts.regular },
   // Rows carry the gap below them (part of their fixed height).
   content: { paddingTop: TOP },
-  row: { flexDirection: 'row' },
   errorRow: {
     flexDirection: 'row',
     alignItems: 'center',
