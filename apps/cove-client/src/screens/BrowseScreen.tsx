@@ -73,11 +73,12 @@ import { prefetchMedia } from '../player';
 import WheelCapture, {
   type WheelEvent,
 } from '../native/WheelCaptureNativeComponent';
-import { formatSize, initialOf } from '../lib/format';
+import { formatSize } from '../lib/format';
 import { isLarge } from '../theme/layout';
 import { Button } from '../ui/Button';
 import { ErrorText, Spinner, StatusDot } from '../ui/Text';
 import { TextField } from '../ui/TextField';
+import { Avatar } from '../ui/Avatar';
 
 const PER_PAGE = 40;
 // Space above the first row.
@@ -1215,7 +1216,7 @@ export function BrowseScreen({
           query={query}
           onQuery={onQuery}
           onSubmitQuery={() => applySearch(query)}
-          avatar={initialOf(client.username)}
+          account={client.username}
           onOpenAccount={() => setSheet('account')}
           title={title}
           savedFilter={!!saved}
@@ -1395,11 +1396,7 @@ export function BrowseScreen({
       {/* The avatar's account sheet (6e) */}
       <Sheet visible={sheet === 'account'} onClose={() => setSheet(null)}>
         <View style={styles.account}>
-          <View style={styles.accountAvatar}>
-            <Text style={styles.accountInitial}>
-              {initialOf(client.username)}
-            </Text>
-          </View>
+          <Avatar name={client.username} size={48} letters="one" />
           <View style={styles.accountText}>
             <Text style={styles.accountName} numberOfLines={1}>
               {client.username}
@@ -1497,19 +1494,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
-  },
-  accountAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.accent800,
-  },
-  accountInitial: {
-    color: n.accent100,
-    fontSize: 19,
-    fontFamily: fonts.medium,
   },
   accountText: { flex: 1, minWidth: 0, gap: 2 },
   accountName: { color: n.text, fontSize: 17, fontFamily: fonts.medium },

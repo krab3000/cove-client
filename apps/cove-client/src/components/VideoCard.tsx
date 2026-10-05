@@ -1,14 +1,5 @@
-import { memo, useEffect, useRef, useState } from 'react';
-import {
-  Animated,
-  Easing,
-  Image,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { memo, useEffect, useState } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
 import type { Video } from '../api/types';
 import { fonts, nocturne as n } from '../theme/tokens';
@@ -26,6 +17,7 @@ import {
   type IndexRange,
   type Selection,
 } from '../lib/selection';
+import { LoadingBar, ResumeBar, ThumbBadge } from '../ui/Thumb';
 
 /**
  * A Library grid tile (design 1f): the cover (or a placeholder until Cove's generate task has made one) with one
@@ -139,11 +131,7 @@ export const VideoCard = memo(function VideoCard({
             <Icon name="heart" fill size={10} color={n.accent300} />
           </View>
         ) : null}
-        {badge ? (
-          <Text style={styles.badge} numberOfLines={1}>
-            {badge}
-          </Text>
-        ) : null}
+        <ThumbBadge text={badge} />
         {progress > 0 ? <ResumeBar progress={progress} height={2} /> : null}
       </View>
       <Text
@@ -167,24 +155,6 @@ export function tileTextHeight(showStudio: boolean): number {
 }
 
 /** How far the user got: a thin accent bar along the bottom of a thumbnail. */
-export function ResumeBar({
-  progress,
-  height,
-}: {
-  progress: number;
-  height: number;
-}) {
-  return (
-    <View pointerEvents="none" style={[styles.progressTrack, { height }]}>
-      <View
-        style={[styles.progress, { width: `${Math.min(1, progress) * 100}%` }]}
-      />
-    </View>
-  );
-}
-
-// Over the video: dark in both themes.
-const SCRIM = 'rgba(10,11,18,0.72)';
 
 const styles = StyleSheet.create({
   // Rounded on its own: React Native Windows does not clip children to a parent's rounded corners.
@@ -222,27 +192,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(10,11,18,0.6)',
   },
-  badge: {
-    position: 'absolute',
-    right: 4,
-    bottom: 4,
-    color: n.text,
-    backgroundColor: SCRIM,
-    fontSize: 10,
-    fontFamily: fonts.medium,
-    fontVariant: ['tabular-nums'],
-    paddingHorizontal: 4,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  progressTrack: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(233,233,237,0.22)',
-  },
-  progress: { height: '100%', backgroundColor: n.accent },
   // Fixed heights: see tileTextHeight.
   title: {
     color: n.text,
@@ -263,69 +212,6 @@ const styles = StyleSheet.create({
 });
 
 /** A stripe sliding along the bottom of the thumbnail: this card's preview is starting. */
-export function LoadingBar() {
-  const x = useRef(new Animated.Value(0)).current;
-  const [width, setWidth] = useState(0);
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.timing(x, {
-        toValue: 1,
-        duration: 900,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: Platform.OS !== 'windows',
-      })
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [x]);
-  const stripe = width * 0.35;
-  return (
-    <View
-      pointerEvents="none"
-      style={loadingStyles.track}
-      onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
-    >
-      {width > 0 ? (
-        <Animated.View
-          style={[
-            loadingStyles.stripe,
-            {
-              width: stripe,
-              transform: [
-                {
-                  translateX: x.interpolate({
-                    inputRange: [0, 1],
-                    outputRange: [-stripe, width],
-                  }),
-                },
-              ],
-            },
-          ]}
-        />
-      ) : null}
-    </View>
-  );
-}
-
-const loadingStyles = StyleSheet.create({
-  track: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 3,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  stripe: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: n.accent,
-  },
-});
-
 /** A tile or list card whose video is still loading. */
 export function PlaceholderCard({
   width,

@@ -1,6 +1,8 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { fonts, nocturne as n } from '../theme/tokens';
 import { Icon, type IconName } from '../ui/Icon';
+import { Avatar } from '../ui/Avatar';
+import { EditedTag } from '../ui/Chip';
 
 export type LibraryView = 'grid2' | 'grid3' | 'list';
 
@@ -23,7 +25,8 @@ export function LibraryHeader({
   query,
   onQuery,
   onSubmitQuery,
-  avatar,
+  account,
+
   onOpenAccount,
   title,
   savedFilter,
@@ -45,7 +48,8 @@ export function LibraryHeader({
   query: string;
   onQuery: (q: string) => void;
   onSubmitQuery: () => void;
-  avatar: string;
+  // The account's name: its avatar shows the initial
+  account: string;
   onOpenAccount: () => void;
   title: string;
   // The title is a saved filter's name
@@ -127,9 +131,7 @@ export function LibraryHeader({
             <Icon name="caret-down" size={12} color={n.textAlpha(55)} />
           </View>
           <View style={styles.countLine}>
-            {edited ? (
-              <Text style={[styles.edited, styles.editedCompact]}>Edited</Text>
-            ) : null}
+            {edited ? <EditedTag small /> : null}
             <Text style={[styles.count, styles.countCompact]} numberOfLines={1}>
               {countLine}
             </Text>
@@ -210,9 +212,7 @@ export function LibraryHeader({
           accessibilityLabel="Account"
           style={styles.avatarButtonCompact}
         >
-          <View style={styles.avatarCompact}>
-            <Text style={styles.avatarTextCompact}>{avatar}</Text>
-          </View>
+          <Avatar name={account} size={32} letters="one" />
         </Pressable>
       </View>
     );
@@ -276,7 +276,7 @@ export function LibraryHeader({
         )}
       </View>
       <View style={styles.countLine}>
-        {edited ? <Text style={styles.edited}>Edited</Text> : null}
+        {edited ? <EditedTag /> : null}
         <Text style={styles.count} numberOfLines={1}>
           {countLine}
         </Text>
@@ -300,9 +300,7 @@ export function LibraryHeader({
               accessibilityLabel="Account"
               style={styles.avatarButton}
             >
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{avatar}</Text>
-              </View>
+              <Avatar name={account} size={36} letters="one" />
             </Pressable>
           </View>
           <View style={styles.titleRow}>{titleBlock}</View>
@@ -428,7 +426,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontFamily: fonts.medium,
   },
-  editedCompact: { fontSize: 10.5, lineHeight: 15, paddingHorizontal: 5 },
   countCompact: { fontSize: 11.5 },
 
   viewButtonCompact: { width: 30, height: 30 },
@@ -437,19 +434,6 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  avatarCompact: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.accent800,
-  },
-  avatarTextCompact: {
-    color: n.accent100,
-    fontSize: 14,
-    fontFamily: fonts.medium,
   },
   searchRow: {
     paddingTop: 6,
@@ -494,15 +478,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.accent800,
-  },
-  avatarText: { color: n.accent100, fontSize: 15, fontFamily: fonts.medium },
   titleRow: {
     minHeight: 52,
     paddingTop: 8,
@@ -543,16 +518,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.medium,
   },
   countLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  edited: {
-    fontSize: 11,
-    lineHeight: 17,
-    paddingHorizontal: 6,
-    borderRadius: 5,
-    overflow: 'hidden',
-    backgroundColor: n.accent800,
-    color: n.accent100,
-    fontFamily: fonts.regular,
-  },
   count: {
     flexShrink: 1,
     color: n.textAlpha(55),

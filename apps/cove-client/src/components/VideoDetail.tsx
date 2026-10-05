@@ -15,16 +15,18 @@ import {
   resolutionLabel,
   videoTitle,
   groupLabel,
-  initials,
   stars,
   videoMeta,
 } from '../lib/format';
 import { Icon } from '../ui/Icon';
-import { ResumeBar } from './VideoCard';
+
 import { type Personal } from './VideoRow';
 import { Button } from '../ui/Button';
 import { CloseButton } from '../ui/IconButton';
 import { Rule, SectionLabel } from '../ui/Text';
+import { PersonChip, TagChip } from '../ui/Chip';
+import { RatingPill, ThumbBadge, ResumeBar } from '../ui/Thumb';
+import { MarkToggle } from '../ui/Toggle';
 
 /**
  * The tablet Library's preview (design 1h, in a Drawer): the video picked in the grid — a header with ✕; its cover with the rating, the resume
@@ -93,16 +95,11 @@ export function VideoDetail({
           resizeMode="cover"
           resizeMethod="resize"
         />
-        {rating ? (
-          <View style={styles.rating}>
-            <Icon name="star" fill size={11} color={n.accent300} />
-            <Text style={styles.ratingText}>{rating}</Text>
-          </View>
-        ) : null}
+        {rating ? <RatingPill stars={rating} /> : null}
         <View style={styles.playRound}>
           <Icon name="play" fill size={22} color={n.text} />
         </View>
-        {badge ? <Text style={styles.badge}>{badge}</Text> : null}
+        <ThumbBadge text={badge} size="md" />
         {progress > 0 ? <ResumeBar progress={progress} height={3} /> : null}
         {duration > 0
           ? segments.map((s) => (
@@ -129,15 +126,15 @@ export function VideoDetail({
           grow
           onPress={() => onPlay(video)}
         />
-        <Toggle
-          icon="bookmark-simple"
-          label="Save for later"
+        <MarkToggle
+          kind="later"
+          shape="square"
           on={!!personal?.savedForLater}
           onPress={() => onToggleLater(video)}
         />
-        <Toggle
-          icon="heart"
-          label="Favorite"
+        <MarkToggle
+          kind="favorite"
+          shape="square"
           on={!!personal?.favorite}
           onPress={() => onToggleFavorite(video)}
         />
@@ -177,30 +174,20 @@ export function VideoDetail({
           <SectionLabel>People & tags</SectionLabel>
           <View style={styles.chips}>
             {people.map((p) => (
-              <Pressable
+              <PersonChip
                 key={`p${p.id}`}
+                name={p.name}
                 onPress={() => onAddPerformer(p)}
                 accessibilityLabel={`Add ${p.name} to the filter`}
-                style={({ pressed }) => [
-                  styles.person,
-                  pressed && styles.pressed,
-                ]}
-              >
-                <View style={styles.avatar}>
-                  <Text style={styles.avatarText}>{initials(p.name)}</Text>
-                </View>
-                <Text style={styles.chipText}>{p.name}</Text>
-              </Pressable>
+              />
             ))}
             {tags.map((t) => (
-              <Pressable
+              <TagChip
                 key={`t${t.id}`}
+                label={t.name}
                 onPress={() => onAddTag(t)}
                 accessibilityLabel={`Add ${t.name} to the filter`}
-                style={({ pressed }) => [styles.tag, pressed && styles.pressed]}
-              >
-                <Text style={styles.chipText}>{t.name}</Text>
-              </Pressable>
+              />
             ))}
           </View>
         </>
@@ -214,35 +201,6 @@ export function VideoDetail({
     </ScrollView>
   );
 }
-
-function Toggle({
-  icon,
-  label,
-  on,
-  onPress,
-}: {
-  icon: 'heart' | 'bookmark-simple';
-  label: string;
-  on: boolean;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityLabel={label}
-      accessibilityState={{ selected: on }}
-      style={({ pressed }) => [
-        styles.toggle,
-        on && styles.toggleOn,
-        pressed && styles.pressed,
-      ]}
-    >
-      <Icon name={icon} fill={on} size={19} color={on ? n.accent : n.text} />
-    </Pressable>
-  );
-}
-
-const SCRIM = 'rgba(10,11,18,0.72)';
 
 const styles = StyleSheet.create({
   pane: { flex: 1 },
@@ -262,24 +220,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  rating: {
-    position: 'absolute',
-    left: 8,
-    top: 8,
-    height: 22,
-    paddingHorizontal: 7,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: 5,
-    backgroundColor: 'rgba(10,11,18,0.66)',
-  },
-  ratingText: {
-    color: n.text,
-    fontSize: 11.5,
-    fontFamily: fonts.semiBold,
-    fontVariant: ['tabular-nums'],
-  },
   playRound: {
     width: 56,
     height: 56,
@@ -289,20 +229,6 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(14,15,24,0.5)',
     borderWidth: 1,
     borderColor: 'rgba(233,233,237,0.3)',
-  },
-  badge: {
-    position: 'absolute',
-    right: 8,
-    bottom: 9,
-    color: n.text,
-    backgroundColor: SCRIM,
-    fontSize: 11,
-    fontFamily: fonts.medium,
-    fontVariant: ['tabular-nums'],
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 4,
-    overflow: 'hidden',
   },
   tick: {
     position: 'absolute',
@@ -325,16 +251,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
   actions: { flexDirection: 'row', gap: 8 },
-  toggle: {
-    width: 44,
-    height: 44,
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.divider,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  toggleOn: { borderColor: n.accent },
   pressed: { backgroundColor: n.textAlpha(6) },
   moments: { gap: 4, marginTop: -6 },
   moment: {
@@ -363,35 +279,6 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  person: {
-    height: 28,
-    paddingLeft: 3,
-    paddingRight: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: n.divider,
-  },
-  avatar: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.accent700,
-  },
-  avatarText: { color: n.accent100, fontSize: 10, fontFamily: fonts.medium },
-  tag: {
-    height: 28,
-    paddingHorizontal: 10,
-    justifyContent: 'center',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: n.divider,
-  },
-  chipText: { color: n.text, fontSize: 12, fontFamily: fonts.regular },
   group: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   groupText: {
     color: n.textAlpha(55),

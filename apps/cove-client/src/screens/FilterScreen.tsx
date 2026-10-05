@@ -59,6 +59,7 @@ import {
 } from '../filter/model';
 import { fonts, nocturne as n } from '../theme/tokens';
 import { useSafeInsets } from '../platform/insets';
+import { EditedTag } from '../ui/Chip';
 
 /**
  * Design 2b (design_handoff_cove_mobile, "Rule tree as an outline"), for phones: a Cove filter as an outline of
@@ -453,9 +454,7 @@ export function FilterScreen({
             <Text style={styles.dockedSavedName} numberOfLines={1}>
               {title}
             </Text>
-            {savedEdited ? (
-              <Text style={styles.dockedEdited}>Edited</Text>
-            ) : null}
+            {savedEdited ? <EditedTag /> : null}
           </View>
         ) : null}
         <View style={[styles.header, docked && styles.hidden]}>
@@ -467,9 +466,7 @@ export function FilterScreen({
             <Text style={styles.title} numberOfLines={1}>
               {title ?? 'New filter'}
             </Text>
-            {edited && tree.children.length ? (
-              <Text style={styles.edited}>Edited</Text>
-            ) : null}
+            {edited && tree.children.length ? <EditedTag /> : null}
           </View>
           {saveLabel && onSave ? (
             <Button
@@ -1232,16 +1229,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontFamily: fonts.regular,
   },
-  dockedEdited: {
-    paddingHorizontal: 6,
-    lineHeight: 17,
-    borderRadius: 5,
-    overflow: 'hidden',
-    fontSize: 11,
-    fontFamily: fonts.regular,
-    color: n.accent100,
-    backgroundColor: n.accent800,
-  },
   // In the drawer the ground is the surface: rows sit a step lighter
   rowRaised: { backgroundColor: RAISED },
   hidden: { display: 'none' },
@@ -1266,16 +1253,6 @@ const styles = StyleSheet.create({
     flexShrink: 1,
   },
   headerSave: { marginRight: 4 },
-  edited: {
-    fontFamily: fonts.regular,
-    fontSize: 11,
-    paddingVertical: 2,
-    paddingHorizontal: 8,
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: n.accent800,
-    color: n.accent100,
-  },
   crumbs: {
     paddingLeft: 10,
     paddingRight: 12,

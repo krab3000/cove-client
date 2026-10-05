@@ -2,7 +2,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { SavedFilter } from '../api/types';
 import { fonts, nocturne as n } from '../theme/tokens';
 import { Icon, type IconName } from '../ui/Icon';
-import { initialOf } from '../lib/format';
+import { Avatar } from '../ui/Avatar';
 
 /** What the Library shows, as the sidebar marks it. */
 export type SidebarActive =
@@ -53,7 +53,6 @@ export function LibrarySidebar({
   onSaveNew: () => void;
   onAccount: () => void;
 }) {
-  const initial = initialOf(username);
   if (rail)
     return (
       <View style={styles.rail}>
@@ -67,9 +66,7 @@ export function LibrarySidebar({
         </Pressable>
         <View style={styles.spacer} />
         <Pressable onPress={onAccount} accessibilityLabel="Account">
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initial}</Text>
-          </View>
+          <Avatar name={username} size={32} letters="one" />
         </Pressable>
       </View>
     );
@@ -136,9 +133,7 @@ export function LibrarySidebar({
         accessibilityLabel="Account"
         style={({ pressed }) => [styles.account, pressed && styles.pressed]}
       >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initial}</Text>
-        </View>
+        <Avatar name={username} size={32} letters="one" />
         <Text style={styles.accountName} numberOfLines={1}>
           {username}
         </Text>
@@ -286,15 +281,6 @@ const styles = StyleSheet.create({
     gap: 10,
     borderRadius: n.radiusMd,
   },
-  avatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.accent800,
-  },
-  avatarText: { color: n.accent100, fontSize: 13, fontFamily: fonts.medium },
   accountName: {
     flex: 1,
     color: n.text,

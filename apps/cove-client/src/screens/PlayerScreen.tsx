@@ -43,6 +43,9 @@ import {
 import { useSafeInsets } from '../platform/insets';
 import { isLarge } from '../theme/layout';
 import { BackButton, IconButton } from '../ui/IconButton';
+import { PersonChip, TagChip } from '../ui/Chip';
+import { ThumbBadge } from '../ui/Thumb';
+import { Pill } from '../ui/Toggle';
 
 const touch = Platform.OS === 'android';
 // Controls hide after this long without input while playing.
@@ -68,8 +71,6 @@ const PANEL = 360;
 const TABLET_PAD = 24;
 const TABLET_BAR = 60;
 // Over the video: dark in both themes.
-const INK = '#e9e9ed';
-const INK_DIM = '#cfd3e5';
 
 type Side = 'left' | 'middle' | 'right';
 
@@ -744,7 +745,7 @@ export function PlayerScreen({
 
         {(!info && !error) || seeking ? (
           <View style={styles.center} pointerEvents="none">
-            <ActivityIndicator size="large" color={INK} />
+            <ActivityIndicator size="large" color={overVideo.ink} />
           </View>
         ) : null}
         {error ? (
@@ -763,7 +764,7 @@ export function PlayerScreen({
             accessibilityLabel="Unlock"
             style={[styles.unlock, { left: insets.side }]}
           >
-            <Icon name="lock-simple" size={22} color={INK} />
+            <Icon name="lock-simple" size={22} color={overVideo.ink} />
           </Pressable>
         ) : null}
 
@@ -902,6 +903,7 @@ export function PlayerScreen({
                   ) : null}
                   {tracks.length > 1 ? (
                     <Pill
+                      over
                       icon="waveform"
                       label="Audio"
                       onPress={() => setSheet('settings')}
@@ -909,13 +911,19 @@ export function PlayerScreen({
                   ) : null}
                   {segments.length ? (
                     <Pill
+                      over
                       icon="list-bullets"
                       label="Moments"
                       onPress={() => setSheet('moments')}
                     />
                   ) : null}
                   {next ? (
-                    <Pill icon="skip-forward" label="Next" onPress={playNext} />
+                    <Pill
+                      over
+                      icon="skip-forward"
+                      label="Next"
+                      onPress={playNext}
+                    />
                   ) : null}
                   {fullscreen ? (
                     <IconButton
@@ -1023,7 +1031,6 @@ export function PlayerScreen({
               on={savedForLater}
               label={savedForLater ? 'Saved for later' : 'Save for later'}
               onPress={toggleLater}
-              large
             />
             <Pill
               icon="arrow-counter-clockwise"
@@ -1032,15 +1039,13 @@ export function PlayerScreen({
                 seekTo(0);
                 setPaused(false);
               }}
-              large
             />
-            <Pill icon="gauge" label={`${rate}×`} onPress={cycleRate} large />
+            <Pill icon="gauge" label={`${rate}×`} onPress={cycleRate} />
             {tracks.length > 1 ? (
               <Pill
                 icon="waveform"
                 label="Audio"
                 onPress={() => setSheet('settings')}
-                large
               />
             ) : null}
           </ScrollView>
@@ -1142,9 +1147,9 @@ export function PlayerScreen({
                       style={StyleSheet.absoluteFill}
                       resizeMethod="resize"
                     />
-                    <Text style={styles.nextDur}>
-                      {formatDuration(primaryFile(v)?.duration)}
-                    </Text>
+                    <ThumbBadge
+                      text={formatDuration(primaryFile(v)?.duration)}
+                    />
                   </View>
                   <View style={styles.nextText}>
                     <Text style={styles.nextTitle} numberOfLines={2}>
@@ -1210,7 +1215,6 @@ export function PlayerScreen({
                   on={savedForLater}
                   label={savedForLater ? 'Saved for later' : 'Save for later'}
                   onPress={toggleLater}
-                  large
                 />
                 <Pill
                   icon="heart"
@@ -1218,7 +1222,6 @@ export function PlayerScreen({
                   on={!!engagement?.isFavorite}
                   label="Favorite"
                   onPress={toggleFavorite}
-                  large
                 />
                 <Pill
                   icon="arrow-counter-clockwise"
@@ -1227,14 +1230,12 @@ export function PlayerScreen({
                     seekTo(0);
                     setPaused(false);
                   }}
-                  large
                 />
                 {tracks.length > 1 ? (
                   <Pill
                     icon="waveform"
                     label="Audio"
                     onPress={() => setSheet('settings')}
-                    large
                   />
                 ) : null}
               </View>
@@ -1242,17 +1243,10 @@ export function PlayerScreen({
             {video.performers?.length || video.tags?.length ? (
               <View style={styles.mChips}>
                 {(video.performers ?? []).map((p) => (
-                  <View key={`p${p.id}`} style={styles.mPerson}>
-                    <View style={styles.mAvatar}>
-                      <Text style={styles.mAvatarText}>{initials(p.name)}</Text>
-                    </View>
-                    <Text style={styles.mChipText}>{p.name}</Text>
-                  </View>
+                  <PersonChip key={`p${p.id}`} name={p.name} />
                 ))}
                 {(video.tags ?? []).map((t) => (
-                  <View key={`t${t.id}`} style={styles.mTag}>
-                    <Text style={styles.mChipText}>{t.name}</Text>
-                  </View>
+                  <TagChip key={`t${t.id}`} label={t.name} />
                 ))}
               </View>
             ) : null}
@@ -1365,9 +1359,9 @@ export function PlayerScreen({
                             style={StyleSheet.absoluteFill}
                             resizeMethod="resize"
                           />
-                          <Text style={styles.nextDur}>
-                            {formatDuration(primaryFile(v)?.duration)}
-                          </Text>
+                          <ThumbBadge
+                            text={formatDuration(primaryFile(v)?.duration)}
+                          />
                         </View>
                         <View style={styles.nextText}>
                           <Text style={styles.nextTitle} numberOfLines={2}>
@@ -1562,57 +1556,10 @@ function PlayButton({
         pressed && styles.pressed,
       ]}
     >
-      <Icon name={icon} fill size={size * 0.44} color={INK} />
+      <Icon name={icon} fill size={size * 0.44} color={overVideo.ink} />
     </Pressable>
   );
 }
-
-function Pill({
-  icon,
-  label,
-  onPress,
-  on,
-  fill,
-  large,
-}: {
-  icon: IconName;
-  label: string;
-  onPress: () => void;
-  on?: boolean;
-  fill?: boolean;
-  large?: boolean;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityState={on !== undefined ? { selected: on } : undefined}
-      style={({ pressed }) => [
-        styles.pill,
-        large ? styles.pillLarge : styles.pillOver,
-        on && styles.pillOn,
-        pressed && styles.pressed,
-      ]}
-    >
-      <Icon
-        name={icon}
-        fill={fill}
-        size={large ? 15 : 14}
-        color={on ? n.accent : large ? n.text : INK}
-      />
-      <Text
-        style={[
-          styles.pillText,
-          large ? styles.pillTextLarge : styles.pillTextOver,
-          on && styles.pillTextOn,
-        ]}
-      >
-        {label}
-      </Text>
-    </Pressable>
-  );
-}
-
-const SCRIM = 'rgba(10,11,18,0.72)';
 
 const styles = StyleSheet.create({
   screen: { ...StyleSheet.absoluteFillObject, backgroundColor: n.bg },
@@ -1660,7 +1607,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   kTime: {
-    color: INK,
+    color: overVideo.ink,
     fontSize: 11,
     fontFamily: fonts.medium,
     fontVariant: ['tabular-nums'],
@@ -1708,8 +1655,8 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 4,
     overflow: 'hidden',
-    backgroundColor: SCRIM,
-    color: INK,
+    backgroundColor: overVideo.badge,
+    color: overVideo.ink,
     fontSize: 10.5,
     fontFamily: fonts.medium,
     fontVariant: ['tabular-nums'],
@@ -1791,19 +1738,6 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: n.surface,
   },
-  nextDur: {
-    position: 'absolute',
-    right: 4,
-    bottom: 4,
-    paddingHorizontal: 4,
-    borderRadius: 3,
-    overflow: 'hidden',
-    backgroundColor: SCRIM,
-    color: INK,
-    fontSize: 10,
-    fontFamily: fonts.medium,
-    fontVariant: ['tabular-nums'],
-  },
   nextText: { flex: 1, minWidth: 0, gap: 2 },
   nextTitle: { color: n.text, fontSize: 14, fontFamily: fonts.medium },
   nextSub: { color: n.textAlpha(55), fontSize: 12, fontFamily: fonts.regular },
@@ -1814,24 +1748,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontFamily: fonts.regular,
   },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  pillLarge: { height: 38, paddingHorizontal: 14, borderColor: n.divider },
-  pillOver: {
-    height: 32,
-    paddingHorizontal: 12,
-    borderColor: 'rgba(233,233,237,0.3)',
-  },
-  pillOn: { borderColor: n.accent },
-  pillText: { fontFamily: fonts.regular },
-  pillTextLarge: { color: n.text, fontSize: 13 },
-  pillTextOver: { color: INK, fontSize: 12 },
-  pillTextOn: { color: n.accent },
   // 1m
   mBottom: { position: 'absolute', left: 20, right: 20, bottom: 12, gap: 2 },
   mBack: {
@@ -1854,35 +1770,6 @@ const styles = StyleSheet.create({
   },
   mPills: { flexDirection: 'row', flexShrink: 0, gap: 8 },
   mChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  mPerson: {
-    height: 30,
-    paddingLeft: 3,
-    paddingRight: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: n.divider,
-  },
-  mAvatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: n.accent800,
-  },
-  mAvatarText: { color: n.accent100, fontSize: 10.5, fontFamily: fonts.medium },
-  mTag: {
-    height: 30,
-    paddingHorizontal: 11,
-    justifyContent: 'center',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: n.divider,
-  },
-  mChipText: { color: n.text, fontSize: 12.5, fontFamily: fonts.regular },
   mPanel: {
     position: 'absolute',
     top: 0,
@@ -1979,8 +1866,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   lTitle: { flex: 1, minWidth: 0 },
-  lTitleText: { color: INK, fontSize: 16, fontFamily: fonts.medium },
-  lSub: { color: INK_DIM, fontSize: 12, fontFamily: fonts.regular },
+  lTitleText: { color: overVideo.ink, fontSize: 16, fontFamily: fonts.medium },
+  lSub: { color: overVideo.inkDim, fontSize: 12, fontFamily: fonts.regular },
   ratePill: {
     height: 32,
     paddingHorizontal: 10,
@@ -1989,7 +1876,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(233,233,237,0.35)',
   },
-  ratePillText: { color: INK, fontSize: 13, fontFamily: fonts.medium },
+  ratePillText: {
+    color: overVideo.ink,
+    fontSize: 13,
+    fontFamily: fonts.medium,
+  },
   lBottom: { position: 'absolute', gap: 2 },
   lFooter: {
     flexDirection: 'row',
@@ -1997,12 +1888,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   lTime: {
-    color: INK,
+    color: overVideo.ink,
     fontSize: 12,
     fontFamily: fonts.medium,
     fontVariant: ['tabular-nums'],
   },
-  lTimeDim: { color: INK_DIM },
+  lTimeDim: { color: overVideo.inkDim },
   spacer: { flex: 1 },
   unlock: {
     position: 'absolute',
@@ -2028,7 +1919,7 @@ const styles = StyleSheet.create({
   },
   flashLeft: { left: 0 },
   flashRight: { right: 0 },
-  flashText: { color: INK, fontSize: 18, fontFamily: fonts.semiBold },
+  flashText: { color: overVideo.ink, fontSize: 18, fontFamily: fonts.semiBold },
   error: {
     color: '#ff8a8a',
     textAlign: 'center',
