@@ -3,6 +3,7 @@ import type { SavedFilter } from '../api/types';
 import { fonts, nocturne as n } from '../theme/tokens';
 import { Icon, type IconName } from '../ui/Icon';
 import { Avatar } from '../ui/Avatar';
+import { formatCount } from '../lib/format';
 
 /** What the Library shows, as the sidebar marks it. */
 export type SidebarActive =
@@ -20,10 +21,8 @@ export interface SidebarQuick {
 /**
  * The tablet's sidebar (design 1h): the Show sheet's job, always open — the Library (all videos, with the count), the
  * quick filters (Watch), the saved filters with their counts, Save as new filter — and the account as its bottom row.
- * Folded (rail, design 2d) while the filter column needs the width: the brand, Library and the account.
  */
 export function LibrarySidebar({
-  rail,
   server,
   username,
   allCount,
@@ -38,7 +37,6 @@ export function LibrarySidebar({
   onSaveNew,
   onAccount,
 }: {
-  rail: boolean;
   server: string;
   username: string;
   allCount: number | null;
@@ -53,25 +51,8 @@ export function LibrarySidebar({
   onSaveNew: () => void;
   onAccount: () => void;
 }) {
-  if (rail)
-    return (
-      <View style={styles.rail}>
-        <View style={[styles.brandMark, styles.railBrand]} />
-        <Pressable
-          onPress={onAll}
-          accessibilityLabel="Library"
-          style={[styles.railItem, styles.railItemOn]}
-        >
-          <Icon name="squares-four" fill size={22} color={n.accent} />
-        </Pressable>
-        <View style={styles.spacer} />
-        <Pressable onPress={onAccount} accessibilityLabel="Account">
-          <Avatar name={username} size={32} letters="one" />
-        </Pressable>
-      </View>
-    );
   const count = (c: number | undefined | null) =>
-    c == null ? '' : c.toLocaleString('en-US');
+    c == null ? '' : formatCount(c);
   return (
     <View style={styles.sidebar}>
       <ScrollView contentContainerStyle={styles.scroll}>
@@ -270,7 +251,6 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   saveNew: { color: n.accent200 },
-  spacer: { flex: 1 },
   account: {
     margin: 12,
     marginTop: 4,
@@ -286,26 +266,5 @@ const styles = StyleSheet.create({
     color: n.text,
     fontSize: 13.5,
     fontFamily: fonts.regular,
-  },
-  rail: {
-    width: 76,
-    paddingTop: 20,
-    paddingBottom: 16,
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: SIDE_BG,
-  },
-  railBrand: { marginBottom: 22 },
-  railItem: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  railItemOn: {
-    backgroundColor: n.accentAlpha(14),
-    borderWidth: 1,
-    borderColor: n.accentAlpha(50),
   },
 });

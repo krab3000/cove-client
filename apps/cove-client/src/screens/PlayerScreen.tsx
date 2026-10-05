@@ -18,12 +18,7 @@ import type { Engagement, Segment, Video } from '../api/types';
 import { Bar } from '../components/Bar';
 import { Icon, type IconName } from '../ui/Icon';
 import { SeekTrack } from '../components/SeekTrack';
-import {
-  Sheet,
-  SheetHeading,
-  SheetRow,
-  SheetSection,
-} from '../components/Sheet';
+import { Sheet, SheetHeading, SheetRow, SheetSection } from '../ui/Sheet';
 import { fonts, nocturne as n, overVideo } from '../theme/tokens';
 import {
   formatDuration,

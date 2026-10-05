@@ -9,7 +9,6 @@ import {
 import {
   BackHandler,
   KeyboardAvoidingView,
-  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,14 +18,14 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { CoveClient, CoveError } from '../api/cove';
-import { Drawer } from '../components/Drawer';
+import { Drawer } from '../ui/Drawer';
 import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
 import { BackButton, MoreButton } from '../ui/IconButton';
 import { PanelHeader } from '../ui/PanelHeader';
 import { ErrorText, Spinner, StatusDot } from '../ui/Text';
 import { TextField } from '../ui/TextField';
-import { Sheet, SheetHeading, SheetRow, SheetRule } from '../components/Sheet';
+import { Sheet, SheetHeading } from '../ui/Sheet';
 import { fonts, nocturne as n } from '../theme/tokens';
 import {
   hostOf,
@@ -40,6 +39,7 @@ import {
 } from '../signIn';
 import { ago, initialOf } from '../lib/format';
 import { isLarge } from '../theme/layout';
+import { MenuSheet, Popover, type MenuEntry } from '../ui/Menu';
 
 const RADIUS_LG = 14;
 // A large screen (tablet): the servers and the selected one's accounts side by side (design 1n)
@@ -171,6 +171,23 @@ export function SignInScreen({
     if (serverId === target.id) setServerId(null);
   };
 
+  // ⋮'s entries (the sheet's and the popover's)
+  const menuItems: MenuEntry[] = menu
+    ? [
+        {
+          icon: 'pencil-simple',
+          label: 'Edit',
+          onPress: () => openEditor(menu.server),
+        },
+        'rule',
+        {
+          icon: 'trash',
+          label: 'Remove server',
+          detail: 'Forgets its address and the accounts kept for it',
+          onPress: () => removeServer(menu.server),
+        },
+      ]
+    : [];
   const form = (
     <ServerForm
       title={editing === 'add' ? 'Add server' : 'Edit server'}
@@ -260,57 +277,19 @@ export function SignInScreen({
 
       {/* ⋮: a sheet on a phone (the filter editor's), a popover by the row on a tablet */}
       {large ? (
-        <Modal
+        <Popover
           visible={!!menu}
-          transparent
-          animationType="fade"
-          statusBarTranslucent
-          navigationBarTranslucent
-          onRequestClose={() => setMenu(null)}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setMenu(null)}
-            accessibilityLabel="Close"
-          />
-          {menu?.anchor ? (
-            <View
-              style={[
-                styles.popover,
-                { top: menu.anchor.y + 4, left: menu.anchor.x - POPOVER_WIDTH },
-              ]}
-            >
-              <MenuItem
-                icon="pencil-simple"
-                label="Edit"
-                onPress={() => openEditor(menu.server)}
-              />
-              <MenuItem
-                icon="trash"
-                label="Remove server"
-                onPress={() => removeServer(menu.server)}
-              />
-            </View>
-          ) : null}
-        </Modal>
+          anchor={menu?.anchor ?? null}
+          onClose={() => setMenu(null)}
+          items={menuItems}
+        />
       ) : (
-        <Sheet visible={!!menu} onClose={() => setMenu(null)}>
-          <Text style={styles.sheetCaption} numberOfLines={1}>
-            {menu ? `${menu.server.name} · ${menu.server.address}` : ''}
-          </Text>
-          <SheetRow
-            icon="pencil-simple"
-            label="Edit"
-            onPress={() => menu && openEditor(menu.server)}
-          />
-          <SheetRule />
-          <SheetRow
-            icon="trash"
-            label="Remove server"
-            meta="Forgets its address and the accounts kept for it"
-            onPress={() => menu && removeServer(menu.server)}
-          />
-        </Sheet>
+        <MenuSheet
+          visible={!!menu}
+          onClose={() => setMenu(null)}
+          caption={menu ? `${menu.server.name} · ${menu.server.address}` : ''}
+          items={menuItems}
+        />
       )}
       {large ? null : (
         <Sheet visible={!!editing} onClose={() => setEditing(null)}>
@@ -318,28 +297,6 @@ export function SignInScreen({
         </Sheet>
       )}
     </View>
-  );
-}
-
-const POPOVER_WIDTH = 220;
-
-function MenuItem({
-  icon,
-  label,
-  onPress,
-}: {
-  icon: 'pencil-simple' | 'trash';
-  label: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [styles.menuItem, pressed && styles.pressed]}
-    >
-      <Icon name={icon} size={18} color={n.accent300} />
-      <Text style={styles.menuText}>{label}</Text>
-    </Pressable>
   );
 }
 
@@ -989,32 +946,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
   },
   add: { alignSelf: 'flex-start' },
-  sheetCaption: {
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 6,
-    color: n.textAlpha(55),
-    fontSize: 12,
-    fontFamily: fonts.regular,
-  },
-  // The tablet's ⋮ popover: opaque, the drawer's ring and shadow
-  popover: {
-    position: 'absolute',
-    width: POPOVER_WIDTH,
-    padding: 6,
-    borderRadius: n.radiusMd + 4,
-    backgroundColor: n.surface,
-    boxShadow: `inset 0 0 0 1px ${n.textAlpha(10)}, 0 16px 40px rgba(0,0,0,0.5)`,
-  },
-  menuItem: {
-    height: 44,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: n.radiusMd,
-  },
-  menuText: { color: n.text, fontSize: 15, fontFamily: fonts.regular },
   formDrawer: { flex: 1 },
   form: { paddingHorizontal: 20, paddingTop: 8, gap: 6 },
   label: {

@@ -11,7 +11,7 @@ import {
   useWindowDimensions,
 } from 'react-native';
 import { fonts, nocturne as n } from '../theme/tokens';
-import { Icon, type IconName } from '../ui/Icon';
+import { Icon, type IconName } from './Icon';
 import { useSafeInsets } from '../platform/insets';
 
 /**

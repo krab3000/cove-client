@@ -60,6 +60,7 @@ import {
 import { fonts, nocturne as n } from '../theme/tokens';
 import { useSafeInsets } from '../platform/insets';
 import { EditedTag } from '../ui/Chip';
+import { MenuSheet } from '../ui/Menu';
 
 /**
  * Design 2b (design_handoff_cove_mobile, "Rule tree as an outline"), for phones: a Cove filter as an outline of
@@ -670,56 +671,41 @@ export function FilterScreen({
           />
         ) : null}
 
-        <Modal
+        <MenuSheet
           visible={sheet !== null}
-          transparent
-          animationType="fade"
-          onRequestClose={closeSheet}
-        >
-          <Pressable style={styles.menuScrim} onPress={closeSheet}>
-            {sheet ? (
-              <View
-                style={[styles.menu, { paddingBottom: 12 + insets.bottom }]}
-              >
-                {menu && clipboard ? (
-                  <View style={styles.menuClipboard}>
-                    <Icon
-                      name={clipboard.mode === 'cut' ? 'scissors' : 'copy'}
-                      size={14}
-                      color={n.accent300}
-                    />
-                    <Text style={styles.menuClipboardText} numberOfLines={1}>
-                      {clipboard.mode === 'cut' ? 'Cut: ' : 'Copied: '}
-                      <Text style={styles.menuClipboardItem}>
-                        {summary(clipboard.node)}
-                      </Text>
-                    </Text>
-                  </View>
-                ) : (
-                  <Text style={styles.menuTitle} numberOfLines={1}>
-                    {sheet.title}
+          onClose={closeSheet}
+          header={
+            !sheet ? null : menu && clipboard ? (
+              <View style={styles.menuClipboard}>
+                <Icon
+                  name={clipboard.mode === 'cut' ? 'scissors' : 'copy'}
+                  size={14}
+                  color={n.accent300}
+                />
+                <Text style={styles.menuClipboardText} numberOfLines={1}>
+                  {clipboard.mode === 'cut' ? 'Cut: ' : 'Copied: '}
+                  <Text style={styles.menuClipboardItem}>
+                    {summary(clipboard.node)}
                   </Text>
-                )}
-                {sheet.actions.map((action, i) =>
-                  action === 'rule' ? (
-                    <View key={i} style={styles.menuRule} />
-                  ) : (
-                    <MenuItem
-                      key={action.label}
-                      icon={action.icon}
-                      label={action.label}
-                      detail={action.detail}
-                      onPress={() => {
-                        closeSheet();
-                        action.run();
-                      }}
-                    />
-                  )
-                )}
+                </Text>
               </View>
-            ) : null}
-          </Pressable>
-        </Modal>
+            ) : (
+              <Text style={styles.menuTitle} numberOfLines={1}>
+                {sheet.title}
+              </Text>
+            )
+          }
+          items={(sheet?.actions ?? []).map((action) =>
+            action === 'rule'
+              ? action
+              : {
+                  icon: action.icon,
+                  label: action.label,
+                  detail: action.detail,
+                  onPress: action.run,
+                }
+          )}
+        />
 
         <Modal
           visible={levels}
@@ -1154,37 +1140,6 @@ function ConditionRow({
   );
 }
 
-function MenuItem({
-  icon,
-  label,
-  detail,
-  onPress,
-}: {
-  icon: IconName;
-  label: string;
-  detail?: string;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.menuItem,
-        !!detail && styles.menuItemTall,
-        pressed && styles.menuItemPressed,
-      ]}
-    >
-      <Icon name={icon} size={18} color={n.accent300} />
-      <View style={styles.menuItemBody}>
-        <Text style={styles.menuText} numberOfLines={1}>
-          {label}
-        </Text>
-        {detail ? <Text style={styles.menuDetail}>{detail}</Text> : null}
-      </View>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
   screen: {
     position: 'absolute',
@@ -1401,15 +1356,15 @@ const styles = StyleSheet.create({
   },
   clipboardText: { fontFamily: fonts.regular, fontSize: 14, color: n.text },
   menuTitle: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 20,
     paddingTop: 4,
-    paddingBottom: 10,
+    paddingBottom: 6,
     fontFamily: fonts.regular,
     fontSize: 12,
     color: n.textAlpha(55),
   },
   menuClipboard: {
-    marginHorizontal: 4,
+    marginHorizontal: 16,
     marginBottom: 8,
     paddingVertical: 8,
     paddingHorizontal: 10,
@@ -1426,13 +1381,6 @@ const styles = StyleSheet.create({
     color: n.textAlpha(55),
   },
   menuClipboardItem: { color: n.text },
-  menuRule: {
-    marginVertical: 6,
-    marginHorizontal: 12,
-    height: 1,
-    experimental_backgroundImage: `linear-gradient(to right, transparent 0%, ${n.divider} 14%, ${n.divider} 86%, transparent 100%)`,
-  },
-  menuItemTall: { height: 56 },
   menuItemBody: { flex: 1, gap: 2 },
   menuDetail: {
     fontFamily: fonts.regular,
@@ -1535,22 +1483,5 @@ const styles = StyleSheet.create({
     borderTopColor: n.divider,
     backgroundColor: n.bg,
   },
-  menuScrim: { flex: 1, backgroundColor: n.scrim, justifyContent: 'flex-end' },
-  menu: {
-    backgroundColor: n.surface,
-    borderTopLeftRadius: n.radiusSheet,
-    borderTopRightRadius: n.radiusSheet,
-    paddingTop: 12,
-    paddingHorizontal: 12,
-  },
-  menuItem: {
-    height: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 12,
-    borderRadius: n.radiusMd,
-  },
   menuItemPressed: { backgroundColor: n.accentAlpha(10) },
-  menuText: { fontFamily: fonts.regular, fontSize: 15, color: n.text },
 });

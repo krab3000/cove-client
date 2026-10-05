@@ -31,7 +31,7 @@ import {
   LibrarySidebar,
   type SidebarActive,
 } from '../components/LibrarySidebar';
-import { Drawer } from '../components/Drawer';
+import { Drawer } from '../ui/Drawer';
 import { VideoDetail } from '../components/VideoDetail';
 import {
   Sheet,
@@ -39,7 +39,7 @@ import {
   SheetRow,
   SheetRule,
   SheetSection,
-} from '../components/Sheet';
+} from '../ui/Sheet';
 import {
   appendTo,
   emptyTree,
@@ -1176,7 +1176,6 @@ export function BrowseScreen({
     >
       {large ? (
         <LibrarySidebar
-          rail={false}
           server={client.server}
           username={client.username}
           allCount={sheetCounts.all ?? null}
