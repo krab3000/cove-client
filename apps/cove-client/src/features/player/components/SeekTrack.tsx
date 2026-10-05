@@ -6,7 +6,7 @@ import {
   View,
   type GestureResponderEvent,
 } from 'react-native';
-import { fonts, nocturne as n } from '../theme/tokens';
+import { fonts, nocturne as n } from '../../../theme/tokens';
 
 const GLOW = '#9184d9';
 const TICK = '#d2cefd';

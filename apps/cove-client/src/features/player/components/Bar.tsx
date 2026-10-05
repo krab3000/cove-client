@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View, type GestureResponderEvent } from 'react-native';
-import { nocturne as n } from '../theme/tokens';
+import { nocturne as n } from '../../../theme/tokens';
 
 // A horizontal bar showing value (0..1); press or drag to change it. onHover reports where the pointer is over it
 // (0..1 and the bar's width in px), or null when it leaves.

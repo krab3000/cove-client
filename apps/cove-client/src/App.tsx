@@ -5,7 +5,7 @@ import { useSnapshot } from 'valtio';
 import { createQueryClient } from './app/queryClient';
 import { useSafeInsets } from './platform/insets';
 import { LibraryScreen } from './features/library/LibraryScreen';
-import { PlayerScreen } from './screens/PlayerScreen';
+import { PlayerScreen } from './features/player/PlayerScreen';
 import { SignInScreen } from './features/signin/SignInScreen';
 import { closePlayer, play, player } from './state/player';
 import { prefs } from './state/prefs';

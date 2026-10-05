@@ -12,13 +12,12 @@ import {
   View,
   type GestureResponderEvent,
 } from 'react-native';
-import { primaryFile, type CoveClient } from '../api/cove';
-import type { Segment, Video } from '../api/types';
-import { Bar } from '../components/Bar';
-import { Icon, type IconName } from '../ui/Icon';
-import { SeekTrack } from '../components/SeekTrack';
-import { Sheet, SheetHeading, SheetRow, SheetSection } from '../ui/Sheet';
-import { fonts, nocturne as n, overVideo } from '../theme/tokens';
+import { primaryFile, type CoveClient } from '../../api/cove';
+import type { Video } from '../../api/types';
+import { Bar } from './components/Bar';
+import { Icon, type IconName } from '../../ui/Icon';
+import { SeekTrack } from './components/SeekTrack';
+import { fonts, nocturne as n, overVideo } from '../../theme/tokens';
 import {
   formatDuration,
   resolutionLabel,
@@ -27,20 +26,20 @@ import {
   initials,
   partialDate,
   stars,
-} from '../lib/format';
+} from '../../lib/format';
 import {
   playerEngine,
   VideoView,
   type LoadEvent,
   type VideoViewHandle,
-} from '../player';
-import { useSafeInsets } from '../platform/insets';
-import { isLarge } from '../theme/layout';
-import { BackButton, IconButton } from '../ui/IconButton';
-import { PersonChip, TagChip } from '../ui/Chip';
-import { ThumbBadge } from '../ui/Thumb';
-import { Pill } from '../ui/Toggle';
-import { Layer, useBackHandler } from '../app/back';
+} from '../../player';
+import { useSafeInsets } from '../../platform/insets';
+import { isLarge } from '../../theme/layout';
+import { BackButton, IconButton } from '../../ui/IconButton';
+import { PersonChip, TagChip } from '../../ui/Chip';
+import { ThumbBadge } from '../../ui/Thumb';
+import { Pill } from '../../ui/Toggle';
+import { Layer, useBackHandler } from '../../app/back';
 import {
   playbackChanged,
   useEngagement,
@@ -48,40 +47,52 @@ import {
   useSegments,
   useToggleFavorite,
   useToggleSavedForLater,
-} from '../data/personal';
+} from '../../data/personal';
 import { useQueryClient } from '@tanstack/react-query';
+import { Shade } from './components/Shade';
+import { PlayButton } from './components/PlayButton';
+import { MomentsSheet, SettingsSheet } from './components/PlayerSheets';
+import { segmentLabel } from './moments';
 
 const touch = Platform.OS === 'android';
+
 // Controls hide after this long without input while playing.
 const HIDE_AFTER_MS = 3000;
+
 // Two taps within this are a double tap (touch: seek on the left or right third).
 const DOUBLE_TAP_MS = 300;
+
 // After a double-tap seek, single taps on the same side keep seeking for this long (tap, tap, tap: -30 s).
 const SEEK_STREAK_MS = 700;
+
 const SEEK_STEP = 10;
+
 // The speed pill steps through these.
 const RATES = [1, 1.25, 1.5, 2, 0.5, 0.75];
+
 // Resume where the user left off, unless that is near the start or the end.
 const RESUME_MIN_SEC = 5;
+
 const RESUME_END_MARGIN_SEC = 15;
+
 // The scrub bubble asks for a frame once the drag rests this long.
 const FRAME_REST_MS = 150;
+
 // Playback reports to Cove while playing (resume position, views).
 const REPORT_EVERY_MS = 10000;
+
 // A large screen (shorter side at least this) held sideways gets the tablet player (1m).
 
 // 1m: the side panel's width, the space around the video, and the back row above it.
 const PANEL = 360;
+
 const TABLET_PAD = 24;
+
 const TABLET_BAR = 60;
+
 // Over the video: dark in both themes.
 
 type Side = 'left' | 'middle' | 'right';
-
-/** The name a segment goes by: its title, else its tag, else its kind. */
-function segmentLabel(s: Segment): string {
-  return s.title?.trim() || s.tagName || s.kind || 'Moment';
-}
 
 /**
  * The player (design 1k / 1l).
@@ -1405,111 +1416,31 @@ export function PlayerScreen({
         </>
       ) : null}
 
-      {/* Settings: speed and audio track */}
-      <Sheet visible={sheet === 'settings'} onClose={() => setSheet(null)}>
-        <SheetHeading>Playback</SheetHeading>
-        <SheetSection>Speed</SheetSection>
-        <View style={styles.rateRow}>
-          {[0.5, 0.75, 1, 1.25, 1.5, 2].map((r) => (
-            <Pressable
-              key={r}
-              onPress={() => setRate(r)}
-              accessibilityState={{ selected: rate === r }}
-              style={[styles.rateChip, rate === r && styles.rateChipOn]}
-            >
-              <Text
-                style={[
-                  styles.rateChipText,
-                  rate === r && styles.rateChipTextOn,
-                ]}
-              >
-                {r}×
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        {tracks.length > 1 ? (
-          <>
-            <SheetSection>Audio</SheetSection>
-            {tracks.map((t, i) => (
-              <SheetRow
-                key={t.index}
-                icon="waveform"
-                label={trackLabel(t, i)}
-                checked={t.index === currentTrack}
-                onPress={() => {
-                  setAudioTrack(t.index);
-                  setSheet(null);
-                }}
-              />
-            ))}
-          </>
-        ) : null}
-      </Sheet>
-
-      {/* 1l's Moments pill: the moments as a list that seeks */}
-      <Sheet visible={sheet === 'moments'} onClose={() => setSheet(null)}>
-        <SheetHeading>Moments</SheetHeading>
-        <View>
-          {segments.map((s) => {
-            const on = current?.id === s.id;
-            return (
-              <Pressable
-                key={s.id}
-                onPress={() => {
-                  seekTo(s.startSec - clipStart);
-                  setPaused(false);
-                  setSheet(null);
-                }}
-                style={({ pressed }) => [
-                  styles.momentRow,
-                  on && styles.momentRowOn,
-                  pressed && styles.pressedBg,
-                ]}
-              >
-                <View style={styles.momentRowThumb}>
-                  <Image
-                    source={{ uri: client.frameUrl(video, s.startSec) }}
-                    style={StyleSheet.absoluteFill}
-                    resizeMethod="resize"
-                  />
-                </View>
-                <Text
-                  style={[styles.momentRowLabel, on && styles.momentLabelOn]}
-                  numberOfLines={1}
-                >
-                  {segmentLabel(s)}
-                </Text>
-                <Text style={styles.momentRowTime}>
-                  {formatDuration(s.startSec - clipStart)}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </Sheet>
+      <SettingsSheet
+        visible={sheet === 'settings'}
+        onClose={() => setSheet(null)}
+        rate={rate}
+        onRate={setRate}
+        tracks={tracks.map((t, i) => ({
+          index: t.index,
+          label: trackLabel(t, i),
+        }))}
+        currentTrack={currentTrack}
+        onTrack={setAudioTrack}
+      />
+      <MomentsSheet
+        visible={sheet === 'moments'}
+        onClose={() => setSheet(null)}
+        segments={segments}
+        currentId={current?.id ?? null}
+        clipStart={clipStart}
+        frameUrl={(seconds) => client.frameUrl(video, seconds)}
+        onPick={(segment) => {
+          seekTo(segment.startSec - clipStart);
+          setPaused(false);
+        }}
+      />
     </View>
-  );
-}
-
-// The design's shades: dark at the edge, easing out to clear. One gradient (stacked strips of decreasing darkness
-// showed seams wherever their edges fell between pixels, e.g. at 1.5x density).
-const SHADE_HEIGHT = 144;
-const SHADE_GRADIENT = `linear-gradient(to bottom, ${Array.from(
-  { length: 9 },
-  (_, i) =>
-    `rgba(10,11,18,${(0.64 * (1 - i / 8) ** 1.6).toFixed(3)}) ${(i * 12.5).toFixed(1)}%`
-).join(', ')})`;
-
-function Shade({ edge }: { edge: 'top' | 'bottom' }) {
-  return (
-    <View
-      pointerEvents="none"
-      style={[
-        styles.shade,
-        edge === 'top' ? styles.shadeTop : styles.shadeBottom,
-      ]}
-    />
   );
 }
 
@@ -1521,37 +1452,7 @@ function uuid(): string {
   });
 }
 
-function PlayButton({
-  size,
-  icon,
-  onPress,
-}: {
-  size: number;
-  icon: IconName;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      accessibilityLabel={icon === 'pause' ? 'Pause' : 'Play'}
-      style={({ pressed }) => [
-        styles.play,
-        { width: size, height: size, borderRadius: size / 2 },
-        pressed && styles.pressed,
-      ]}
-    >
-      <Icon name={icon} fill size={size * 0.44} color={overVideo.ink} />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  screen: { ...StyleSheet.absoluteFillObject, backgroundColor: n.bg },
-  box: {
-    position: 'absolute',
-    backgroundColor: '#000',
-    zIndex: 1,
-  },
   center: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',
@@ -1559,16 +1460,81 @@ const styles = StyleSheet.create({
   },
   transport: { flexDirection: 'row', alignItems: 'center' },
   transportWide: { gap: 64 },
-  transportNarrow: { gap: 36 },
-  pressed: { opacity: 0.6 },
-  pressedBg: { backgroundColor: n.textAlpha(6) },
-  play: {
+  // 1m
+  mBottom: { position: 'absolute', left: 20, right: 20, bottom: 12, gap: 2 },
+  lFooter: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+  },
+  lTime: {
+    color: overVideo.ink,
+    fontSize: 12,
+    fontFamily: fonts.medium,
+    fontVariant: ['tabular-nums'],
+  },
+  lTimeDim: { color: overVideo.inkDim },
+  spacer: { flex: 1 },
+  ratePill: {
+    height: 32,
+    paddingHorizontal: 10,
     justifyContent: 'center',
-    backgroundColor: 'rgba(14,15,24,0.45)',
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: 'rgba(233,233,237,0.35)',
   },
+  ratePillText: {
+    color: overVideo.ink,
+    fontSize: 13,
+    fontFamily: fonts.medium,
+  },
+  screen: { ...StyleSheet.absoluteFillObject, backgroundColor: n.bg },
+  box: {
+    position: 'absolute',
+    backgroundColor: '#000',
+    zIndex: 1,
+  },
+  flash: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    width: '33%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  flashLeft: { left: 0 },
+  flashRight: { right: 0 },
+  flashText: { color: overVideo.ink, fontSize: 18, fontFamily: fonts.semiBold },
+  error: {
+    color: '#ff8a8a',
+    textAlign: 'center',
+    paddingHorizontal: 32,
+    fontFamily: fonts.regular,
+  },
+  unlock: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -24,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(14,15,24,0.6)',
+    borderWidth: 1,
+    borderColor: 'rgba(233,233,237,0.35)',
+  },
+  lTop: {
+    position: 'absolute',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  lTitle: { flex: 1, minWidth: 0 },
+  lTitleText: { color: overVideo.ink, fontSize: 16, fontFamily: fonts.medium },
+  lSub: { color: overVideo.inkDim, fontSize: 12, fontFamily: fonts.regular },
+  lBottom: { position: 'absolute', gap: 2 },
   // 1k
   kScrim: {
     ...StyleSheet.absoluteFillObject,
@@ -1582,6 +1548,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  transportNarrow: { gap: 36 },
   kBottom: {
     position: 'absolute',
     left: 14,
@@ -1618,7 +1585,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: fonts.medium,
   },
-  sectionInline: { color: n.text, fontSize: 15, fontFamily: fonts.medium },
   rail: { gap: 10, paddingHorizontal: 20 },
   moment: { width: 128, gap: 6 },
   momentThumb: {
@@ -1679,6 +1645,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  sectionInline: { color: n.text, fontSize: 15, fontFamily: fonts.medium },
   autoplay: {
     minHeight: 44,
     flexDirection: 'row',
@@ -1715,6 +1682,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
+  pressedBg: { backgroundColor: n.textAlpha(6) },
   nextThumb: {
     width: 120,
     height: 68,
@@ -1732,8 +1700,6 @@ const styles = StyleSheet.create({
     fontSize: 11.5,
     fontFamily: fonts.regular,
   },
-  // 1m
-  mBottom: { position: 'absolute', left: 20, right: 20, bottom: 12, gap: 2 },
   mBack: {
     position: 'absolute',
     flexDirection: 'row',
@@ -1797,6 +1763,12 @@ const styles = StyleSheet.create({
   },
   mMomentText: { flex: 1, minWidth: 0, gap: 3 },
   mMomentLabel: { color: n.text, fontSize: 14, fontFamily: fonts.medium },
+  momentRowTime: {
+    color: n.accent300,
+    fontSize: 12.5,
+    fontFamily: fonts.medium,
+    fontVariant: ['tabular-nums'],
+  },
   mEmpty: {
     padding: 12,
     color: n.textAlpha(55),
@@ -1831,133 +1803,5 @@ const styles = StyleSheet.create({
     color: n.text,
     fontSize: 13,
     fontFamily: fonts.regular,
-  },
-  // 1l
-  shade: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: SHADE_HEIGHT,
-    experimental_backgroundImage: SHADE_GRADIENT,
-  },
-  shadeTop: { top: 0 },
-  // The same steps, the darkest at the bottom edge
-  shadeBottom: { bottom: 0, transform: [{ scaleY: -1 }] },
-  lTop: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  lTitle: { flex: 1, minWidth: 0 },
-  lTitleText: { color: overVideo.ink, fontSize: 16, fontFamily: fonts.medium },
-  lSub: { color: overVideo.inkDim, fontSize: 12, fontFamily: fonts.regular },
-  ratePill: {
-    height: 32,
-    paddingHorizontal: 10,
-    justifyContent: 'center',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: 'rgba(233,233,237,0.35)',
-  },
-  ratePillText: {
-    color: overVideo.ink,
-    fontSize: 13,
-    fontFamily: fonts.medium,
-  },
-  lBottom: { position: 'absolute', gap: 2 },
-  lFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  lTime: {
-    color: overVideo.ink,
-    fontSize: 12,
-    fontFamily: fonts.medium,
-    fontVariant: ['tabular-nums'],
-  },
-  lTimeDim: { color: overVideo.inkDim },
-  spacer: { flex: 1 },
-  unlock: {
-    position: 'absolute',
-    top: '50%',
-    marginTop: -24,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(14,15,24,0.6)',
-    borderWidth: 1,
-    borderColor: 'rgba(233,233,237,0.35)',
-  },
-  flash: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: '33%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  flashLeft: { left: 0 },
-  flashRight: { right: 0 },
-  flashText: { color: overVideo.ink, fontSize: 18, fontFamily: fonts.semiBold },
-  error: {
-    color: '#ff8a8a',
-    textAlign: 'center',
-    paddingHorizontal: 32,
-    fontFamily: fonts.regular,
-  },
-  // Sheets
-  rateRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingTop: 4,
-    paddingBottom: 8,
-  },
-  rateChip: {
-    height: 38,
-    minWidth: 56,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: n.radiusMd,
-    borderWidth: 1,
-    borderColor: n.divider,
-  },
-  rateChipOn: { borderColor: n.accent, backgroundColor: n.accentAlpha(12) },
-  rateChipText: { color: n.text, fontSize: 14, fontFamily: fonts.regular },
-  rateChipTextOn: { color: n.accent200, fontFamily: fonts.medium },
-  momentRow: {
-    minHeight: 64,
-    paddingHorizontal: 20,
-    paddingVertical: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  momentRowOn: { backgroundColor: n.accentAlpha(10) },
-  momentRowThumb: {
-    width: 96,
-    height: 54,
-    borderRadius: 6,
-    overflow: 'hidden',
-    backgroundColor: n.bg,
-  },
-  momentRowLabel: {
-    flex: 1,
-    color: n.text,
-    fontSize: 14,
-    fontFamily: fonts.regular,
-  },
-  momentRowTime: {
-    color: n.accent300,
-    fontSize: 12.5,
-    fontFamily: fonts.medium,
-    fontVariant: ['tabular-nums'],
   },
 });
