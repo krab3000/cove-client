@@ -4,16 +4,19 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { fonts, nocturne as n } from '../filter/theme';
 import { Icon, type IconName } from './Icon';
 
 /**
  * A bottom sheet (Nocturne): surface, 22 px top corners, grabber, over a dimmed screen. A tap on the dim, or Android
- * back, closes it. In a Modal, so it draws over everything (the player included).
+ * back, closes it. In a Modal, so it draws over everything (the player included). Taller than the screen, it
+ * scrolls; on a screen held sideways it is set in from the sides.
  */
 export function Sheet({
   visible,
@@ -24,6 +27,8 @@ export function Sheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const window = useWindowDimensions();
+  const sideways = window.width > window.height;
   return (
     <Modal
       visible={visible}
@@ -40,9 +45,21 @@ export function Sheet({
           onPress={onClose}
           accessibilityLabel="Close"
         />
-        <View style={styles.sheet}>
+        <View
+          style={[
+            styles.sheet,
+            sideways && styles.sheetSideways,
+            sideways && { width: Math.min(640, window.width - 96) },
+          ]}
+        >
           <View style={styles.grabber} />
-          {children}
+          <ScrollView
+            style={styles.scroll}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+          >
+            {children}
+          </ScrollView>
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -115,6 +132,8 @@ const styles = StyleSheet.create({
     backgroundColor: n.surface,
     maxHeight: '85%',
   },
+  sheetSideways: { alignSelf: 'center', paddingBottom: 20 },
+  scroll: { flexGrow: 0 },
   grabber: {
     width: 40,
     height: 4,

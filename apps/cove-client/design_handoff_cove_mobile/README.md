@@ -85,7 +85,7 @@ Phone frames are 390×844, tablet 1180×820 (landscape), phone-landscape 844×39
 **1e · Light, list-first** — Date + "Pick up where you left off" (28px). Large resume rows (132px thumb, title, 4px progress bar, "x min left"). "Your groups" — stacked-cover cards (3 offset images) for Cove groups. Light tab bar.
 
 ### Library
-The phone Library is **one screen with three views**: 2 columns, 3 columns (the default) and list. One header sits on top of all three; the views change only what is under it. Its states are turn 6 (6a–6e). Dark for now; the light theme comes later (open decision 5). Interactive in the standalone document; every frame keeps its own state.
+The phone Library is **one screen with three views**: 2 columns, 3 columns (the default) and list. One header sits on top of all three; the views change only what is under it. Its states are turn 6 (6a–6h). Dark for now; the light theme comes later (open decision 5). Interactive in the standalone document; every frame keeps its own state.
 - **1f** shows the screen in the dense grid with no filter ("All videos").
 - **1g** shows the same screen in list view with a saved filter loaded.
 
@@ -101,7 +101,8 @@ The phone Library is **one screen with three views**: 2 columns, 3 columns (the 
   - Sort "Added" (sort-descending) and Shuffle (Cove's seeded Random sort). The sort sheet is not designed; it should offer Cove's sorts (Date, Added, Title, Rating, Play count, Last played, Duration, Resolution, File size, Random).
   - **Play all**: a 36px round outlined accent button (play, filled), plays the results.
   - The **view switch**: segmented, icon-only, 32×32 each (`squares-four` 2 columns, `dots-nine` 3 columns, `rows` list; labelled for screen readers).
-- **No condition chips on a phone.** Filter shows how many conditions there are and the editor (2a / 2b) lists them; clearing is "All videos" in the Show sheet or in the editor. Wide screens (tablet, desktop) may list the conditions as chips on the toolbar.
+- **No condition chips on a phone**, upright or sideways. Filter shows how many conditions there are and the editor (2a / 2b) lists them; clearing is "All videos" in the Show sheet or in the editor. Large screens (tablet, desktop: shorter side 600 px and up) list the conditions as chips on the toolbar.
+- **Phone, sideways (6f–6h): one header row.** Search (flexible, 40px, shrinks first) · the title (15px / 500, caret) with the count line under it (11.5px; Edited at its start) · Save / Save as… when there is something to save (32px) · Filter with its count · sort and Shuffle (icon buttons) · Play all · the view switch (30px buttons) · the avatar (32px). No tab bar: a 76px icon rail on the left (Home, Library, Feed, Search; the camera's side), so the grid gets the screen's height. The list view shows two cards per row; sheets taller than the screen scroll, set in from the sides.
 - **The view travels with saved filters**, as in Cove, which saves the display mode with the filter: loading one switches to its view, and Save stores the current view (and the search).
 - The list view is not called "Feed": the Feed tab (1i) is the full-screen vertical swipe (Cove's "Vertical Viewer").
 - When switching views, keep the top visible video anchored.
@@ -179,12 +180,15 @@ Keeps a deeply nested filter usable on a phone. Turn 5 of the main document (5a�
 
 
 ### Library header (turn 6)
-The header of the Library (1f, 1g) in its states, top of the main document (6a–6e, interactive; each frame keeps its own state). The parts are described under Library above.
+The header of the Library (1f, 1g) in its states, top of the main document (6a–6h, interactive; each frame keeps its own state). The parts are described under Library above.
 **6a · Unnamed filter** — three conditions, not a saved filter: title "Videos", Filter 3, "Save as…" (it names the filter and keeps the filter, search, sort and view as a new Cove saved filter; the naming step is not designed).
 **6b · Named filter, changed** — a condition taken out of "Northern evenings": Edited at the start of the count line, "Save" writes it back (with the current view and search). Shown in 2 columns.
 **6c · Search text entered** — "drone" in the search field (inset accent ring, ✕): title "Videos", the count follows, "Save as…" offered.
 **6d · The Show sheet** — opened from the title. Rows 52px (accent-300 icon, 15px label, 12px meta, a check on the current one): All videos (count); "Saved filters": each with its count and the view it opens in; "Quick": Unwatched, In progress; a fading rule, then "Save as new filter…" (plus, accent-200; only with a filter or a search). Picking one runs it and closes the sheet.
 **6e · Account sheet** — opened from the avatar: 48px avatar, user name, server (glowing dot, name · address); fading rule; Refresh library; Log out. The account isn't on the Library itself.
+**6f · Phone sideways, all videos** — the one-row header, the rail, 3 columns.
+**6g · Sideways, a saved filter changed** — Edited under the name, Save beside it; the search field gives up the room. 2 columns.
+**6h · Sideways, a search** — Save as…; the list view with two cards per row; the Show sheet scrolls (try the title).
 ---
 
 ## Interactions & behavior (summary)
@@ -197,7 +201,7 @@ The header of the Library (1f, 1g) in its states, top of the main document (6a�
 - Selected/active states always = accent ring or accent text, never solid accent fill.
 
 ## State (as prototyped — see the logic class in the source)
-`server`, `profile`, `sel` (tablet library selection), `playing`, `chrome`, `t` (playhead 0–1), `ptab` (player side tab), `homeTab`, `fTags` (tag → 0 off / 1 include / 2 exclude), `fWatch`, `fDur`, `gOps` (operator index per group), `mMode` (related match mode), `mAny`, `distinct`, `sTokens`, `pPath` / `pSel` / `pQ` (3b: open folder, selected folder, filter text), `pText` (3d: typed path), `lib` (the Library screen per frame — 1f `lf`, 1g `lg`, 6a–6e `ua`…`ue` — each `{ conds, saved, edited, view: 2 | 3 | 'list', q, sheet: null | 'title' | 'account' }`), `marks` (list view's Save for later / Favorite toggles).
+`server`, `profile`, `sel` (tablet library selection), `playing`, `chrome`, `t` (playhead 0–1), `ptab` (player side tab), `homeTab`, `fTags` (tag → 0 off / 1 include / 2 exclude), `fWatch`, `fDur`, `gOps` (operator index per group), `mMode` (related match mode), `mAny`, `distinct`, `sTokens`, `pPath` / `pSel` / `pQ` (3b: open folder, selected folder, filter text), `pText` (3d: typed path), `lib` (the Library screen per frame — 1f `lf`, 1g `lg`, 6a–6e `ua`…`ue`, 6f–6h `la`…`lc` — each `{ conds, saved, edited, view: 2 | 3 | 'list', q, sheet: null | 'title' | 'account' }`), `marks` (list view's Save for later / Favorite toggles).
 Real data comes from Cove's API (see https://yourcove.net/docs/developer/api/overview/): servers via LAN discovery, users/auth, videos (title, duration, resolution, source/studio, tags, performers, groups, markers/segments, generated previews/sprites), personal state (resume position, watch later, history), saved filters, dynamic groups.
 
 ## Open decisions (not yet chosen by product owner)

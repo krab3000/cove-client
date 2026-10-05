@@ -20,7 +20,8 @@ A phone + tablet client for **Cove** (https://yourcove.net), a self-hosted, open
   - The list view is not called "Feed": that name belongs to the vertical Feed tab (1i).
 - Library header (all views, turn 6): search field (Cove's search, like the web UI) + avatar (account sheet: Refresh, Log out); the title says what is shown (All videos / Videos / the saved filter's name) and opens the Show sheet (all videos, saved filters, Unwatched / In progress, Save as new filter); the count line under it (Edited at its start when a saved filter changed); Save / Save as… only when there is something to save.
   - Sticky toolbar: Filter with its count (→ 2a) · Added · Shuffle · Play all (round) · view switch.
-  - No condition chips on phones (the editor lists them); wide screens may show them.
+  - No condition chips on phones, upright or sideways (the editor lists them); large screens (shorter side ≥ 600 px) show them on the toolbar.
+  - Phone sideways (6f–6h): one header row (search · title with count · Save · Filter · sort · Shuffle · Play all · views · avatar), an icon rail instead of the tab bar, two list cards per row.
 - List view (1g): tapping a person or tag on a card adds it to the filter. Cards show Cove's rating, studio, date, play count, Save for later, Favorite and group.
 - Moments (Cove markers) appear as ticks on every timeline and as a tappable list that seeks.
 

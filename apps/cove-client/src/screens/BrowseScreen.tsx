@@ -107,8 +107,11 @@ const touch = Platform.OS === 'android';
 const UP_NEXT = 20;
 // The search applies once typing pauses this long.
 const SEARCH_DELAY_MS = 400;
-// From this width the toolbar lists the filter's conditions as chips (a phone doesn't: the editor does).
-const WIDE = 720;
+// A large screen (tablet, desktop: the shorter side at least this) lists the filter's conditions as chips on the
+// toolbar; a phone doesn't (the editor does).
+const LARGE = 600;
+// A phone held sideways: the list view's cards get this narrow, two in a row (one would be taller than the screen).
+const LIST_TARGET_COMPACT = 320;
 
 // Negative conditions show as struck-through chips (without their "not").
 const NEGATIVE = [
@@ -235,7 +238,16 @@ export function BrowseScreen({
 
   // Measured, not useWindowDimensions: that one does not follow window resizes on Windows.
   const [width, setWidth] = useState(1000);
-  const spec = VIEWS[view];
+  const [height, setHeight] = useState(800);
+  // A phone held sideways (design 6f–6h): the header in one row, two list cards in a row.
+  const compact = width > height && height < LARGE;
+  const spec = useMemo(
+    () =>
+      view === 'list' && compact
+        ? { ...VIEWS.list, target: LIST_TARGET_COMPACT }
+        : VIEWS[view],
+    [view, compact]
+  );
   const columns = Math.max(
     spec.min,
     Math.floor((width - 2 * spec.padX + spec.gapX) / (spec.target + spec.gapX))
@@ -907,12 +919,12 @@ export function BrowseScreen({
     setSheet('saveAs');
   }, []);
   const chips = useMemo(() => {
-    if (width < WIDE) return null;
+    if (Math.min(width, height) < LARGE) return null;
     const list = appliedTree.children.map(chipOf);
     if (hidden)
       list.push({ id: 'more', label: `+ ${hidden} more`, kind: 'more' });
     return list;
-  }, [width, appliedTree, hidden]);
+  }, [width, height, appliedTree, hidden]);
   const removeChip = useCallback(
     (id: string) => commit(removeNode(appliedTree, id)),
     [appliedTree, commit]
@@ -1111,7 +1123,10 @@ export function BrowseScreen({
   return (
     <View
       style={styles.screen}
-      onLayout={(e) => setWidth(Math.round(e.nativeEvent.layout.width))}
+      onLayout={(e) => {
+        setWidth(Math.round(e.nativeEvent.layout.width));
+        setHeight(Math.round(e.nativeEvent.layout.height));
+      }}
     >
       <LibraryHeader
         query={query}
@@ -1136,6 +1151,7 @@ export function BrowseScreen({
         chips={chips}
         onOpenChip={openFilter}
         onRemoveChip={removeChip}
+        compact={compact}
       />
       {error ? (
         <View style={styles.errorRow}>

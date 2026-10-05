@@ -29,8 +29,8 @@ const VIEWS: { view: LibraryView; icon: IconName; label: string }[] = [
  * The Library's header (design turn 6), the same over all three views. Each control has one place: the search field
  * (Cove's search) and the avatar (the account) on top; the title, which says what is shown and opens the Show sheet,
  * with the count line under it and Save / Save as… when there is something to save; then the toolbar: Filter with its
- * count, the sort, Shuffle, Play all and the view switch. A phone lists no conditions (the editor does); a wide
- * screen shows them as chips on the toolbar.
+ * count, the sort, Shuffle, Play all and the view switch. A phone lists no conditions (the editor does); a large
+ * screen shows them as chips on the toolbar. A phone held sideways (compact, design 6f–6h) gets all of it in one row.
  */
 export function LibraryHeader({
   query,
@@ -55,6 +55,7 @@ export function LibraryHeader({
   chips,
   onOpenChip,
   onRemoveChip,
+  compact,
 }: {
   query: string;
   onQuery: (q: string) => void;
@@ -81,8 +82,171 @@ export function LibraryHeader({
   chips: FilterChip[] | null;
   onOpenChip: (id: string) => void;
   onRemoveChip: (id: string) => void;
+  // A phone held sideways: one row
+  compact: boolean;
 }) {
   const active = filterCount > 0;
+  if (compact)
+    return (
+      <View style={styles.compact}>
+        <View
+          style={[
+            styles.search,
+            styles.searchCompact,
+            query ? styles.searchActive : null,
+          ]}
+        >
+          <Icon name="magnifying-glass" size={16} color={n.textAlpha(55)} />
+          <TextInput
+            value={query}
+            onChangeText={onQuery}
+            onSubmitEditing={onSubmitQuery}
+            placeholder="Search videos, tags…"
+            placeholderTextColor={n.textAlpha(45)}
+            returnKeyType="search"
+            autoCorrect={false}
+            autoCapitalize="none"
+            accessibilityLabel="Search"
+            style={[styles.searchInput, styles.searchInputCompact]}
+          />
+          {query ? (
+            <Pressable
+              onPress={() => onQuery('')}
+              accessibilityLabel="Clear search"
+              hitSlop={4}
+              style={styles.searchClearCompact}
+            >
+              <Icon name="x" size={14} color={n.textAlpha(60)} />
+            </Pressable>
+          ) : null}
+        </View>
+        <Pressable
+          onPress={onOpenShow}
+          accessibilityRole="button"
+          accessibilityLabel={`Show: ${title}`}
+          style={({ pressed }) => [
+            styles.titleCompact,
+            pressed && styles.pressedBg,
+          ]}
+        >
+          <View style={styles.titleLine}>
+            {savedFilter ? (
+              <Icon
+                name="bookmarks-simple"
+                fill
+                size={14}
+                color={n.accent300}
+              />
+            ) : null}
+            <Text style={styles.titleTextCompact} numberOfLines={1}>
+              {title}
+            </Text>
+            <Icon name="caret-down" size={12} color={n.textAlpha(55)} />
+          </View>
+          <View style={styles.countLine}>
+            {edited ? (
+              <Text style={[styles.edited, styles.editedCompact]}>Edited</Text>
+            ) : null}
+            <Text style={[styles.count, styles.countCompact]} numberOfLines={1}>
+              {countLine}
+            </Text>
+          </View>
+        </Pressable>
+        {saveLabel ? (
+          <Pressable
+            onPress={onSave}
+            style={({ pressed }) => [
+              styles.save,
+              styles.saveCompact,
+              pressed && styles.accentBg,
+            ]}
+          >
+            <Text style={[styles.saveText, styles.saveTextCompact]}>
+              {saveLabel}
+            </Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={onOpenFilter}
+          accessibilityRole="button"
+          accessibilityLabel={
+            active ? `Filter, ${filterCount} conditions` : 'Filter'
+          }
+          style={[styles.filterButton, active && styles.filterButtonActive]}
+        >
+          <Icon
+            name="funnel-simple"
+            size={16}
+            color={active ? n.accent200 : n.text}
+          />
+          <Text style={[styles.filterText, active && styles.filterTextActive]}>
+            Filter
+          </Text>
+          {active ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{filterCount}</Text>
+            </View>
+          ) : null}
+        </Pressable>
+        <View
+          accessibilityLabel={
+            shuffled ? 'Sort: random' : 'Sort: added, newest first'
+          }
+          style={styles.icon36}
+        >
+          <Icon name="sort-descending" size={17} color={n.textAlpha(75)} />
+        </View>
+        <Pressable
+          onPress={onShuffle}
+          accessibilityLabel="Shuffle"
+          accessibilityState={{ selected: shuffled }}
+          style={[styles.icon36, shuffled && styles.shuffleOn]}
+        >
+          <Icon
+            name="shuffle"
+            size={17}
+            color={shuffled ? n.accent : n.textAlpha(75)}
+          />
+        </Pressable>
+        <Pressable
+          onPress={onPlayAll}
+          accessibilityLabel="Play all"
+          style={({ pressed }) => [styles.play, pressed && styles.accentBg]}
+        >
+          <Icon name="play" fill size={13} color={n.accent200} />
+        </Pressable>
+        <View style={styles.views}>
+          {VIEWS.map((v) => (
+            <Pressable
+              key={v.view}
+              onPress={() => onView(v.view)}
+              accessibilityLabel={v.label}
+              accessibilityState={{ selected: view === v.view }}
+              style={[
+                styles.viewButton,
+                styles.viewButtonCompact,
+                view === v.view && styles.viewOn,
+              ]}
+            >
+              <Icon
+                name={v.icon}
+                size={15}
+                color={view === v.view ? n.accent : n.textAlpha(60)}
+              />
+            </Pressable>
+          ))}
+        </View>
+        <Pressable
+          onPress={onOpenAccount}
+          accessibilityLabel="Account"
+          style={styles.avatarButtonCompact}
+        >
+          <View style={styles.avatarCompact}>
+            <Text style={styles.avatarTextCompact}>{avatar}</Text>
+          </View>
+        </Pressable>
+      </View>
+    );
   return (
     <View>
       <View style={styles.searchRow}>
@@ -307,6 +471,73 @@ const CHIP_LOOK: Record<FilterChip['kind'], { bg: string; ink: string }> = {
 };
 
 const styles = StyleSheet.create({
+  // Compact: a phone held sideways, one row
+  compact: {
+    height: 60,
+    paddingLeft: 8,
+    paddingRight: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  searchCompact: {
+    flexGrow: 1,
+    flexShrink: 1,
+    flexBasis: 170,
+    minWidth: 110,
+    height: 40,
+    paddingLeft: 12,
+    paddingRight: 2,
+    gap: 8,
+  },
+  searchInputCompact: { fontSize: 14 },
+  searchClearCompact: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  titleCompact: {
+    flexShrink: 1,
+    maxWidth: 220,
+    minWidth: 0,
+    height: 44,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    borderRadius: n.radiusMd,
+    gap: 1,
+  },
+  titleTextCompact: {
+    flexShrink: 1,
+    color: n.text,
+    fontSize: 15,
+    lineHeight: 19,
+    fontFamily: fonts.medium,
+  },
+  editedCompact: { fontSize: 10.5, lineHeight: 15, paddingHorizontal: 5 },
+  countCompact: { fontSize: 11.5 },
+  saveCompact: { height: 32, paddingHorizontal: 10 },
+  saveTextCompact: { fontSize: 12.5 },
+  viewButtonCompact: { width: 30, height: 30 },
+  avatarButtonCompact: {
+    width: 40,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarCompact: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: n.accent800,
+  },
+  avatarTextCompact: {
+    color: n.accent100,
+    fontSize: 14,
+    fontFamily: fonts.medium,
+  },
   searchRow: {
     paddingTop: 6,
     paddingHorizontal: 16,

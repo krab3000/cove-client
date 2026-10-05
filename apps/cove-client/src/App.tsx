@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { CoveClient } from './api/cove';
 import type { Video } from './api/types';
 import { colors } from './components/Controls';
@@ -9,6 +9,8 @@ import { PlayerScreen } from './screens/PlayerScreen';
 
 export default function App() {
   const [client, setClient] = useState<CoveClient | null>(null);
+  const window = useWindowDimensions();
+  const sideways = window.width > window.height;
   // The video playing and the ones after it (the player's Up next); Autoplay plays the next one at the end.
   const [playing, setPlaying] = useState<{
     video: Video;
@@ -29,7 +31,13 @@ export default function App() {
 
   return (
     <View style={styles.app}>
-      <View style={styles.content}>
+      <View
+        style={[
+          styles.content,
+          Platform.OS === 'android' &&
+            (sideways ? styles.androidSideways : styles.androidUpright),
+        ]}
+      >
         {!client ? (
           <LoginScreen onLogin={setClient} />
         ) : (
@@ -63,9 +71,9 @@ export default function App() {
 
 const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: colors.background },
-  content: {
-    flex: 1,
-    // Android 15 draws edge to edge: keep clear of the status and navigation bars.
-    ...(Platform.OS === 'android' && { paddingTop: 36, paddingBottom: 48 }),
-  },
+  content: { flex: 1 },
+  // Android 15 draws edge to edge: keep clear of the status and navigation bars, and sideways of the camera cutout
+  // (on either side, depending on which way the phone turned).
+  androidUpright: { paddingTop: 36, paddingBottom: 48 },
+  androidSideways: { paddingTop: 28, paddingBottom: 12, paddingHorizontal: 40 },
 });

@@ -1057,7 +1057,7 @@ export function PlayerScreen({
       {/* 1l's Moments pill: the moments as a list that seeks */}
       <Sheet visible={sheet === 'moments'} onClose={() => setSheet(null)}>
         <SheetHeading>Moments</SheetHeading>
-        <ScrollView style={styles.momentList}>
+        <View>
           {segments.map((s) => {
             const on = current?.id === s.id;
             return (
@@ -1093,7 +1093,7 @@ export function PlayerScreen({
               </Pressable>
             );
           })}
-        </ScrollView>
+        </View>
       </Sheet>
     </View>
   );
@@ -1556,7 +1556,6 @@ const styles = StyleSheet.create({
   rateChipOn: { borderColor: n.accent, backgroundColor: n.accentAlpha(12) },
   rateChipText: { color: n.text, fontSize: 14, fontFamily: fonts.regular },
   rateChipTextOn: { color: n.accent200, fontFamily: fonts.medium },
-  momentList: { maxHeight: 420 },
   momentRow: {
     minHeight: 64,
     paddingHorizontal: 20,
