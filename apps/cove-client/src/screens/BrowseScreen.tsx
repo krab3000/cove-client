@@ -20,7 +20,6 @@ import {
 } from 'react-native';
 import { type CoveClient } from '../api/cove';
 import type {
-  Aggregate,
   FilterExpression,
   SavedFilter,
   Video,
@@ -75,6 +74,12 @@ import { prefs } from '../state/prefs';
 import { useSnapshot } from 'valtio';
 import { useVideoPages } from '../data/videoPages';
 import { GridRow } from '../components/GridRow';
+import {
+  useAggregate,
+  useKeepSavedFilter,
+  useSavedFilters,
+  useVideoCounts,
+} from '../data/library';
 
 // Space above the first row.
 const TOP = 8;
@@ -186,11 +191,11 @@ export function BrowseScreen({
   const [sheet, setSheet] = useState<'show' | 'account' | 'saveAs' | null>(
     null
   );
-  const [sheetCounts, setSheetCounts] = useState<Record<string, number>>({});
+
   const [newName, setNewName] = useState('');
   const [sheetError, setSheetError] = useState('');
-  const [savedFilters, setSavedFilters] = useState<SavedFilter[]>([]);
-  const [aggregate, setAggregate] = useState<Aggregate | null>(null);
+  const savedFilters = useSavedFilters();
+  const keepSavedFilter = useKeepSavedFilter();
   // Cove's seeded random sort while shuffled; null = newest first.
   const [seed, setSeed] = useState<number | null>(null);
   const seedRef = useRef<number | null>(null);
@@ -475,17 +480,7 @@ export function BrowseScreen({
   );
 
   // The count line: count, total duration and size of what the filter and search match.
-  useEffect(() => {
-    let alive = true;
-    setAggregate(null);
-    client.aggregateVideos(applied, searched).then(
-      (a) => alive && setAggregate(a),
-      () => {}
-    );
-    return () => {
-      alive = false;
-    };
-  }, [client, applied, searched]);
+  const aggregate = useAggregate(applied, searched);
 
   // The search: the grid follows once typing pauses (or at once on the keyboard's search key).
   const applySearch = useCallback(
@@ -523,11 +518,6 @@ export function BrowseScreen({
     searchedRef.current = text.trim();
     setSearched(text.trim());
   };
-
-  // The user's saved filters (the Show sheet lists them).
-  useEffect(() => {
-    client.savedFilters().then(setSavedFilters, () => {});
-  }, [client]);
 
   /** Shows a changed tree: its chips, its results; a loaded saved filter is now Edited. */
   const commit = useCallback(
@@ -628,15 +618,13 @@ export function BrowseScreen({
           searched
         )
       );
-      setSavedFilters((list) =>
-        list.map((f) => (f.id === updated.id ? updated : f))
-      );
+      keepSavedFilter(updated);
       setSaved({ filter: updated, loaded: loadSavedFilter(updated) });
       showSaved(savingTree);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
-  }, [client, saved, savingTree, showSaved, view, searched]);
+  }, [client, saved, savingTree, showSaved, view, searched, keepSavedFilter]);
 
   // Save as…: the filter, search and view as a new saved filter, under a name.
   const saveAs = useCallback(async () => {
@@ -650,16 +638,14 @@ export function BrowseScreen({
           searched
         )
       );
-      setSavedFilters((list) =>
-        [...list, created].sort((a, b) => a.name.localeCompare(b.name))
-      );
+      keepSavedFilter(created);
       setSaved({ filter: created, loaded: loadSavedFilter(created) });
       showSaved(savingTree);
       setSheet(null);
     } catch (e) {
       setSheetError(e instanceof Error ? e.message : String(e));
     }
-  }, [client, newName, savingTree, showSaved, view, searched]);
+  }, [client, newName, savingTree, showSaved, view, searched, keepSavedFilter]);
 
   // The filter screen's Show / Play: the tree being edited becomes the one shown.
   const showFilter = useCallback(
@@ -846,26 +832,17 @@ export function BrowseScreen({
     [commit]
   );
   // The Show sheet's counts: all videos, and each saved filter as it runs (with its search).
-  useEffect(() => {
-    if (sheet !== 'show' && !large) return;
-    let alive = true;
-    const counted = (key: string, num: number) =>
-      alive && setSheetCounts((c) => ({ ...c, [key]: num }));
-    client.countVideos(null).then(
-      (num) => counted('all', num),
-      () => {}
-    );
-    for (const f of savedFilters) {
-      const loaded = loadSavedFilter(f);
-      client.countVideos(loaded.wire, loaded.q).then(
-        (num) => counted(`saved-${f.id}`, num),
-        () => {}
-      );
-    }
-    return () => {
-      alive = false;
-    };
-  }, [sheet, large, client, savedFilters]);
+  const countEntries = useMemo(
+    () => [
+      { key: 'all', filter: null },
+      ...savedFilters.map((f) => {
+        const loaded = loadSavedFilter(f);
+        return { key: `saved-${f.id}`, filter: loaded.wire, q: loaded.q };
+      }),
+    ],
+    [savedFilters]
+  );
+  const sheetCounts = useVideoCounts(countEntries, sheet === 'show' || large);
   const quickOn = (c: Condition) =>
     !saved &&
     conditions === 1 &&

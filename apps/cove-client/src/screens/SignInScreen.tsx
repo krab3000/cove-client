@@ -40,6 +40,7 @@ import { ago, initialOf } from '../lib/format';
 import { isLarge } from '../theme/layout';
 import { MenuSheet, Popover, type MenuEntry } from '../ui/Menu';
 import { Layer, useBackHandler } from '../app/back';
+import { useAskAgain, useReachability } from '../data/library';
 
 const RADIUS_LG = 14;
 // A large screen (tablet): the servers and the selected one's accounts side by side (design 1n)
@@ -95,30 +96,27 @@ export function SignInScreen({
   );
 
   // Which servers answer (undefined: still asking); asked again on Try again
-  const [reached, setReached] = useState<Record<string, boolean>>({});
-  const [asking, setAsking] = useState(0);
-  const addresses = state.servers.map((s) => `${s.id} ${s.address}`).join('\n');
+  const answers = useReachability(state.servers.map((s) => s.address));
+  const reached: Record<string, boolean | undefined> = Object.fromEntries(
+    state.servers.map((s, i) => [s.id, answers[i]])
+  );
+  const askAgain = useAskAgain();
+  // A server that answered: when it was last reached (the list says so while it is away)
+  const answered = state.servers
+    .filter((_, i) => answers[i] === true)
+    .map((s) => s.id)
+    .join(' ');
   useEffect(() => {
-    let alive = true;
-    for (const line of addresses.split('\n').filter(Boolean)) {
-      const [id = '', address = ''] = line.split(' ');
-      CoveClient.reachable(address).then((ok) => {
-        if (!alive) return;
-        setReached((r) => ({ ...r, [id]: ok }));
-        if (ok)
-          onChange((s) =>
-            withServer(s, id, (x) => ({ ...x, lastReached: Date.now() }))
-          );
-      });
-    }
-    return () => {
-      alive = false;
-    };
-  }, [addresses, onChange, asking]);
-  const askAgain = useCallback(() => {
-    setReached({});
-    setAsking((x) => x + 1);
-  }, []);
+    if (!answered) return;
+    const now = Date.now();
+    const ids = new Set(answered.split(' '));
+    onChange((s) => ({
+      ...s,
+      servers: s.servers.map((x) =>
+        ids.has(x.id) ? { ...x, lastReached: now } : x
+      ),
+    }));
+  }, [answered, onChange]);
 
   // ⋮: the server, and on a tablet where its popover goes
   const [menu, setMenu] = useState<{
@@ -308,7 +306,7 @@ function Servers({
   onAdd,
 }: {
   state: SignIn;
-  reached: Record<string, boolean>;
+  reached: Record<string, boolean | undefined>;
   // A tablet's selected server (its accounts beside the list)
   selectedId: string | null;
   large: boolean;

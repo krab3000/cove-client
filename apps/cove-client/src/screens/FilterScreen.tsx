@@ -61,6 +61,8 @@ import { useSafeInsets } from '../platform/insets';
 import { EditedTag } from '../ui/Chip';
 import { MenuSheet } from '../ui/Menu';
 import { Layer, useBackHandler } from '../app/back';
+import { useVideoCount } from '../data/library';
+import { useDebouncedValue } from '../lib/timers';
 
 /**
  * Design 2b (design_handoff_cove_mobile, "Rule tree as an outline"), for phones: a Cove filter as an outline of
@@ -109,7 +111,9 @@ export function FilterScreen({
   const wire = useMemo(() => toWire(tree), [tree]);
   const wireJson = JSON.stringify(wire);
   const edited = wireJson !== JSON.stringify(applied ?? null);
-  const [count, setCount] = useState<number | null>(null);
+  // The live count, once the tree has settled for a moment
+  const settledWire = useDebouncedValue(wireJson, 300);
+  const count = useVideoCount(JSON.parse(settledWire), undefined) ?? null;
   const [editing, setEditing] = useState<{
     groupId: string;
     condition?: Condition;
@@ -214,22 +218,6 @@ export function FilterScreen({
       scroll.current?.scrollTo({ y, animated: false })
     );
   }, [focus.id, slide]);
-
-  // The live count, once the tree has settled for a moment.
-  useEffect(() => {
-    let current = true;
-    setCount(null);
-    const timer = setTimeout(() => {
-      client.countVideos(JSON.parse(wireJson)).then(
-        (c) => current && setCount(c),
-        () => {}
-      );
-    }, 300);
-    return () => {
-      current = false;
-      clearTimeout(timer);
-    };
-  }, [client, wireJson]);
 
   useBackHandler(() => {
     if (editing) setEditing(null);
