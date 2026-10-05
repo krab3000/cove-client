@@ -6,9 +6,9 @@ import {
   Text,
   View,
 } from 'react-native';
-import { primaryFile, type CoveClient } from '../api/cove';
-import type { Video } from '../api/types';
-import { fonts, nocturne as n } from '../theme/tokens';
+import { primaryFile, type CoveClient } from '../../../api/cove';
+import type { Video } from '../../../api/types';
+import { fonts, nocturne as n } from '../../../theme/tokens';
 import {
   formatDuration,
   resolutionLabel,
@@ -16,21 +16,21 @@ import {
   groupLabel,
   stars,
   videoMeta,
-} from '../lib/format';
-import { Icon } from '../ui/Icon';
+} from '../../../lib/format';
+import { Icon } from '../../../ui/Icon';
 
-import { Button } from '../ui/Button';
-import { CloseButton } from '../ui/IconButton';
-import { Rule, SectionLabel } from '../ui/Text';
-import { PersonChip, TagChip } from '../ui/Chip';
-import { RatingPill, ThumbBadge, ResumeBar } from '../ui/Thumb';
-import { MarkToggle } from '../ui/Toggle';
+import { Button } from '../../../ui/Button';
+import { CloseButton } from '../../../ui/IconButton';
+import { Rule, SectionLabel } from '../../../ui/Text';
+import { PersonChip, TagChip } from '../../../ui/Chip';
+import { RatingPill, ThumbBadge, ResumeBar } from '../../../ui/Thumb';
+import { MarkToggle } from '../../../ui/Toggle';
 import {
   usePersonal,
   useSegments,
   useToggleFavorite,
   useToggleSavedForLater,
-} from '../data/personal';
+} from '../../../data/personal';
 
 /**
  * The tablet Library's preview (design 1h, in a Drawer): the video picked in the grid — a header with ✕; its cover with the rating, the resume

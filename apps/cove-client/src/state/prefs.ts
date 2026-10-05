@@ -1,5 +1,5 @@
 import { proxy, snapshot, subscribe } from 'valtio';
-import type { LibraryView } from '../components/LibraryHeader';
+import type { LibraryView } from '../features/library/components/LibraryHeader';
 import { readItem, writeItem } from './storage';
 
 const KEY = 'cove/prefs/v1';

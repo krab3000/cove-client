@@ -1,9 +1,9 @@
 import { memo } from 'react';
 import { StyleSheet, View } from 'react-native';
-import type { CoveClient } from '../api/cove';
-import type { Video } from '../api/types';
-import { useRowVideos, type VideoPages } from '../data/videoPages';
-import type { IndexRange, Selection } from '../lib/selection';
+import type { CoveClient } from '../../../api/cove';
+import type { Video } from '../../../api/types';
+import { useRowVideos, type VideoPages } from '../../../data/videoPages';
+import type { IndexRange, Selection } from '../../../lib/selection';
 import type { LibraryView } from './LibraryHeader';
 import { PlaceholderCard, VideoCard } from './VideoCard';
 import { VideoRow } from './VideoRow';

@@ -1,9 +1,9 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import type { SavedFilter } from '../api/types';
-import { fonts, nocturne as n } from '../theme/tokens';
-import { Icon, type IconName } from '../ui/Icon';
-import { Avatar } from '../ui/Avatar';
-import { formatCount } from '../lib/format';
+import type { SavedFilter } from '../../../api/types';
+import { fonts, nocturne as n } from '../../../theme/tokens';
+import { Icon, type IconName } from '../../../ui/Icon';
+import { Avatar } from '../../../ui/Avatar';
+import { formatCount } from '../../../lib/format';
 
 /** What the Library shows, as the sidebar marks it. */
 export type SidebarActive =

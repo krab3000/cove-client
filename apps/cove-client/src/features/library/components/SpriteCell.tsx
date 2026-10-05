@@ -1,5 +1,5 @@
 import { Image, View } from 'react-native';
-import type { SpriteCue, SpriteSheet } from '../api/cove';
+import type { SpriteCue, SpriteSheet } from '../../../api/cove';
 
 /**
  * One cell of Cove's sprite sheet (the frames its generate task takes across a video), filling width × height:

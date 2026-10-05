@@ -7,9 +7,9 @@ import {
   Text,
   View,
 } from 'react-native';
-import { primaryFile, type CoveClient } from '../api/cove';
-import type { Video } from '../api/types';
-import { fonts, nocturne as n } from '../theme/tokens';
+import { primaryFile, type CoveClient } from '../../../api/cove';
+import type { Video } from '../../../api/types';
+import { fonts, nocturne as n } from '../../../theme/tokens';
 import {
   formatDuration,
   resolutionLabel,
@@ -17,28 +17,29 @@ import {
   groupLabel,
   stars,
   videoMeta,
-} from '../lib/format';
-import { Icon } from '../ui/Icon';
+} from '../../../lib/format';
+import { Icon } from '../../../ui/Icon';
 import { HoverPreview } from './HoverPreview';
 import {
   useInRange,
   useIsSelected,
   type IndexRange,
   type Selection,
-} from '../lib/selection';
-import { PersonChip, TagChip } from '../ui/Chip';
-import { LoadingBar, RatingPill, ResumeBar, ThumbBadge } from '../ui/Thumb';
-import { MarkToggle } from '../ui/Toggle';
+} from '../../../lib/selection';
+import { PersonChip, TagChip } from '../../../ui/Chip';
+import {
+  LoadingBar,
+  RatingPill,
+  ResumeBar,
+  ThumbBadge,
+} from '../../../ui/Thumb';
+import { MarkToggle } from '../../../ui/Toggle';
 import {
   usePersonal,
   useToggleFavorite,
   useToggleSavedForLater,
-} from '../data/personal';
-
-/** The list card's height for a width: the 16:9 thumbnail, the title block and the chip row (all fixed). */
-export function listCardHeight(width: number): number {
-  return Math.round((width * 9) / 16) + 10 + 44 + 10 + 28;
-}
+} from '../../../data/personal';
+import { listCardHeight } from '../layout';
 
 /**
  * A Library list card (design 1g): one video per row, to decide without opening it. Cove's rating, resolution and

@@ -1,24 +1,24 @@
 import { memo, useEffect, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
-import { primaryFile, type CoveClient } from '../api/cove';
-import type { Video } from '../api/types';
-import { fonts, nocturne as n } from '../theme/tokens';
+import { primaryFile, type CoveClient } from '../../../api/cove';
+import type { Video } from '../../../api/types';
+import { fonts, nocturne as n } from '../../../theme/tokens';
 import {
   formatDuration,
   resolutionLabel,
   videoSubtitle,
   videoTitle,
-} from '../lib/format';
+} from '../../../lib/format';
 import { HoverPreview } from './HoverPreview';
-import { Icon } from '../ui/Icon';
+import { Icon } from '../../../ui/Icon';
 import {
   useInRange,
   useIsSelected,
   type IndexRange,
   type Selection,
-} from '../lib/selection';
-import { LoadingBar, ResumeBar, ThumbBadge } from '../ui/Thumb';
-import { usePersonal } from '../data/personal';
+} from '../../../lib/selection';
+import { LoadingBar, ResumeBar, ThumbBadge } from '../../../ui/Thumb';
+import { usePersonal } from '../../../data/personal';
 
 /**
  * A Library grid tile (design 1f): the cover (or a placeholder until Cove's generate task has made one) with one
@@ -148,13 +148,6 @@ export const VideoCard = memo(function VideoCard({
     </Pressable>
   );
 });
-
-/** The tile's height below its 16:9 thumbnail: the title, and the studio line in the roomier grid. */
-export function tileTextHeight(showStudio: boolean): number {
-  return 5 + 16 + (showStudio ? 1 + 15 : 0);
-}
-
-/** How far the user got: a thin accent bar along the bottom of a thumbnail. */
 
 const styles = StyleSheet.create({
   // Rounded on its own: React Native Windows does not clip children to a parent's rounded corners.

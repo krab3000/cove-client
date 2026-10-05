@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import type { SpriteSheet } from '../api/cove';
 import { formatDuration } from '../lib/format';
 import { nocturne as n } from '../theme/tokens';
-import { SpriteCell } from './SpriteCell';
+import { SpriteCell } from '../features/library/components/SpriteCell';
 
 const WIDTH = 240;
 

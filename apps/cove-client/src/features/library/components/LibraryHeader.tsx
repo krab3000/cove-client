@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { fonts, nocturne as n } from '../theme/tokens';
-import { Icon, type IconName } from '../ui/Icon';
-import { Avatar } from '../ui/Avatar';
-import { EditedTag } from '../ui/Chip';
+import { fonts, nocturne as n } from '../../../theme/tokens';
+import { Icon, type IconName } from '../../../ui/Icon';
+import { Avatar } from '../../../ui/Avatar';
+import { EditedTag } from '../../../ui/Chip';
 
 export type LibraryView = 'grid2' | 'grid3' | 'list';
 

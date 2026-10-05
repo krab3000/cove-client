@@ -18,26 +18,15 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { type CoveClient } from '../api/cove';
-import type {
-  FilterExpression,
-  SavedFilter,
-  Video,
-} from '../api/types';
-import { LibraryHeader, type LibraryView } from '../components/LibraryHeader';
+import { type CoveClient } from '../../api/cove';
+import type { FilterExpression, SavedFilter, Video } from '../../api/types';
+import { LibraryHeader, type LibraryView } from './components/LibraryHeader';
 import {
   LibrarySidebar,
   type SidebarActive,
-} from '../components/LibrarySidebar';
-import { Drawer } from '../ui/Drawer';
-import { VideoDetail } from '../components/VideoDetail';
-import {
-  Sheet,
-  SheetHeading,
-  SheetRow,
-  SheetRule,
-  SheetSection,
-} from '../ui/Sheet';
+} from './components/LibrarySidebar';
+import { Drawer } from '../../ui/Drawer';
+import { VideoDetail } from './components/VideoDetail';
 import {
   appendTo,
   emptyTree,
@@ -47,52 +36,47 @@ import {
   type Condition,
   type Group,
   type Node,
-} from '../features/filter/model';
+} from '../filter/model';
 import {
   loadSavedFilter,
   newSavedFilter,
   savedFilterChange,
   type LoadedFilter,
-} from '../features/filter/saved';
-import { fonts, nocturne as n } from '../theme/tokens';
-import { FilterScreen } from '../features/filter/FilterScreen';
-import { createSelection, NO_RANGE, type IndexRange } from '../lib/selection';
-import { tileTextHeight } from '../components/VideoCard';
-import { listCardHeight } from '../components/VideoRow';
-import { prefetchMedia } from '../player';
+} from '../filter/saved';
+import { fonts, nocturne as n } from '../../theme/tokens';
+import { FilterScreen } from '../filter/FilterScreen';
+import {
+  createSelection,
+  NO_RANGE,
+  type IndexRange,
+} from '../../lib/selection';
+
+import { prefetchMedia } from '../../player';
 import WheelCapture, {
   type WheelEvent,
-} from '../native/WheelCaptureNativeComponent';
-import { formatSize } from '../lib/format';
-import { isLarge } from '../theme/layout';
-import { Button } from '../ui/Button';
-import { ErrorText, Spinner, StatusDot } from '../ui/Text';
-import { TextField } from '../ui/TextField';
-import { Avatar } from '../ui/Avatar';
-import { Layer, useBackHandler } from '../app/back';
-import { prefs } from '../state/prefs';
+} from '../../native/WheelCaptureNativeComponent';
+import { formatSize } from '../../lib/format';
+import { isLarge } from '../../theme/layout';
+import { Button } from '../../ui/Button';
+import { ErrorText, Spinner } from '../../ui/Text';
+import { Layer, useBackHandler } from '../../app/back';
+import { prefs } from '../../state/prefs';
 import { useSnapshot } from 'valtio';
-import { useVideoPages } from '../data/videoPages';
-import { GridRow } from '../components/GridRow';
+import { useVideoPages } from '../../data/videoPages';
+import { GridRow } from './components/GridRow';
 import {
   useAggregate,
   useKeepSavedFilter,
   useSavedFilters,
   useVideoCounts,
-} from '../data/library';
+} from '../../data/library';
+import { AccountSheet } from './components/AccountSheet';
+import { SaveAsSheet } from './components/SaveAsSheet';
+import { ShowSheet } from './components/ShowSheet';
+import { useGridLayout } from './layout';
 
 // Space above the first row.
 const TOP = 8;
-// The three views of the Library (design 1f/1g). A phone gets the named number of columns; a wider window fits
-// more, none narrower than `target`.
-const VIEWS: Record<
-  LibraryView,
-  { min: number; target: number; padX: number; gapX: number; gapY: number }
-> = {
-  grid2: { min: 2, target: 300, padX: 16, gapX: 12, gapY: 16 },
-  grid3: { min: 3, target: 190, padX: 16, gapX: 8, gapY: 12 },
-  list: { min: 1, target: 520, padX: 20, gapX: 20, gapY: 28 },
-};
 // One wheel notch scrolls this much of a row (React Native Windows' own step is 120 px).
 const WHEEL_ROWS_PER_NOTCH = 0.75;
 // Pages load once scrolling rests this long (dragging the scrollbar across the library loads nothing on the way).
@@ -110,8 +94,6 @@ const SEARCH_DELAY_MS = 400;
 
 // The docked filter (2d) applies to the results once editing pauses this long.
 const DOCKED_APPLY_MS = 500;
-// A phone held sideways: the list view's cards get this narrow, two in a row (one would be taller than the screen).
-const LIST_TARGET_COMPACT = 320;
 
 const condition = (
   field: string,
@@ -156,7 +138,7 @@ const BUILT_IN: {
  * screen around them); rows whose page has not arrived show placeholders. FlatList renders only the rows near the
  * viewport.
  */
-export function BrowseScreen({
+export function LibraryScreen({
   client,
   onPlay,
   onLogout,
@@ -223,27 +205,11 @@ export function BrowseScreen({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   useBackHandler(drawerOpen && (() => setDrawerOpen(false)), Layer.drawer);
-  const spec = useMemo(
-    () =>
-      view === 'list' && compact
-        ? { ...VIEWS.list, target: LIST_TARGET_COMPACT }
-        : VIEWS[view],
-    [view, compact]
+  const { spec, columns, cardWidth, cardHeight, rowHeight } = useGridLayout(
+    listWidth,
+    view,
+    compact
   );
-  const columns = Math.max(
-    spec.min,
-    Math.floor(
-      (listWidth - 2 * spec.padX + spec.gapX) / (spec.target + spec.gapX)
-    )
-  );
-  const cardWidth = Math.floor(
-    (listWidth - 2 * spec.padX - spec.gapX * (columns - 1)) / columns
-  );
-  const cardHeight =
-    view === 'list'
-      ? listCardHeight(cardWidth)
-      : Math.round((cardWidth * 9) / 16) + tileTextHeight(view === 'grid2');
-  const rowHeight = cardHeight + spec.gapY;
 
   // --- Pages ---------------------------------------------------------------------------------------------------
   // The list's pages live in the query cache, keyed by the filter, the search and the order: another of those is
@@ -848,8 +814,7 @@ export function BrowseScreen({
     conditions === 1 &&
     JSON.stringify(toWire(appliedTree)) ===
       JSON.stringify(toWire({ ...emptyTree(), children: [c] }));
-  const videos = (num: number | undefined) =>
-    num == null ? '…' : `${num.toLocaleString('en-US')} videos`;
+
   const count = aggregate?.count ?? total;
   const countLine =
     count == null
@@ -1131,128 +1096,44 @@ export function BrowseScreen({
         />
       ) : null}
 
-      {/* The title's Show sheet (6d) */}
-      <Sheet visible={sheet === 'show'} onClose={() => setSheet(null)}>
-        <SheetHeading>Show</SheetHeading>
-        <SheetRow
-          icon="film-strip"
-          label="All videos"
-          meta={videos(sheetCounts.all)}
-          checked={!saved && !conditions && !searched}
-          onPress={showAll}
-        />
-        {savedFilters.length ? (
-          <SheetSection>Saved filters</SheetSection>
-        ) : null}
-        {savedFilters.map((f) => {
-          const opens = loadSavedFilter(f).view;
-          return (
-            <SheetRow
-              key={f.id}
-              icon="bookmarks-simple"
-              label={f.name}
-              meta={[
-                videos(sheetCounts[`saved-${f.id}`]),
-                opens ? `opens in ${opens}` : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-              checked={saved?.filter.id === f.id}
-              onPress={() => {
-                setSheet(null);
-                loadSaved(f);
-              }}
-            />
-          );
-        })}
-        <SheetSection>Quick</SheetSection>
-        {BUILT_IN.map((q) => (
-          <SheetRow
-            key={q.key}
-            icon={q.icon}
-            label={q.label}
-            checked={quickOn(q.make())}
-            onPress={() => showQuick(q.make)}
-          />
-        ))}
-        {conditions || searched ? (
-          <>
-            <SheetRule />
-            <SheetRow
-              icon="plus"
-              label="Save as new filter…"
-              meta="The filter, search and view"
-              accent
-              onPress={openSaveAs}
-            />
-          </>
-        ) : null}
-      </Sheet>
-
-      {/* The avatar's account sheet (6e) */}
-      <Sheet visible={sheet === 'account'} onClose={() => setSheet(null)}>
-        <View style={styles.account}>
-          <Avatar name={client.username} size={48} letters="one" />
-          <View style={styles.accountText}>
-            <Text style={styles.accountName} numberOfLines={1}>
-              {client.username}
-            </Text>
-            <View style={styles.accountServer}>
-              <StatusDot on />
-              <Text style={styles.accountServerText} numberOfLines={1}>
-                {client.server.replace(/^https?:\/\//, '')}
-              </Text>
-            </View>
-          </View>
-        </View>
-        <SheetRule />
-        <SheetRow
-          icon="arrow-clockwise"
-          label="Refresh library"
-          onPress={() => {
-            setSheet(null);
-            refresh();
-          }}
-        />
-        <SheetRow
-          icon="sign-out"
-          label="Log out"
-          onPress={() => {
-            setSheet(null);
-            onLogout();
-          }}
-        />
-      </Sheet>
-
-      {/* Save as…: a name for the new saved filter */}
-      <Sheet visible={sheet === 'saveAs'} onClose={() => setSheet(null)}>
-        <SheetHeading>Save as a new filter</SheetHeading>
-        <Text style={styles.saveAsHint}>
-          The filter, the search and the view, as a saved filter in Cove.
-        </Text>
-        <TextField
-          value={newName}
-          onChangeText={(t) => {
-            setNewName(t);
-            setSheetError('');
-          }}
-          onSubmitEditing={saveAs}
-          placeholder="Name"
-          autoFocus
-          returnKeyType="done"
-          style={styles.nameInput}
-        />
-        {sheetError ? (
-          <ErrorText style={styles.sheetError}>{sheetError}</ErrorText>
-        ) : null}
-        <Button
-          label="Save"
-          size="lg"
-          disabled={!newName.trim()}
-          onPress={saveAs}
-          style={styles.saveButton}
-        />
-      </Sheet>
+      <ShowSheet
+        visible={sheet === 'show'}
+        onClose={() => setSheet(null)}
+        counts={sheetCounts}
+        allChecked={!saved && !conditions && !searched}
+        onAll={showAll}
+        savedFilters={savedFilters}
+        savedId={saved?.filter.id ?? null}
+        onSaved={loadSaved}
+        quick={BUILT_IN.map((q) => ({
+          key: q.key,
+          label: q.label,
+          icon: q.icon,
+          checked: quickOn(q.make()),
+          onPress: () => showQuick(q.make),
+        }))}
+        canSaveNew={!!(conditions || searched)}
+        onSaveNew={openSaveAs}
+      />
+      <AccountSheet
+        visible={sheet === 'account'}
+        onClose={() => setSheet(null)}
+        username={client.username}
+        server={client.server}
+        onRefresh={refresh}
+        onLogout={onLogout}
+      />
+      <SaveAsSheet
+        visible={sheet === 'saveAs'}
+        onClose={() => setSheet(null)}
+        name={newName}
+        onName={(t) => {
+          setNewName(t);
+          setSheetError('');
+        }}
+        error={sheetError}
+        onSave={saveAs}
+      />
     </View>
   );
 }
@@ -1282,31 +1163,4 @@ const styles = StyleSheet.create({
     backgroundColor: n.surface,
   },
   error: { flex: 1 },
-  account: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-  },
-  accountText: { flex: 1, minWidth: 0, gap: 2 },
-  accountName: { color: n.text, fontSize: 17, fontFamily: fonts.medium },
-  accountServer: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  accountServerText: {
-    flexShrink: 1,
-    color: n.textAlpha(55),
-    fontSize: 12.5,
-    fontFamily: fonts.regular,
-  },
-  saveAsHint: {
-    paddingHorizontal: 20,
-    paddingBottom: 12,
-    color: n.textAlpha(55),
-    fontSize: 13,
-    fontFamily: fonts.regular,
-  },
-  nameInput: { marginHorizontal: 20 },
-  sheetError: { marginHorizontal: 20, marginTop: 8 },
-  saveButton: { marginHorizontal: 20, marginTop: 16 },
 });

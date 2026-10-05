@@ -4,7 +4,7 @@ import { StyleSheet, View } from 'react-native';
 import { useSnapshot } from 'valtio';
 import { createQueryClient } from './app/queryClient';
 import { useSafeInsets } from './platform/insets';
-import { BrowseScreen } from './screens/BrowseScreen';
+import { LibraryScreen } from './features/library/LibraryScreen';
 import { PlayerScreen } from './screens/PlayerScreen';
 import { SignInScreen } from './features/signin/SignInScreen';
 import { closePlayer, play, player } from './state/player';
@@ -55,7 +55,7 @@ export default function App() {
                 <Spinner />
               </View>
             ) : status === 'signedIn' && client ? (
-              <BrowseScreen
+              <LibraryScreen
                 client={client}
                 onPlay={play}
                 onLogout={logout}
