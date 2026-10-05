@@ -5,7 +5,7 @@ import { Icon } from '../../../ui/Icon';
 import { MoreButton } from '../../../ui/IconButton';
 import { StatusDot } from '../../../ui/Text';
 import { fonts, nocturne as n } from '../../../theme/tokens';
-import { type KeptServer, type SignIn } from '../../../signIn';
+import { type KeptServer, type SignIn } from '../../../state/signIn';
 import { ago } from '../../../lib/format';
 
 // --- 1a: the servers ---------------------------------------------------------------------------------------------

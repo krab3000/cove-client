@@ -27,7 +27,7 @@ import {
   type KeptAccount,
   type KeptServer,
   type SignIn,
-} from '../../../signIn';
+} from '../../../state/signIn';
 import { initialOf } from '../../../lib/format';
 
 // Avatar fills, in turn (design 1b)

@@ -1,5 +1,5 @@
-import { QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useMemo } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useSnapshot } from 'valtio';
 import { createQueryClient } from './app/queryClient';
@@ -13,6 +13,7 @@ import { logout, session, startSession } from './state/session';
 import { nocturne } from './theme/tokens';
 import { Spinner } from './ui/Text';
 import { ClientContext } from './data/client';
+import { type CoveClient } from './api/cove';
 
 /**
  * The app's shell: what was kept is read and the last session resumed (a spinner meanwhile), then signing in or the
@@ -31,7 +32,13 @@ export default function App() {
     startSession();
   }, []);
   // A new session starts with an empty cache
-  const queryClient = useMemo(() => createQueryClient(), [client]);
+  const cache = useRef<{
+    client: CoveClient | null;
+    queryClient: QueryClient;
+  } | null>(null);
+  if (!cache.current || cache.current.client !== client)
+    cache.current = { client, queryClient: createQueryClient() };
+  const { queryClient } = cache.current;
   // Android draws edge to edge: the content keeps clear of the system bars and the camera cutout
   const insets = useSafeInsets();
 

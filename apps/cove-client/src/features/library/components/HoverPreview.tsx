@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Platform, StyleSheet, View } from 'react-native';
 import type { CoveClient, SpriteSheet } from '../../../api/cove';
 import type { Video } from '../../../api/types';
-import { VideoView } from '../../../player';
+import { VideoView } from '../../../platform/player';
 import { nocturne as n } from '../../../theme/tokens';
 import { SpriteCell } from './SpriteCell';
 

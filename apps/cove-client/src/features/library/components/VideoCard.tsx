@@ -44,7 +44,7 @@ export const VideoCard = memo(function VideoCard({
   video: Video;
   imageUrl: string;
   width: number;
-  // Every card is this tall (the grid's rows have a fixed height, see BrowseScreen).
+  // Every card is this tall (the grid's rows have a fixed height, see layout.ts).
   height: number;
   onPress: (video: Video) => void;
   index: number; // in the grid
@@ -55,7 +55,7 @@ export const VideoCard = memo(function VideoCard({
   onHold: (video: Video) => void;
   onRelease: (video: Video) => void;
   showStudio: boolean;
-  // Large screen: the video in the detail pane (accent ring, title in accent)
+  // Large screen: the video in the preview drawer (accent ring, title in accent)
   selected?: boolean;
 }) {
   // The user's own: a favorite, and how far they got (0–1; 0 = not started)

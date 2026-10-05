@@ -32,7 +32,7 @@ import {
   VideoView,
   type LoadEvent,
   type VideoViewHandle,
-} from '../../player';
+} from '../../platform/player';
 import { useSafeInsets } from '../../platform/insets';
 import { isLarge } from '../../theme/layout';
 import { BackButton, IconButton } from '../../ui/IconButton';

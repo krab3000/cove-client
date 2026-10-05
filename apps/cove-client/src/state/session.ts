@@ -1,6 +1,6 @@
 import { proxy, ref } from 'valtio';
 import { CoveClient, authFailure } from '../api/cove';
-import { withAccount, withServer } from '../signIn';
+import { withAccount, withServer } from './signIn';
 import { accounts, changeAccounts, hydrateAccounts } from './accounts';
 import { player } from './player';
 import { hydratePrefs } from './prefs';

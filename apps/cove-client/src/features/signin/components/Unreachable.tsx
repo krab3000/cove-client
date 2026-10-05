@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../../ui/Button';
 import { StatusDot } from '../../../ui/Text';
 import { fonts, nocturne as n } from '../../../theme/tokens';
-import { type KeptServer } from '../../../signIn';
+import { type KeptServer } from '../../../state/signIn';
 import { ago } from '../../../lib/format';
 
 /** A tablet's pane for a server that doesn't answer: what is known, and what to do. */

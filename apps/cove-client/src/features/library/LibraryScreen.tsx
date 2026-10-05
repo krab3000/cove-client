@@ -51,7 +51,7 @@ import {
   type IndexRange,
 } from '../../lib/selection';
 
-import { prefetchMedia } from '../../player';
+import { prefetchMedia } from '../../platform/player';
 import WheelCapture, {
   type WheelEvent,
 } from '../../native/WheelCaptureNativeComponent';
@@ -152,7 +152,7 @@ export function LibraryScreen({
   previews: boolean;
 }) {
   // --- Filter ------------------------------------------------------------------------------------------------------
-  // The rule tree being edited in the filter screen (2b), the tree the grid shows (its chips), and what was sent.
+  // The rule tree being edited in the filter editor (2b), the tree the grid shows, and what was sent.
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterTree, setFilterTree] = useState<Group>(emptyTree);
   const filterTreeRef = useRef(filterTree);
@@ -341,7 +341,7 @@ export function LibraryScreen({
       scheduleLoad();
       updateFocus();
     },
-    [scheduleLoad, updateFocus]
+    [scheduleLoad, updateFocus, setScroll]
   );
 
   // The pages in view (the first page asks itself)
@@ -485,7 +485,7 @@ export function LibraryScreen({
     setSearched(text.trim());
   };
 
-  /** Shows a changed tree: its chips, its results; a loaded saved filter is now Edited. */
+  /** Shows a changed tree and its results; a loaded saved filter is now Edited. */
   const commit = useCallback(
     (tree: Group) => {
       setFilterTree(tree);
@@ -556,8 +556,7 @@ export function LibraryScreen({
       applyFilter(loaded.wire);
       fillNames(loaded.tree);
     },
-
-    [applyFilter, fillNames]
+    [applyFilter, fillNames, setView]
   );
 
   // What saving saves: the tree in the filter editor while it is open (the phone's draft, or the tablet drawer's before

@@ -1,5 +1,5 @@
 import { proxy, snapshot, subscribe } from 'valtio';
-import type { SignIn } from '../signIn';
+import type { SignIn } from './signIn';
 import { readItem, readLegacy, writeItem } from './storage';
 
 const KEY = 'cove/accounts/v1';
@@ -7,7 +7,7 @@ const KEY = 'cove/accounts/v1';
 /** The servers added and the accounts (sessions) kept for them on this device; persisted on every change. */
 export const accounts = proxy<SignIn>({ servers: [], last: null });
 
-/** A change as a pure function of the state (the signIn.ts helpers); the store takes the result. */
+/** A change as a pure function of the state (the state/signIn.ts helpers); the store takes the result. */
 export function changeAccounts(change: (state: SignIn) => SignIn) {
   // Plain copies in, so the store owns its objects (snapshots are frozen)
   const next = JSON.parse(

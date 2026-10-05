@@ -4,7 +4,7 @@ import { PanelHeader } from '../../../ui/PanelHeader';
 import { TextField } from '../../../ui/TextField';
 import { SheetHeading } from '../../../ui/Sheet';
 import { fonts, nocturne as n } from '../../../theme/tokens';
-import { normalizeAddress } from '../../../signIn';
+import { normalizeAddress } from '../../../state/signIn';
 
 /** Add / edit a server: in a phone's sheet, or a tablet's drawer (with its own header and ✕). */
 export function ServerForm({
