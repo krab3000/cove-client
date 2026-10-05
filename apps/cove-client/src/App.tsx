@@ -14,6 +14,7 @@ import { prefs } from './state/prefs';
 import { enter, logout, session, startSession } from './state/session';
 import { nocturne } from './theme/tokens';
 import { Spinner } from './ui/Text';
+import { ClientContext } from './data/client';
 
 /**
  * The app's shell: what was kept is read and the last session resumed (a spinner meanwhile), then signing in or the
@@ -37,57 +38,59 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <View style={styles.app}>
-        <View
-          style={[
-            styles.content,
-            {
-              paddingTop: insets.top,
-              paddingRight: insets.right,
-              paddingBottom: insets.bottom,
-              paddingLeft: insets.left,
-            },
-          ]}
-        >
-          {status === 'hydrating' || status === 'resuming' ? (
-            <View style={styles.waiting}>
-              <Spinner />
-            </View>
-          ) : status === 'signedIn' && client ? (
-            <BrowseScreen
+      <ClientContext.Provider value={client}>
+        <View style={styles.app}>
+          <View
+            style={[
+              styles.content,
+              {
+                paddingTop: insets.top,
+                paddingRight: insets.right,
+                paddingBottom: insets.bottom,
+                paddingLeft: insets.left,
+              },
+            ]}
+          >
+            {status === 'hydrating' || status === 'resuming' ? (
+              <View style={styles.waiting}>
+                <Spinner />
+              </View>
+            ) : status === 'signedIn' && client ? (
+              <BrowseScreen
+                client={client}
+                onPlay={play}
+                onLogout={logout}
+                // No previews under the player: the hardware decoder is shared, and a 4K stream needs all of it.
+                previews={!playing}
+              />
+            ) : (
+              <SignInScreen
+                state={signIn}
+                onChange={changeAccounts}
+                onSignedIn={enter}
+                initialServerId={signInServerId}
+              />
+            )}
+          </View>
+          {/* Edge to edge, outside the content's system bar padding: the player keeps its own insets. */}
+          {client && playing ? (
+            <PlayerScreen
+              // A new video is a new player (its own state, session and resume position).
+              key={playing.video.id}
               client={client}
-              onPlay={play}
-              onLogout={logout}
-              // No previews under the player: the hardware decoder is shared, and a 4K stream needs all of it.
-              previews={!playing}
+              video={playing.video}
+              upNext={playing.upNext}
+              onPlayNext={play}
+              autoplay={autoplay}
+              onAutoplay={(on) => {
+                prefs.autoplay = on;
+              }}
+              onClose={closePlayer}
+              startAt={playing.startAt}
             />
-          ) : (
-            <SignInScreen
-              state={signIn}
-              onChange={changeAccounts}
-              onSignedIn={enter}
-              initialServerId={signInServerId}
-            />
-          )}
+          ) : null}
         </View>
-        {/* Edge to edge, outside the content's system bar padding: the player keeps its own insets. */}
-        {client && playing ? (
-          <PlayerScreen
-            // A new video is a new player (its own state, session and resume position).
-            key={playing.video.id}
-            client={client}
-            video={playing.video}
-            upNext={playing.upNext}
-            onPlayNext={play}
-            autoplay={autoplay}
-            onAutoplay={(on) => {
-              prefs.autoplay = on;
-            }}
-            onClose={closePlayer}
-            startAt={playing.startAt}
-          />
-        ) : null}
-      </View>
+      </ClientContext.Provider>
     </QueryClientProvider>
   );
 }

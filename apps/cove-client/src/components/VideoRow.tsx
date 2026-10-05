@@ -29,19 +29,15 @@ import {
 import { PersonChip, TagChip } from '../ui/Chip';
 import { LoadingBar, RatingPill, ResumeBar, ThumbBadge } from '../ui/Thumb';
 import { MarkToggle } from '../ui/Toggle';
+import {
+  usePersonal,
+  useToggleFavorite,
+  useToggleSavedForLater,
+} from '../data/personal';
 
 /** The list card's height for a width: the 16:9 thumbnail, the title block and the chip row (all fixed). */
 export function listCardHeight(width: number): number {
   return Math.round((width * 9) / 16) + 10 + 44 + 10 + 28;
-}
-
-/** The user's own data about a video, once engagement/batch has answered. */
-export interface Personal {
-  favorite: boolean;
-  savedForLater: boolean;
-  rating: number | null; // 0–100
-  playCount: number;
-  progress: number; // 0–1
 }
 
 /**
@@ -55,12 +51,9 @@ export const VideoRow = memo(function VideoRow({
   video,
   imageUrl,
   width,
-  personal,
   onPress,
   onAddTag,
   onAddPerformer,
-  onToggleFavorite,
-  onToggleLater,
   index,
   focus,
   held: heldSelection,
@@ -71,18 +64,18 @@ export const VideoRow = memo(function VideoRow({
   video: Video;
   imageUrl: string;
   width: number;
-  personal: Personal | null;
   onPress: (video: Video) => void;
   onAddTag: (tag: { id: number; name: string }) => void;
   onAddPerformer: (performer: { id: number; name: string }) => void;
-  onToggleFavorite: (video: Video) => void;
-  onToggleLater: (video: Video) => void;
   index: number; // in the list
   focus: Selection<IndexRange>;
   held: Selection<number | null>;
   onHold: (video: Video) => void;
   onRelease: (video: Video) => void;
 }) {
+  const personal = usePersonal(video);
+  const onToggleFavorite = useToggleFavorite();
+  const onToggleLater = useToggleSavedForLater();
   const [imageFailed, setImageFailed] = useState(false);
   const [hovered, setHovered] = useState(false);
   const held = useIsSelected(heldSelection, video.id);

@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -8,7 +7,7 @@ import {
   View,
 } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
-import type { Segment, Video } from '../api/types';
+import type { Video } from '../api/types';
 import { fonts, nocturne as n } from '../theme/tokens';
 import {
   formatDuration,
@@ -20,13 +19,18 @@ import {
 } from '../lib/format';
 import { Icon } from '../ui/Icon';
 
-import { type Personal } from './VideoRow';
 import { Button } from '../ui/Button';
 import { CloseButton } from '../ui/IconButton';
 import { Rule, SectionLabel } from '../ui/Text';
 import { PersonChip, TagChip } from '../ui/Chip';
 import { RatingPill, ThumbBadge, ResumeBar } from '../ui/Thumb';
 import { MarkToggle } from '../ui/Toggle';
+import {
+  usePersonal,
+  useSegments,
+  useToggleFavorite,
+  useToggleSavedForLater,
+} from '../data/personal';
 
 /**
  * The tablet Library's preview (design 1h, in a Drawer): the video picked in the grid — a header with ✕; its cover with the rating, the resume
@@ -36,34 +40,23 @@ import { MarkToggle } from '../ui/Toggle';
 export function VideoDetail({
   client,
   video,
-  personal,
   onPlay,
-  onToggleFavorite,
-  onToggleLater,
   onAddTag,
   onAddPerformer,
   onClose,
 }: {
   client: CoveClient;
   video: Video;
-  personal: Personal | null;
   // From a moment's start, or from where the user left off
   onPlay: (video: Video, startAt?: number) => void;
-  onToggleFavorite: (video: Video) => void;
-  onToggleLater: (video: Video) => void;
   onAddTag: (tag: { id: number; name: string }) => void;
   onAddPerformer: (performer: { id: number; name: string }) => void;
   onClose: () => void;
 }) {
-  const [segments, setSegments] = useState<Segment[]>([]);
-  useEffect(() => {
-    let alive = true;
-    setSegments([]);
-    client.segments(video).then((s) => alive && setSegments(s));
-    return () => {
-      alive = false;
-    };
-  }, [client, video]);
+  const personal = usePersonal(video);
+  const segments = useSegments(video);
+  const onToggleFavorite = useToggleFavorite();
+  const onToggleLater = useToggleSavedForLater();
 
   const file = primaryFile(video);
   const duration = file?.duration ?? 0;

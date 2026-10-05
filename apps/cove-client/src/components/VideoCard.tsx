@@ -18,6 +18,7 @@ import {
   type Selection,
 } from '../lib/selection';
 import { LoadingBar, ResumeBar, ThumbBadge } from '../ui/Thumb';
+import { usePersonal } from '../data/personal';
 
 /**
  * A Library grid tile (design 1f): the cover (or a placeholder until Cove's generate task has made one) with one
@@ -37,8 +38,6 @@ export const VideoCard = memo(function VideoCard({
   onHold,
   onRelease,
   showStudio,
-  favorite,
-  progress,
   selected,
 }: {
   client: CoveClient;
@@ -56,12 +55,13 @@ export const VideoCard = memo(function VideoCard({
   onHold: (video: Video) => void;
   onRelease: (video: Video) => void;
   showStudio: boolean;
-  // The user's own: a favorite, and how far they got (0–1; 0 = not started)
-  favorite: boolean;
-  progress: number;
   // Large screen: the video in the detail pane (accent ring, title in accent)
   selected?: boolean;
 }) {
+  // The user's own: a favorite, and how far they got (0–1; 0 = not started)
+  const personal = usePersonal(video);
+  const favorite = !!personal?.favorite;
+  const progress = personal?.progress ?? 0;
   const [hovered, setHovered] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
   const previewing = hovered;

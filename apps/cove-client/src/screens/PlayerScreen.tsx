@@ -13,7 +13,7 @@ import {
   type GestureResponderEvent,
 } from 'react-native';
 import { primaryFile, type CoveClient } from '../api/cove';
-import type { Engagement, Segment, Video } from '../api/types';
+import type { Segment, Video } from '../api/types';
 import { Bar } from '../components/Bar';
 import { Icon, type IconName } from '../ui/Icon';
 import { SeekTrack } from '../components/SeekTrack';
@@ -41,6 +41,15 @@ import { PersonChip, TagChip } from '../ui/Chip';
 import { ThumbBadge } from '../ui/Thumb';
 import { Pill } from '../ui/Toggle';
 import { Layer, useBackHandler } from '../app/back';
+import {
+  playbackChanged,
+  useEngagement,
+  useSavedForLater,
+  useSegments,
+  useToggleFavorite,
+  useToggleSavedForLater,
+} from '../data/personal';
+import { useQueryClient } from '@tanstack/react-query';
 
 const touch = Platform.OS === 'android';
 // Controls hide after this long without input while playing.
@@ -135,8 +144,14 @@ export function PlayerScreen({
   const [locked, setLocked] = useState(false);
   const [lockHint, setLockHint] = useState(false);
   const [sheet, setSheet] = useState<'settings' | 'moments' | null>(null);
-  const [segments, setSegments] = useState<Segment[]>([]);
-  const [savedForLater, setSavedForLater] = useState(false);
+  // The user's data and the moments: the Library's queries (asked again for where to resume)
+  const segments = useSegments(video);
+  const savedForLater = !!useSavedForLater(video.id);
+  const engagementQuery = useEngagement(video.id, true);
+  const engagement = engagementQuery.data ?? null;
+  const toggleFavoriteOf = useToggleFavorite();
+  const toggleLaterOf = useToggleSavedForLater();
+  const queryClient = useQueryClient();
 
   const landscape = size.width > size.height;
   const large = isLarge(size.width, size.height);
@@ -161,32 +176,16 @@ export function PlayerScreen({
       ? startAt - (video.parentVideoId ? (video.clipStartSec ?? 0) : 0)
       : null
   );
-  const [engagement, setEngagement] = useState<Engagement | null>(null);
+
   const [panelTab, setPanelTab] = useState<'moments' | 'next' | 'details'>(
     'moments'
   );
   const resumed = useRef(false);
+  // Where the user left off, once the server answered afresh (tryResume runs after every render)
   useEffect(() => {
-    let alive = true;
-    client.segments(video).then((s) => alive && setSegments(s));
-    client.savedForLater([video.id]).then(
-      (set) => alive && setSavedForLater(set.has(video.id)),
-      () => {}
-    );
-    client.engagement([video.id]).then(
-      (list) => {
-        if (!alive) return;
-        setEngagement(list[0] ?? null);
-        if (startAt == null) resumeAt.current = list[0]?.resumeTime ?? 0;
-        tryResume();
-      },
-      () => {}
-    );
-    return () => {
-      alive = false;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, video]);
+    if (startAt == null && engagementQuery.isFetchedAfterMount)
+      resumeAt.current ??= engagementQuery.data?.resumeTime ?? 0;
+  }, [startAt, engagementQuery.isFetchedAfterMount, engagementQuery.data]);
   const markers = useMemo(
     () =>
       duration > 0
@@ -288,10 +287,14 @@ export function PlayerScreen({
           state,
           intervals,
         })
+        // Paused or ended: the play count and resume time changed (the Library shows them)
+        .then(() => {
+          if (state !== 'active') playbackChanged(queryClient, video.id);
+        })
         .catch(() => {});
     },
 
-    [client, video, session, clipStart]
+    [client, video, session, clipStart, queryClient]
   );
   useEffect(() => {
     const timer = setInterval(() => {
@@ -364,18 +367,8 @@ export function PlayerScreen({
     setRate((r) => RATES[(RATES.indexOf(r) + 1) % RATES.length] ?? 1);
     showControls();
   };
-  const toggleFavorite = () => {
-    const on = !engagement?.isFavorite;
-    setEngagement((e) => (e ? { ...e, isFavorite: on } : e));
-    client
-      .setFavorite(video.id, on)
-      .catch(() => setEngagement((e) => (e ? { ...e, isFavorite: !on } : e)));
-  };
-  const toggleLater = () => {
-    const on = !savedForLater;
-    setSavedForLater(on);
-    client.setSavedForLater(video.id, on).catch(() => setSavedForLater(!on));
-  };
+  const toggleFavorite = () => toggleFavoriteOf(video);
+  const toggleLater = () => toggleLaterOf(video);
 
   // --- Taps on the video ---------------------------------------------------------------------------------------
   const lastTap = useRef<{ at: number; side: Side } | null>(null);

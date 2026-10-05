@@ -18,7 +18,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { primaryFile, type CoveClient } from '../api/cove';
+import { type CoveClient } from '../api/cove';
 import type {
   Aggregate,
   FilterExpression,
@@ -63,11 +63,7 @@ import {
   tileTextHeight,
   VideoCard,
 } from '../components/VideoCard';
-import {
-  listCardHeight,
-  VideoRow,
-  type Personal,
-} from '../components/VideoRow';
+import { listCardHeight, VideoRow } from '../components/VideoRow';
 import { prefetchMedia } from '../player';
 import WheelCapture, {
   type WheelEvent,
@@ -251,7 +247,7 @@ export function BrowseScreen({
   // Loaded pages (0-based) of PER_PAGE videos, and the user's own data about their videos. Kept in refs; `version`
   // re-renders when something arrives.
   const pages = useRef(new Map<number, Video[]>());
-  const personal = useRef(new Map<number, Personal>());
+
   const pending = useRef(new Set<number>());
   const failed = useRef(new Set<number>());
   const generation = useRef(0);
@@ -261,32 +257,6 @@ export function BrowseScreen({
   const [refreshing, setRefreshing] = useState(false);
 
   // Rating, favorite, play count, resume position and Save for later: not part of the videos, asked per page.
-  const loadPersonal = useCallback(
-    async (videos: Video[]) => {
-      const ids = videos.map((v) => v.id);
-      if (!ids.length) return;
-      const [engagement, later] = await Promise.all([
-        client.engagement(ids).catch(() => []),
-        client.savedForLater(ids).catch(() => new Set<number>()),
-      ]);
-      const byId = new Map(engagement.map((e) => [e.hostId, e]));
-      for (const video of videos) {
-        const e = byId.get(video.id);
-        const duration = primaryFile(video)?.duration ?? 0;
-        personal.current.set(video.id, {
-          favorite: !!e?.isFavorite,
-          savedForLater: later.has(video.id),
-          rating: e?.rating ?? null,
-          playCount: e?.playCount ?? 0,
-          progress:
-            e && duration > 0 ? Math.min(1, e.resumeTime / duration) : 0,
-        });
-      }
-      setVersion((v) => v + 1);
-    },
-    [client]
-  );
-
   const loadPage = useCallback(
     async (page: number) => {
       if (pages.current.has(page) || pending.current.has(page)) return;
@@ -305,7 +275,6 @@ export function BrowseScreen({
         pages.current.set(page, result.items);
         setTotal(result.totalCount);
         setError('');
-        loadPersonal(result.items);
       } catch (e) {
         if (gen !== generation.current) return;
         failed.current.add(page);
@@ -318,7 +287,7 @@ export function BrowseScreen({
         }
       }
     },
-    [client, loadPersonal]
+    [client]
   );
 
   const rowCount = total == null ? 0 : Math.ceil(total / columns);
@@ -531,7 +500,7 @@ export function BrowseScreen({
   const refresh = useCallback(() => {
     generation.current++;
     pages.current = new Map();
-    personal.current = new Map();
+
     pending.current = new Set();
     failed.current = new Set();
     setRefreshing(true);
@@ -877,34 +846,6 @@ export function BrowseScreen({
   );
 
   // Favorite and Save for later: shown at once, undone if Cove says no.
-  const togglePersonal = useCallback(
-    (video: Video, key: 'favorite' | 'savedForLater') => {
-      const before = personal.current.get(video.id);
-      if (!before) return;
-      const on = !before[key];
-      personal.current.set(video.id, { ...before, [key]: on });
-      setVersion((v) => v + 1);
-      const call =
-        key === 'favorite'
-          ? client.setFavorite(video.id, on)
-          : client.setSavedForLater(video.id, on);
-      call.catch((e) => {
-        personal.current.set(video.id, before);
-        setVersion((v) => v + 1);
-        setError(e instanceof Error ? e.message : String(e));
-      });
-    },
-    [client]
-  );
-  const onToggleFavorite = useCallback(
-    (video: Video) => togglePersonal(video, 'favorite'),
-    [togglePersonal]
-  );
-  const onToggleLater = useCallback(
-    (video: Video) => togglePersonal(video, 'savedForLater'),
-    [togglePersonal]
-  );
-
   const shuffle = useCallback(() => {
     const next =
       seedRef.current == null ? Math.floor(Math.random() * 1e9) : null;
@@ -1051,7 +992,7 @@ export function BrowseScreen({
         const video = pages.current.get(Math.floor(index / PER_PAGE))?.[
           index % PER_PAGE
         ];
-        const mine = video ? (personal.current.get(video.id) ?? null) : null;
+
         cards.push(
           !video ? (
             <PlaceholderCard
@@ -1067,12 +1008,9 @@ export function BrowseScreen({
               video={video}
               imageUrl={client.imageUrl(video)}
               width={cardWidth}
-              personal={mine}
               onPress={pressVideo}
               onAddTag={onAddTag}
               onAddPerformer={onAddPerformer}
-              onToggleFavorite={onToggleFavorite}
-              onToggleLater={onToggleLater}
               index={index}
               focus={focus}
               held={held}
@@ -1095,8 +1033,6 @@ export function BrowseScreen({
               onHold={onHold}
               onRelease={onRelease}
               showStudio={view === 'grid2'}
-              favorite={!!mine?.favorite}
-              progress={mine?.progress ?? 0}
             />
           )
         );
@@ -1139,8 +1075,6 @@ export function BrowseScreen({
       onRelease,
       onAddTag,
       onAddPerformer,
-      onToggleFavorite,
-      onToggleLater,
     ]
   );
 
@@ -1289,10 +1223,9 @@ export function BrowseScreen({
             <VideoDetail
               client={client}
               video={selected}
-              personal={personal.current.get(selected.id) ?? null}
+
               onPlay={playVideo}
-              onToggleFavorite={onToggleFavorite}
-              onToggleLater={onToggleLater}
+
               onAddTag={onAddTag}
               onAddPerformer={onAddPerformer}
               onClose={closeDrawer}
