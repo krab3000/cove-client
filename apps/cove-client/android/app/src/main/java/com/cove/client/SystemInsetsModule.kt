@@ -4,14 +4,11 @@ import android.view.View
 import android.view.ViewTreeObserver
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.facebook.react.ReactPackage
 import com.facebook.react.bridge.Arguments
-import com.facebook.react.bridge.NativeModule
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.WritableMap
-import com.facebook.react.uimanager.ViewManager
 
 /**
  * The room the system bars and the display cutout take from the edge-to-edge window, in dp: the status bar, the
@@ -73,12 +70,4 @@ class SystemInsetsModule(context: ReactApplicationContext) : ReactContextBaseJav
     watched?.viewTreeObserver?.removeOnGlobalLayoutListener(onLayout)
     watched = null
   }
-}
-
-class SystemInsetsPackage : ReactPackage {
-  override fun createNativeModules(context: ReactApplicationContext): List<NativeModule> =
-      listOf(SystemInsetsModule(context))
-
-  override fun createViewManagers(context: ReactApplicationContext): List<ViewManager<*, *>> =
-      emptyList()
 }

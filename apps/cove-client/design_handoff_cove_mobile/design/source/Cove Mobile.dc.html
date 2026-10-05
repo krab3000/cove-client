@@ -1273,7 +1273,7 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </div>
 <div class="dv-row">Connect</div>
 <div class="dv-opts">
-<div class="dv-opt" id="1a"><div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Finds servers on your network. Tap one to select it; manual address and QR from desktop as fallbacks.</div>
+<div class="dv-opt" id="1a"><div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Your Cove servers, the ones you added. Tap one to pick an account (1b); ⋮ edits or removes it; Add server takes an address. Try them: the sheets work.</div>
 <div style="width:410px;padding:10px;border-radius:52px;background:#08090e;box-shadow:0 0 0 1px var(--color-neutral-800),0 30px 60px rgba(0,0,0,.5)">
 <div style="position:relative;width:390px;height:844px;border-radius:42px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:flex;flex-direction:column">
 <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
@@ -1281,55 +1281,237 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 <div style="position:relative;padding:28px 24px 0;display:flex;flex-direction:column;gap:6px">
 <div style="display:flex;align-items:center;gap:8px;font-size:17px;font-weight:500"><span style="width:22px;height:22px;border-radius:7px;border:1.5px solid var(--color-accent);box-shadow:0 0 12px color-mix(in srgb,var(--color-accent) 60%,transparent)"></span>Cove</div>
 <h1 style="font-size:30px;margin:28px 0 4px;letter-spacing:-.02em">Connect to<br>your library</h1>
-<p style="margin:0;font-size:14px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Cove servers on <span style="color:var(--color-text)">Home Wi‑Fi</span></p>
+<p style="margin:0;font-size:14px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Your Cove servers</p>
 </div>
-<div style="position:relative;padding:22px 16px 0;display:flex;flex-direction:column;gap:8px">
-<sc-for list="{{ servers }}" as="sv" hint-placeholder-count="3">
-<div onClick="{{ sv.pick }}" style="display:flex;align-items:center;gap:12px;padding:14px;border-radius:var(--radius-lg);background:{{ sv.bg }};box-shadow:{{ sv.ring }};cursor:pointer;opacity:{{ sv.op }}">
-<span style="width:44px;height:44px;flex:none;border-radius:10px;display:grid;place-items:center;font-size:22px;background:color-mix(in srgb,var(--color-accent) 14%,transparent);color:var(--color-accent-300)"><i class="ph ph-hard-drives"></i></span>
-<span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500">{{ sv.name }}</span><span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ sv.addr }}</span><span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">{{ sv.meta }}</span></span>
-<span style="width:20px;height:20px;border-radius:50%;flex:none;border:1.5px solid {{ sv.dotBorder }};box-shadow:inset 0 0 0 4px var(--color-bg);background:{{ sv.dotFill }}"></span>
+<div class="hscroll" style="position:relative;flex:1;overflow-y:auto;padding:22px 16px 30px;display:flex;flex-direction:column;gap:8px">
+<sc-for list="{{ srvs }}" as="sv" hint-placeholder-count="3">
+<div style="display:flex;align-items:center;gap:4px;padding:6px 4px 6px 6px;border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:{{ sv.ring }}">
+<div onClick="{{ sv.pick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:8px;border-radius:var(--radius-md);cursor:pointer;opacity:{{ sv.op }}" style-hover="background:color-mix(in srgb,var(--color-text) 5%,transparent)"><span style="width:44px;height:44px;flex:none;border-radius:10px;display:grid;place-items:center;font-size:22px;background:color-mix(in srgb,var(--color-accent) 14%,transparent);color:var(--color-accent-300)"><i class="ph ph-hard-drives"></i></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sv.name }}</span><span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sv.addr }}</span><span style="display:flex;align-items:center;gap:6px;font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ sv.dot }};box-shadow:{{ sv.glow }}"></span>{{ sv.meta }}</span></span><i class="ph ph-caret-right" style="font-size:16px;color:color-mix(in srgb,var(--color-text) 40%,transparent)"></i></div>
+<button onClick="{{ sv.menu }}" aria-label="Server options" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:40px;height:44px;flex:none;border-radius:var(--radius-md);display:grid;place-items:center;font-size:18px;color:color-mix(in srgb,var(--color-text) 45%,transparent)" style-hover="background:color-mix(in srgb,var(--color-text) 8%,transparent)"><i class="ph ph-dots-three-vertical"></i></button>
 </div>
 </sc-for>
-<div style="display:flex;align-items:center;gap:8px;padding:8px 6px;font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);box-shadow:0 0 8px var(--color-accent)"></span>Still looking…</div>
+<sc-if value="{{ noSrvs }}"><p style="margin:4px 6px 0;font-size:13.5px;line-height:1.55;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Add your Cove server by the address you open it at in a browser.</p></sc-if>
+<button onClick="{{ addServer }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);align-self:flex-start;height:40px;padding:0 10px;display:flex;align-items:center;gap:8px;border-radius:var(--radius-md);font:500 14px var(--font-body);color:var(--color-accent-300)" style-hover="background:color-mix(in srgb,var(--color-accent) 10%,transparent)"><i class="ph ph-plus"></i>Add server</button>
 </div>
-<div style="flex:1"></div>
-<div style="padding:0 24px 34px;display:flex;flex-direction:column;gap:10px">
-<div style="height:1px;margin-bottom:8px;background:linear-gradient(to right,transparent,var(--color-divider) 48px,var(--color-divider) calc(100% - 48px),transparent)"></div>
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-<button style="height:46px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);display:flex;align-items:center;justify-content:center;gap:6px" style-hover="background:color-mix(in srgb,var(--color-text) 7%,transparent)"><i class="ph ph-link"></i>Enter address</button>
-<button style="height:46px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);display:flex;align-items:center;justify-content:center;gap:6px" style-hover="background:color-mix(in srgb,var(--color-text) 7%,transparent)"><i class="ph ph-qr-code"></i>Scan QR</button>
+<sc-if value="{{ srvMenuOpen }}">
+<div onClick="{{ closeSrv }}" style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 58%,transparent);cursor:pointer"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:var(--color-surface);border-radius:22px 22px 0 0;padding:10px 12px 30px">
+<div style="width:40px;height:4px;border-radius:2px;background:var(--color-neutral-700);margin:0 auto 10px"></div>
+<div style="padding:4px 12px 10px;font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ menuName }} · {{ menuAddr }}</div>
+<div onClick="{{ editSrv }}" style="min-height:48px;display:flex;align-items:center;gap:14px;padding:0 12px;border-radius:var(--radius-md);font-size:15px;cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="ph ph-pencil-simple" style="font-size:18px;color:var(--color-accent-300)"></i>Edit</div>
+<div style="margin:6px 12px;height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 48px,var(--color-divider) calc(100% - 48px),transparent)"></div>
+<div onClick="{{ removeSrv }}" style="min-height:48px;display:flex;align-items:center;gap:14px;padding:0 12px;border-radius:var(--radius-md);font-size:15px;cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="ph ph-trash" style="font-size:18px;color:var(--color-accent-300)"></i><span style="display:flex;flex-direction:column;gap:2px;padding:8px 0">Remove server<span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">Forgets its address and the accounts kept for it</span></span></div>
 </div>
-<button style="height:50px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent);font:500 15px var(--font-body);display:flex;align-items:center;justify-content:center;gap:8px" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)" style-active="background:color-mix(in srgb,var(--color-accent) 22%,transparent)">Continue to {{ serverName }}<i class="ph ph-arrow-right"></i></button>
+</sc-if>
+<sc-if value="{{ srvSheetOpen }}">
+<div onClick="{{ closeSrv }}" style="position:absolute;inset:0;background:color-mix(in srgb,var(--color-neutral-900) 58%,transparent);cursor:pointer"></div>
+<div style="position:absolute;left:0;right:0;bottom:0;background:var(--color-surface);border-radius:22px 22px 0 0;padding:10px 12px 30px">
+<div style="width:40px;height:4px;border-radius:2px;background:var(--color-neutral-700);margin:0 auto 10px"></div>
+<div style="padding:4px 12px 14px;display:flex;flex-direction:column;gap:14px">
+<div style="font-size:17px;font-weight:500">{{ srvSheetTitle }}</div>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Address<input type="url" value="{{ draftAddr }}" onInput="{{ setDraftAddr }}" placeholder="https://cove.local:9999" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none"></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Name (optional)<input type="text" value="{{ draftName }}" onInput="{{ setDraftName }}" placeholder="e.g. Living Room NAS" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);outline:none"></label>
+<p style="margin:-4px 2px 0;font-size:12px;line-height:1.5;color:color-mix(in srgb,var(--color-text) 50%,transparent)">The address you open Cove at in a browser. Without a name, the list shows its host.</p>
+<div style="display:flex;gap:8px;margin-top:4px"><button onClick="{{ closeSrv }}" style="height:50px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 7%,transparent)">Cancel</button><span style="flex:1;display:flex;flex-direction:column"><button onClick="{{ saveSrv }}" style="height:50px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 15px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">{{ srvSheetSave }}</button></span></div>
 </div>
+</div>
+</sc-if>
 </div></div></div>
 
-<div class="dv-opt" id="1b"><div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Pick a Cove account, like profiles on a TV. Accounts with a lock ask for a password; Guest goes straight in.</div>
+<div class="dv-opt" id="1b"><div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>The accounts kept on this device for the server tapped, like profiles on a TV. A kept account goes straight in (it stays signed in until you remove it); a lock means its session ran out, so it asks for the password. Add account signs in another one; Edit removes them.</div>
 <div style="width:410px;padding:10px;border-radius:52px;background:#08090e;box-shadow:0 0 0 1px var(--color-neutral-800),0 30px 60px rgba(0,0,0,.5)">
 <div style="position:relative;width:390px;height:844px;border-radius:42px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:flex;flex-direction:column">
 <div style="height:44px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 28px;font-size:14px;font-weight:600"><span>9:41</span><span style="display:flex;gap:6px;font-size:16px"><i class="ph-fill ph-cell-signal-full"></i><i class="ph ph-wifi-high"></i><i class="ph-fill ph-battery-full"></i></span></div>
 <div style="padding:12px 16px 0;display:flex;align-items:center;gap:8px">
 <span style="width:40px;height:40px;display:grid;place-items:center;font-size:20px;border-radius:10px"><i class="ph ph-caret-left"></i></span>
-<span style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12px;background:var(--color-surface)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);box-shadow:0 0 6px var(--color-accent)"></span>{{ serverName }}</span>
+<span style="display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:999px;font-size:12px;background:var(--color-surface);min-width:0"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:var(--color-accent);box-shadow:0 0 6px var(--color-accent)"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ serverName }}</span></span>
+<span style="flex:1"></span>
+<button onClick="{{ toggleAcctEdit }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);height:40px;padding:0 12px;border-radius:var(--radius-md);font:500 14px var(--font-body);color:var(--color-accent-300)" style-hover="background:color-mix(in srgb,var(--color-accent) 10%,transparent)">{{ acctEditLabel }}</button>
 </div>
 <div style="padding:32px 24px 0"><h1 style="font-size:30px;margin:0;letter-spacing:-.02em">Who's watching?</h1></div>
 <div style="padding:28px 24px 0;display:grid;grid-template-columns:1fr 1fr;gap:22px 16px">
-<sc-for list="{{ profiles }}" as="p" hint-placeholder-count="4">
-<div onClick="{{ p.pick }}" style="display:flex;flex-direction:column;align-items:center;gap:10px;cursor:pointer">
-<span style="position:relative;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;font-size:36px;font-weight:500;background:{{ p.fill }};color:{{ p.ink }};box-shadow:{{ p.ring }}">{{ p.ini }}<sc-if value="{{ p.lock }}"><span style="position:absolute;right:4px;bottom:4px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:14px;background:var(--color-bg);color:var(--color-text)"><i class="ph-fill ph-lock-simple"></i></span></sc-if></span>
-<span style="font-size:15px;font-weight:500">{{ p.name }}</span>
+<sc-for list="{{ accounts }}" as="p" hint-placeholder-count="3">
+<div onClick="{{ p.pick }}" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer">
+<span style="position:relative;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;font-size:36px;font-weight:500;background:{{ p.fill }};color:{{ p.ink }};box-shadow:{{ p.ring }};opacity:{{ p.op }}">{{ p.ini }}<sc-if value="{{ p.lock }}"><span style="position:absolute;right:4px;bottom:4px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:14px;background:var(--color-bg);color:var(--color-text)"><i class="ph-fill ph-lock-simple"></i></span></sc-if><sc-if value="{{ p.editing }}"><span onClick="{{ p.forget }}" aria-label="Remove {{ p.name }}" style="position:absolute;right:0;top:0;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:var(--color-surface);color:var(--color-text);box-shadow:0 0 0 3px var(--color-bg);cursor:pointer"><i class="ph ph-x"></i></span></sc-if></span>
+<span style="font-size:15px;font-weight:500;margin-top:4px">{{ p.name }}</span>
+<span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">{{ p.sub }}</span>
 </div>
 </sc-for>
+<sc-if value="{{ canAddAcct }}"><div onClick="{{ addAcct }}" style="display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer"><span style="width:112px;height:112px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;font-size:32px;color:var(--color-accent-300);border:1.5px dashed {{ addRing }}"><i class="ph ph-plus"></i></span><span style="font-size:15px;font-weight:500;margin-top:4px">Add account</span><span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">Username and password</span></div></sc-if>
 </div>
 <div style="flex:1"></div>
-<sc-if value="{{ profileLocked }}" hint-placeholder-val="{{ true }}">
+<sc-if value="{{ cardPassword }}" hint-placeholder-val="{{ true }}">
 <div style="margin:0 16px 34px;padding:16px;border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:12px">
-<div style="font-size:13px;color:color-mix(in srgb,var(--color-text) 65%,transparent)">Password for <span style="color:var(--color-text)">{{ profileName }}</span></div>
-<input type="password" value="coveword" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none" />
-<label style="display:flex;align-items:center;gap:10px;font-size:13px"><span style="width:36px;height:22px;border-radius:999px;background:color-mix(in srgb,var(--color-accent) 30%,transparent);box-shadow:inset 0 0 0 1px var(--color-accent);position:relative"><span style="position:absolute;right:3px;top:3px;width:16px;height:16px;border-radius:50%;background:var(--color-accent-200)"></span></span>Stay signed in on this device</label>
-<button style="height:50px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent);font:500 15px var(--font-body)" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Sign in</button>
+<div style="font-size:13px;color:color-mix(in srgb,var(--color-text) 65%,transparent)">Password for <span style="color:var(--color-text)">{{ acctName }}</span> · the session ran out</div>
+<input type="password" value="coveword" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none">
+<button onClick="{{ signIn }}" style="height:50px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 15px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Sign in</button>
 </div>
 </sc-if>
+<sc-if value="{{ cardAdd }}">
+<div style="margin:0 16px 34px;padding:16px;border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:12px">
+<div style="font-size:13px;color:color-mix(in srgb,var(--color-text) 65%,transparent)">Sign in to <span style="color:var(--color-text)">{{ serverName }}</span></div>
+<input aria-label="Username" placeholder="Username" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none">
+<input type="password" aria-label="Password" placeholder="Password" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);outline:none">
+<div style="display:flex;gap:8px"><button onClick="{{ cancelAdd }}" style="height:50px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 7%,transparent)">Cancel</button><span style="flex:1;display:flex;flex-direction:column"><button onClick="{{ signIn }}" style="height:50px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 15px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Sign in</button></span></div>
+</div>
+</sc-if>
+</div></div></div>
+<div class="dv-opt" id="1n"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#1n">1n</a>Tablet sign-in: 1a and 1b side by side — your servers on the left, the accounts kept for the selected one on the right (as on the phone: a lock asks for the password, Add account, Edit removes). Tap a server to switch; ⋮ opens a small menu (Edit, Remove server); Add server and Edit open a drawer, as in 2d. A server that can’t be reached says so instead of listing accounts: try Garage Pi. In portrait the same two panes, the list narrower and the avatars wrapping.</div>
+<div style="width:1208px;padding:14px;border-radius:40px;background:#08090e;box-shadow:0 0 0 1px var(--color-neutral-800),0 30px 60px rgba(0,0,0,.5)">
+<div style="position:relative;width:1180px;height:820px;border-radius:26px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:380px minmax(0,1fr)">
+<aside class="hscroll" style="overflow-y:auto;display:flex;flex-direction:column;padding:20px 16px 18px;background:radial-gradient(circle at -40px -60px,color-mix(in srgb,var(--color-accent) 20%,transparent),transparent 340px),color-mix(in srgb,var(--color-surface) 55%,var(--color-bg))">
+<div style="display:flex;align-items:center;gap:8px;font-size:17px;font-weight:500;padding:6px 10px 0"><span style="width:20px;height:20px;border-radius:6px;border:1.5px solid var(--color-accent);box-shadow:0 0 10px var(--color-accent)"></span>Cove</div>
+<h1 style="font-size:28px;margin:30px 10px 4px;letter-spacing:-.02em">Connect to your library</h1>
+<p style="margin:0 10px;font-size:14px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Your Cove servers</p>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:20px">
+<sc-for list="{{ tn.srvs }}" as="sv" hint-placeholder-count="3">
+<div style="position:relative;display:flex;align-items:center;gap:4px;padding:6px 4px 6px 6px;border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:{{ sv.ring }}">
+<div onClick="{{ sv.pick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:8px;border-radius:var(--radius-md);cursor:pointer;opacity:{{ sv.op }}" style-hover="background:color-mix(in srgb,var(--color-text) 5%,transparent)"><span style="width:44px;height:44px;flex:none;border-radius:10px;display:grid;place-items:center;font-size:22px;background:color-mix(in srgb,var(--color-accent) 14%,transparent);color:var(--color-accent-300)"><i class="ph ph-hard-drives"></i></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sv.name }}</span><span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sv.addr }}</span><span style="display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ sv.dot }};box-shadow:{{ sv.glow }}"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sv.meta }}</span></span></span></div>
+<button onClick="{{ sv.menu }}" aria-label="Server options" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:40px;height:44px;flex:none;border-radius:var(--radius-md);display:grid;place-items:center;font-size:18px;color:{{ sv.menuInk }};background:{{ sv.menuBg }}" style-hover="background:color-mix(in srgb,var(--color-text) 8%,transparent)"><i class="ph ph-dots-three-vertical"></i></button>
+<sc-if value="{{ sv.menuOpen }}"><div style="position:absolute;z-index:6;right:4px;top:calc(100% - 2px);width:280px;box-sizing:border-box;padding:6px;border-radius:16px;background:var(--color-surface);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-text) 10%,transparent),-12px 0 48px rgba(0,0,0,.5),0 24px 60px rgba(0,0,0,.4)">
+<div onClick="{{ tn.editSrv }}" style="min-height:44px;display:flex;align-items:center;gap:12px;padding:0 10px;border-radius:var(--radius-md);font-size:14px;cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="ph ph-pencil-simple" style="font-size:18px;color:var(--color-accent-300)"></i>Edit</div>
+<div style="margin:4px 10px;height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 48px,var(--color-divider) calc(100% - 48px),transparent)"></div>
+<div onClick="{{ tn.removeSrv }}" style="min-height:44px;display:flex;align-items:center;gap:12px;padding:0 10px;border-radius:var(--radius-md);font-size:14px;cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="ph ph-trash" style="font-size:18px;color:var(--color-accent-300)"></i><span style="display:flex;flex-direction:column;gap:2px;padding:7px 0">Remove server<span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">Forgets its address and the accounts kept for it</span></span></div>
+</div></sc-if>
+</div>
+</sc-for>
+<button onClick="{{ tn.addServer }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);align-self:flex-start;height:40px;padding:0 10px;display:flex;align-items:center;gap:8px;border-radius:var(--radius-md);font:500 14px var(--font-body);color:var(--color-accent-300)" style-hover="background:color-mix(in srgb,var(--color-accent) 10%,transparent)"><i class="ph ph-plus"></i>Add server</button>
+</div>
+</aside>
+<main class="hscroll" style="overflow-y:auto;display:flex;flex-direction:column;min-width:0">
+<div style="flex:none;height:64px;padding:0 20px;display:flex;align-items:center;justify-content:flex-end"><sc-if value="{{ tn.canEdit }}"><button onClick="{{ tn.toggleEdit }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);height:40px;padding:0 12px;border-radius:var(--radius-md);font:500 14px var(--font-body);color:var(--color-accent-300)" style-hover="background:color-mix(in srgb,var(--color-accent) 10%,transparent)">{{ tn.editLabel }}</button></sc-if></div>
+<sc-if value="{{ tn.showAccts }}"><div style="display:flex;flex-direction:column;align-items:center;padding:24px 40px 40px">
+<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);box-shadow:0 0 6px var(--color-accent)"></span>{{ tn.srvName }}</div>
+<h1 style="font-size:30px;margin:10px 0 0;letter-spacing:-.02em">{{ tn.heading }}</h1>
+<div style="margin-top:40px;max-width:720px;display:flex;flex-wrap:wrap;justify-content:center;gap:26px 16px">
+<sc-for list="{{ tn.accounts }}" as="p" hint-placeholder-count="3">
+<div onClick="{{ p.pick }}" style="width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer">
+<span style="position:relative;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;font-size:36px;font-weight:500;background:{{ p.fill }};color:{{ p.ink }};box-shadow:{{ p.ring }};opacity:{{ p.op }}">{{ p.ini }}<sc-if value="{{ p.lock }}"><span style="position:absolute;right:4px;bottom:4px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:14px;background:var(--color-bg);color:var(--color-text)"><i class="ph-fill ph-lock-simple"></i></span></sc-if><sc-if value="{{ p.editing }}"><span onClick="{{ p.forget }}" aria-label="Remove {{ p.name }}" style="position:absolute;right:0;top:0;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:var(--color-surface);color:var(--color-text);box-shadow:0 0 0 3px var(--color-bg);cursor:pointer"><i class="ph ph-x"></i></span></sc-if></span>
+<span style="font-size:15px;font-weight:500;margin-top:4px">{{ p.name }}</span>
+<span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">{{ p.sub }}</span>
+</div>
+</sc-for>
+<sc-if value="{{ tn.canAdd }}"><div onClick="{{ tn.addAcct }}" style="width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer"><span style="width:112px;height:112px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;font-size:32px;color:var(--color-accent-300);border:1.5px dashed {{ tn.addRing }}"><i class="ph ph-plus"></i></span><span style="font-size:15px;font-weight:500;margin-top:4px">Add account</span><span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">Username and password</span></div></sc-if>
+</div>
+<sc-if value="{{ tn.cardPassword }}">
+<div style="width:380px;box-sizing:border-box;margin-top:40px;padding:16px;border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:12px">
+<div style="font-size:13px;color:color-mix(in srgb,var(--color-text) 65%,transparent)">Password for <span style="color:var(--color-text)">{{ tn.acctName }}</span> · the session ran out</div>
+<input type="password" aria-label="Password" value="coveword" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none">
+<button onClick="{{ tn.signInPw }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Sign in</button>
+</div>
+</sc-if>
+<sc-if value="{{ tn.cardAdd }}">
+<div style="width:380px;box-sizing:border-box;margin-top:40px;padding:16px;border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:12px">
+<div style="font-size:13px;color:color-mix(in srgb,var(--color-text) 65%,transparent)">Sign in to <span style="color:var(--color-text)">{{ tn.srvName }}</span></div>
+<input aria-label="Username" placeholder="Username" value="{{ tn.user }}" onInput="{{ tn.setUser }}" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none">
+<input type="password" aria-label="Password" placeholder="Password" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);outline:none">
+<div style="display:flex;gap:8px"><sc-if value="{{ tn.canCancelAdd }}"><button onClick="{{ tn.cancelAdd }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)">Cancel</button></sc-if><span style="flex:1;display:flex;flex-direction:column"><button onClick="{{ tn.signInNew }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Sign in</button></span></div>
+</div>
+</sc-if>
+</div></sc-if>
+<sc-if value="{{ tn.offline }}"><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:0 60px 100px;text-align:center">
+<span style="width:64px;height:64px;border-radius:16px;display:grid;place-items:center;font-size:30px;background:color-mix(in srgb,var(--color-text) 6%,transparent);color:color-mix(in srgb,var(--color-text) 55%,transparent)"><i class="ph ph-plugs"></i></span>
+<div style="font-size:20px;font-weight:500;margin-top:6px">Can’t reach {{ tn.srvName }}</div>
+<p style="margin:0;max-width:400px;font-size:13.5px;line-height:1.55;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Last reached 3 days ago at {{ tn.srvAddr }}. Check that it’s on, or edit its address.</p>
+<div style="display:flex;gap:8px;margin-top:10px"><button onClick="{{ tn.editCur }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)">Edit server</button><button onClick="{{ tn.retry }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Try again</button></div>
+</div></sc-if>
+<sc-if value="{{ tn.empty }}"><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:0 60px 100px;text-align:center">
+<span style="width:64px;height:64px;border-radius:16px;display:grid;place-items:center;font-size:30px;background:color-mix(in srgb,var(--color-accent) 14%,transparent);color:var(--color-accent-300)"><i class="ph ph-hard-drives"></i></span>
+<div style="font-size:20px;font-weight:500;margin-top:6px">Add your Cove server</div>
+<p style="margin:0;max-width:400px;font-size:13.5px;line-height:1.55;color:color-mix(in srgb,var(--color-text) 60%,transparent)">By the address you open it at in a browser.</p>
+<div style="margin-top:10px"><button onClick="{{ tn.addServer }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Add server</button></div>
+</div></sc-if>
+</main>
+<sc-if value="{{ tn.menuOpen }}"><div onClick="{{ tn.closeAll }}" style="position:absolute;inset:0;z-index:5"></div></sc-if>
+<sc-if value="{{ tn.sheetOpen }}"><div onClick="{{ tn.closeAll }}" style="position:absolute;inset:0;z-index:7"></div></sc-if>
+<aside style="position:absolute;z-index:8;top:12px;right:12px;bottom:12px;width:400px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;overflow:hidden;border-radius:22px;background:var(--color-surface);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-text) 10%,transparent),-12px 0 48px rgba(0,0,0,.5),0 24px 60px rgba(0,0,0,.4);transform:{{ tn.dX }};opacity:{{ tn.dOp }};pointer-events:{{ tn.dPe }};transition:transform .34s cubic-bezier(.2,.8,.2,1),opacity .24s">
+<div style="padding:14px 12px 8px 20px;display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:500">{{ tn.sheetTitle }}</span><span style="flex:1"></span><button onClick="{{ tn.closeAll }}" aria-label="Close" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:16px;color:var(--color-text);background:color-mix(in srgb,var(--color-text) 8%,transparent)" style-hover="background:color-mix(in srgb,var(--color-text) 14%,transparent)"><i class="ph ph-x"></i></button></div>
+<div class="hscroll" style="flex:1;overflow-y:auto;padding:12px 20px 18px;display:flex;flex-direction:column;gap:14px">
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Address<input type="url" value="{{ tn.addr }}" onInput="{{ tn.setAddr }}" placeholder="https://cove.local:9999" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none"></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Name (optional)<input type="text" value="{{ tn.name }}" onInput="{{ tn.setName }}" placeholder="e.g. Living Room NAS" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);outline:none"></label>
+<p style="margin:-4px 2px 0;font-size:12px;line-height:1.5;color:color-mix(in srgb,var(--color-text) 50%,transparent)">The address you open Cove at in a browser. Without a name, the list shows its host.</p>
+</div>
+<div style="flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 14px 14px 20px;box-shadow:inset 0 1px 0 var(--color-divider)"><button onClick="{{ tn.closeAll }}" style="height:40px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)">Cancel</button><button onClick="{{ tn.saveSrv }}" style="height:40px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">{{ tn.sheetSave }}</button></div>
+</aside>
+</div></div></div>
+
+<div class="dv-opt" id="1o"><div class="dv-olabel" style="max-width:1200px"><a class="dv-oid" href="#1o">1o</a>Tablet, Add server open: a drawer over the accounts, like 2d’s filter, so the list stays in view. Add puts the new server in it, selected, and asks for its first account straight away. ✕, Cancel or a tap outside closes. Open here so it can be reviewed.</div>
+<div style="width:1208px;padding:14px;border-radius:40px;background:#08090e;box-shadow:0 0 0 1px var(--color-neutral-800),0 30px 60px rgba(0,0,0,.5)">
+<div style="position:relative;width:1180px;height:820px;border-radius:26px;overflow:hidden;background:var(--color-bg);color:var(--color-text);display:grid;grid-template-columns:380px minmax(0,1fr)">
+<aside class="hscroll" style="overflow-y:auto;display:flex;flex-direction:column;padding:20px 16px 18px;background:radial-gradient(circle at -40px -60px,color-mix(in srgb,var(--color-accent) 20%,transparent),transparent 340px),color-mix(in srgb,var(--color-surface) 55%,var(--color-bg))">
+<div style="display:flex;align-items:center;gap:8px;font-size:17px;font-weight:500;padding:6px 10px 0"><span style="width:20px;height:20px;border-radius:6px;border:1.5px solid var(--color-accent);box-shadow:0 0 10px var(--color-accent)"></span>Cove</div>
+<h1 style="font-size:28px;margin:30px 10px 4px;letter-spacing:-.02em">Connect to your library</h1>
+<p style="margin:0 10px;font-size:14px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Your Cove servers</p>
+<div style="display:flex;flex-direction:column;gap:8px;margin-top:20px">
+<sc-for list="{{ to.srvs }}" as="sv" hint-placeholder-count="3">
+<div style="position:relative;display:flex;align-items:center;gap:4px;padding:6px 4px 6px 6px;border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:{{ sv.ring }}">
+<div onClick="{{ sv.pick }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:12px;padding:8px;border-radius:var(--radius-md);cursor:pointer;opacity:{{ sv.op }}" style-hover="background:color-mix(in srgb,var(--color-text) 5%,transparent)"><span style="width:44px;height:44px;flex:none;border-radius:10px;display:grid;place-items:center;font-size:22px;background:color-mix(in srgb,var(--color-accent) 14%,transparent);color:var(--color-accent-300)"><i class="ph ph-hard-drives"></i></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sv.name }}</span><span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sv.addr }}</span><span style="display:flex;align-items:center;gap:6px;min-width:0;font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)"><span style="width:6px;height:6px;border-radius:50%;flex:none;background:{{ sv.dot }};box-shadow:{{ sv.glow }}"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ sv.meta }}</span></span></span></div>
+<button onClick="{{ sv.menu }}" aria-label="Server options" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:40px;height:44px;flex:none;border-radius:var(--radius-md);display:grid;place-items:center;font-size:18px;color:{{ sv.menuInk }};background:{{ sv.menuBg }}" style-hover="background:color-mix(in srgb,var(--color-text) 8%,transparent)"><i class="ph ph-dots-three-vertical"></i></button>
+<sc-if value="{{ sv.menuOpen }}"><div style="position:absolute;z-index:6;right:4px;top:calc(100% - 2px);width:280px;box-sizing:border-box;padding:6px;border-radius:16px;background:var(--color-surface);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-text) 10%,transparent),-12px 0 48px rgba(0,0,0,.5),0 24px 60px rgba(0,0,0,.4)">
+<div onClick="{{ to.editSrv }}" style="min-height:44px;display:flex;align-items:center;gap:12px;padding:0 10px;border-radius:var(--radius-md);font-size:14px;cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="ph ph-pencil-simple" style="font-size:18px;color:var(--color-accent-300)"></i>Edit</div>
+<div style="margin:4px 10px;height:1px;background:linear-gradient(to right,transparent,var(--color-divider) 48px,var(--color-divider) calc(100% - 48px),transparent)"></div>
+<div onClick="{{ to.removeSrv }}" style="min-height:44px;display:flex;align-items:center;gap:12px;padding:0 10px;border-radius:var(--radius-md);font-size:14px;cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)"><i class="ph ph-trash" style="font-size:18px;color:var(--color-accent-300)"></i><span style="display:flex;flex-direction:column;gap:2px;padding:7px 0">Remove server<span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 55%,transparent)">Forgets its address and the accounts kept for it</span></span></div>
+</div></sc-if>
+</div>
+</sc-for>
+<button onClick="{{ to.addServer }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);align-self:flex-start;height:40px;padding:0 10px;display:flex;align-items:center;gap:8px;border-radius:var(--radius-md);font:500 14px var(--font-body);color:var(--color-accent-300)" style-hover="background:color-mix(in srgb,var(--color-accent) 10%,transparent)"><i class="ph ph-plus"></i>Add server</button>
+</div>
+</aside>
+<main class="hscroll" style="overflow-y:auto;display:flex;flex-direction:column;min-width:0">
+<div style="flex:none;height:64px;padding:0 20px;display:flex;align-items:center;justify-content:flex-end"><sc-if value="{{ to.canEdit }}"><button onClick="{{ to.toggleEdit }}" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);height:40px;padding:0 12px;border-radius:var(--radius-md);font:500 14px var(--font-body);color:var(--color-accent-300)" style-hover="background:color-mix(in srgb,var(--color-accent) 10%,transparent)">{{ to.editLabel }}</button></sc-if></div>
+<sc-if value="{{ to.showAccts }}"><div style="display:flex;flex-direction:column;align-items:center;padding:24px 40px 40px">
+<div style="display:flex;align-items:center;gap:8px;font-size:13px;color:color-mix(in srgb,var(--color-text) 60%,transparent)"><span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);box-shadow:0 0 6px var(--color-accent)"></span>{{ to.srvName }}</div>
+<h1 style="font-size:30px;margin:10px 0 0;letter-spacing:-.02em">{{ to.heading }}</h1>
+<div style="margin-top:40px;max-width:720px;display:flex;flex-wrap:wrap;justify-content:center;gap:26px 16px">
+<sc-for list="{{ to.accounts }}" as="p" hint-placeholder-count="3">
+<div onClick="{{ p.pick }}" style="width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer">
+<span style="position:relative;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;font-size:36px;font-weight:500;background:{{ p.fill }};color:{{ p.ink }};box-shadow:{{ p.ring }};opacity:{{ p.op }}">{{ p.ini }}<sc-if value="{{ p.lock }}"><span style="position:absolute;right:4px;bottom:4px;width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-size:14px;background:var(--color-bg);color:var(--color-text)"><i class="ph-fill ph-lock-simple"></i></span></sc-if><sc-if value="{{ p.editing }}"><span onClick="{{ p.forget }}" aria-label="Remove {{ p.name }}" style="position:absolute;right:0;top:0;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;font-size:15px;background:var(--color-surface);color:var(--color-text);box-shadow:0 0 0 3px var(--color-bg);cursor:pointer"><i class="ph ph-x"></i></span></sc-if></span>
+<span style="font-size:15px;font-weight:500;margin-top:4px">{{ p.name }}</span>
+<span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">{{ p.sub }}</span>
+</div>
+</sc-for>
+<sc-if value="{{ to.canAdd }}"><div onClick="{{ to.addAcct }}" style="width:150px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer"><span style="width:112px;height:112px;box-sizing:border-box;border-radius:50%;display:grid;place-items:center;font-size:32px;color:var(--color-accent-300);border:1.5px dashed {{ to.addRing }}"><i class="ph ph-plus"></i></span><span style="font-size:15px;font-weight:500;margin-top:4px">Add account</span><span style="font-size:12px;color:color-mix(in srgb,var(--color-text) 50%,transparent)">Username and password</span></div></sc-if>
+</div>
+<sc-if value="{{ to.cardPassword }}">
+<div style="width:380px;box-sizing:border-box;margin-top:40px;padding:16px;border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:12px">
+<div style="font-size:13px;color:color-mix(in srgb,var(--color-text) 65%,transparent)">Password for <span style="color:var(--color-text)">{{ to.acctName }}</span> · the session ran out</div>
+<input type="password" aria-label="Password" value="coveword" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none">
+<button onClick="{{ to.signInPw }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Sign in</button>
+</div>
+</sc-if>
+<sc-if value="{{ to.cardAdd }}">
+<div style="width:380px;box-sizing:border-box;margin-top:40px;padding:16px;border-radius:var(--radius-lg);background:var(--color-surface);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;gap:12px">
+<div style="font-size:13px;color:color-mix(in srgb,var(--color-text) 65%,transparent)">Sign in to <span style="color:var(--color-text)">{{ to.srvName }}</span></div>
+<input aria-label="Username" placeholder="Username" value="{{ to.user }}" onInput="{{ to.setUser }}" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none">
+<input type="password" aria-label="Password" placeholder="Password" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);outline:none">
+<div style="display:flex;gap:8px"><sc-if value="{{ to.canCancelAdd }}"><button onClick="{{ to.cancelAdd }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)">Cancel</button></sc-if><span style="flex:1;display:flex;flex-direction:column"><button onClick="{{ to.signInNew }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Sign in</button></span></div>
+</div>
+</sc-if>
+</div></sc-if>
+<sc-if value="{{ to.offline }}"><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:0 60px 100px;text-align:center">
+<span style="width:64px;height:64px;border-radius:16px;display:grid;place-items:center;font-size:30px;background:color-mix(in srgb,var(--color-text) 6%,transparent);color:color-mix(in srgb,var(--color-text) 55%,transparent)"><i class="ph ph-plugs"></i></span>
+<div style="font-size:20px;font-weight:500;margin-top:6px">Can’t reach {{ to.srvName }}</div>
+<p style="margin:0;max-width:400px;font-size:13.5px;line-height:1.55;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Last reached 3 days ago at {{ to.srvAddr }}. Check that it’s on, or edit its address.</p>
+<div style="display:flex;gap:8px;margin-top:10px"><button onClick="{{ to.editCur }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)">Edit server</button><button onClick="{{ to.retry }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Try again</button></div>
+</div></sc-if>
+<sc-if value="{{ to.empty }}"><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:0 60px 100px;text-align:center">
+<span style="width:64px;height:64px;border-radius:16px;display:grid;place-items:center;font-size:30px;background:color-mix(in srgb,var(--color-accent) 14%,transparent);color:var(--color-accent-300)"><i class="ph ph-hard-drives"></i></span>
+<div style="font-size:20px;font-weight:500;margin-top:6px">Add your Cove server</div>
+<p style="margin:0;max-width:400px;font-size:13.5px;line-height:1.55;color:color-mix(in srgb,var(--color-text) 60%,transparent)">By the address you open it at in a browser.</p>
+<div style="margin-top:10px"><button onClick="{{ to.addServer }}" style="height:44px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">Add server</button></div>
+</div></sc-if>
+</main>
+<sc-if value="{{ to.menuOpen }}"><div onClick="{{ to.closeAll }}" style="position:absolute;inset:0;z-index:5"></div></sc-if>
+<sc-if value="{{ to.sheetOpen }}"><div onClick="{{ to.closeAll }}" style="position:absolute;inset:0;z-index:7"></div></sc-if>
+<aside style="position:absolute;z-index:8;top:12px;right:12px;bottom:12px;width:400px;box-sizing:border-box;display:flex;flex-direction:column;min-height:0;overflow:hidden;border-radius:22px;background:var(--color-surface);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--color-text) 10%,transparent),-12px 0 48px rgba(0,0,0,.5),0 24px 60px rgba(0,0,0,.4);transform:{{ to.dX }};opacity:{{ to.dOp }};pointer-events:{{ to.dPe }};transition:transform .34s cubic-bezier(.2,.8,.2,1),opacity .24s">
+<div style="padding:14px 12px 8px 20px;display:flex;align-items:center;gap:8px"><span style="font-size:17px;font-weight:500">{{ to.sheetTitle }}</span><span style="flex:1"></span><button onClick="{{ to.closeAll }}" aria-label="Close" style="border:0;background:transparent;cursor:pointer;font-family:var(--font-body);width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-size:16px;color:var(--color-text);background:color-mix(in srgb,var(--color-text) 8%,transparent)" style-hover="background:color-mix(in srgb,var(--color-text) 14%,transparent)"><i class="ph ph-x"></i></button></div>
+<div class="hscroll" style="flex:1;overflow-y:auto;padding:12px 20px 18px;display:flex;flex-direction:column;gap:14px">
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Address<input type="url" value="{{ to.addr }}" onInput="{{ to.setAddr }}" placeholder="https://cove.local:9999" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-accent);border-radius:var(--radius-md);outline:none"></label>
+<label style="display:flex;flex-direction:column;gap:6px;font-size:12px;color:color-mix(in srgb,var(--color-text) 60%,transparent)">Name (optional)<input type="text" value="{{ to.name }}" onInput="{{ to.setName }}" placeholder="e.g. Living Room NAS" style="height:46px;padding:0 14px;font:15px var(--font-body);color:var(--color-text);caret-color:var(--color-accent);background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);outline:none"></label>
+<p style="margin:-4px 2px 0;font-size:12px;line-height:1.5;color:color-mix(in srgb,var(--color-text) 50%,transparent)">The address you open Cove at in a browser. Without a name, the list shows its host.</p>
+</div>
+<div style="flex:none;display:flex;align-items:center;justify-content:flex-end;gap:12px;padding:12px 14px 14px 20px;box-shadow:inset 0 1px 0 var(--color-divider)"><button onClick="{{ to.closeAll }}" style="height:40px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-divider);background:transparent;color:var(--color-text);font:500 14px var(--font-body);cursor:pointer" style-hover="background:color-mix(in srgb,var(--color-text) 6%,transparent)">Cancel</button><button onClick="{{ to.saveSrv }}" style="height:40px;padding:0 18px;border-radius:var(--radius-md);border:1px solid var(--color-accent);background:transparent;color:var(--color-accent-200);font:500 14px var(--font-body);cursor:pointer;" style-hover="background:color-mix(in srgb,var(--color-accent) 12%,transparent)">{{ to.sheetSave }}</button></div>
+</aside>
 </div></div></div>
 </div>
 
@@ -1977,7 +2159,20 @@ const TOTAL = toSec('42:16');
 const MUTED = 'color-mix(in srgb,var(--color-text) 60%,transparent)';
 
 class Component extends DCLogic {
-  state = { server: 0, profile: 0, sel: 0, drawer: true, fd: true, playing: true, playingL: false, chrome: true, t: 0.34, ptab: 0, homeTab: 0, fTags: { Drone: 1, Archive: 2 }, fWatch: 1, fDur: 0, gOps: [0, 1, 3], mMode: 0, mAny: false, distinct: false, sTokens: ['drone'], pPath: [0, 0], pSel: null, pQ: '', pText: '/mnt/nas/Videos/Dr', lib: {
+  state = { server: 0, srv: [
+      { id: 'nas', name: 'Living Room NAS', addr: 'https://nas.local:9999', meta: 'Signed in as Maya, Theo' },
+      { id: 'mac', name: 'Studio Mac mini', addr: 'https://192.168.1.40:9999', meta: 'Signed in as Maya' },
+      { id: 'pi', name: 'Garage Pi', addr: 'https://cove-pi.local:9999', meta: '', off: true }
+    ], srvMenu: null, srvSheet: null, draftName: '', draftAddr: '', accts: [
+      { name: 'Maya', lock: false, fill: 'var(--color-accent-800)', ink: 'var(--color-accent-100)' },
+      { name: 'Theo', lock: true, fill: 'var(--color-neutral-800)', ink: 'var(--color-neutral-100)' },
+      { name: 'Kids', lock: false, fill: 'var(--color-accent-900)', ink: 'var(--color-accent-300)' }
+    ], acctSel: 1, acctEdit: false, acctAdd: false, acctsBy: {
+      mac: [{ name: 'Maya', lock: false, fill: 'var(--color-accent-800)', ink: 'var(--color-accent-100)' }], pi: []
+    }, tab: {
+      tn: { sel: 0, menu: null, sheet: null, name: '', addr: '', acct: 1, edit: false, add: false, user: '' },
+      to: { sel: 0, menu: null, sheet: 'add', name: '', addr: '', acct: null, edit: false, add: false, user: '' }
+    }, profile: 0, sel: 0, drawer: true, fd: true, playing: true, playingL: false, chrome: true, t: 0.34, ptab: 0, homeTab: 0, fTags: { Drone: 1, Archive: 2 }, fWatch: 1, fDur: 0, gOps: [0, 1, 3], mMode: 0, mAny: false, distinct: false, sTokens: ['drone'], pPath: [0, 0], pSel: null, pQ: '', pText: '/mnt/nas/Videos/Dr', lib: {
     lf: { conds: [], saved: null, edited: false, view: 3, q: '', sheet: null },
     lg: { conds: ['tag:Drone','added','grp','nArchive'], saved: 'Northern evenings', edited: false, view: 'list', q: '', sheet: null },
     ua: { conds: ['unw','tag:Drone','4k'], saved: null, edited: false, view: 3, q: '', sheet: null },
@@ -2010,19 +2205,20 @@ class Component extends DCLogic {
         selRing: s.drawer && s.sel === i ? '0 0 0 2px var(--color-accent),0 0 16px color-mix(in srgb,var(--color-accent) 45%,transparent)' : 'none',
         selInk: s.drawer && s.sel === i ? 'var(--color-accent-300)' : 'inherit' };
     });
-    const servers = [
-      { name: 'Living Room NAS', addr: '192.168.1.24:9999', meta: '4,812 videos · v1.8' },
-      { name: 'Studio Mac mini', addr: '192.168.1.40:9999', meta: '612 videos · v1.8' },
-      { name: 'Garage Pi', addr: 'cove-pi.local:9999', meta: 'Offline · last seen 3 days ago', off: true }
-    ].map((x, i) => { const on = s.server === i; return { ...x, op: x.off ? 0.5 : 1,
-      pick: () => !x.off && this.setState({ server: i }),
-      bg: on ? 'color-mix(in srgb,var(--color-accent) 9%,var(--color-surface))' : 'var(--color-surface)',
-      ring: on ? 'inset 0 0 0 1px var(--color-accent),0 0 24px color-mix(in srgb,var(--color-accent) 22%,transparent)' : 'inset 0 0 0 1px transparent',
-      dotBorder: on ? 'var(--color-accent)' : 'var(--color-divider)', dotFill: on ? 'var(--color-accent)' : 'transparent' }; });
-    const profs = [['Maya', true, 'var(--color-accent-800)', 'var(--color-accent-100)'], ['Theo', true, 'var(--color-neutral-800)', 'var(--color-neutral-100)'], ['Kids', false, 'var(--color-accent-900)', 'var(--color-accent-300)'], ['Guest', false, 'var(--color-surface)', 'var(--color-neutral-300)']];
-    const profiles = profs.map(([name, lock, fill, ink], i) => ({ name, lock, fill, ink, ini: name[0],
-      pick: () => this.setState({ profile: i }),
-      ring: s.profile === i ? '0 0 0 3px var(--color-bg),0 0 0 5px var(--color-accent),0 0 24px color-mix(in srgb,var(--color-accent) 40%,transparent)' : 'none' }));
+    // 1a: your servers (an editable list); 1b: the accounts kept for the one tapped
+    const servers = s.srv.map((x, i) => ({ ...x, op: x.off ? 0.55 : 1,
+      meta: x.off ? 'Offline · last reached 3 days ago' : x.meta,
+      dot: x.off ? 'var(--color-neutral-600)' : 'var(--color-accent)', glow: x.off ? 'none' : '0 0 6px var(--color-accent)',
+      ring: s.server === i ? 'inset 0 0 0 1px var(--color-accent),0 0 24px color-mix(in srgb,var(--color-accent) 22%,transparent)' : 'none',
+      pick: () => this.setState({ server: i }), menu: () => this.setState({ srvMenu: i }) }));
+    const menuSrv = s.srvMenu == null ? null : s.srv[s.srvMenu];
+    const editing = typeof s.srvSheet === 'number';
+    const accounts = s.accts.map((a, i) => ({ ...a, ini: a.name[0], editing: s.acctEdit,
+      sub: a.lock ? 'Password needed' : 'Signed in', op: s.acctEdit ? 0.8 : 1,
+      pick: () => !s.acctEdit && this.setState({ acctSel: i, acctAdd: false }),
+      forget: () => this.setState({ accts: s.accts.filter((_, k) => k !== i), acctSel: null }),
+      ring: !s.acctEdit && !s.acctAdd && s.acctSel === i ? '0 0 0 3px var(--color-bg),0 0 0 5px var(--color-accent),0 0 24px color-mix(in srgb,var(--color-accent) 40%,transparent)' : 'none' }));
+    const selAcct = s.acctSel == null ? null : s.accts[s.acctSel];
     const markers = MK.map(([pos, label], i) => {
       const active = s.t >= pos && (i === MK.length - 1 || s.t < MK[i + 1][0]);
       return { left: pos * 100 + '%', label, time: fmt(pos * TOTAL), thumb: img('mk' + i, 320, 180),
@@ -2044,9 +2240,30 @@ class Component extends DCLogic {
     const g = (name, count, a, b, c) => ({ name, count, a: img(RAW[a][5], 300, 172), b: img(RAW[b][5], 300, 172), c: img(RAW[c][5], 300, 172) });
     const fp = ['34%', '12%', '0%', '58%'];
     return {
-      showMarkers, vids, servers, profiles, markers,
-      serverName: servers[s.server].name,
-      profileLocked: profs[s.profile][1], profileName: profs[s.profile][0],
+      showMarkers, vids, markers,
+      srvs: servers, noSrvs: !s.srv.length, serverName: (s.srv[s.server] || s.srv[0] || { name: 'Cove' }).name,
+      srvMenuOpen: !!menuSrv, menuName: menuSrv ? menuSrv.name : '', menuAddr: menuSrv ? menuSrv.addr : '',
+      closeSrv: () => this.setState({ srvMenu: null, srvSheet: null }),
+      editSrv: () => this.setState({ srvSheet: s.srvMenu, srvMenu: null, draftName: menuSrv.name, draftAddr: menuSrv.addr }),
+      removeSrv: () => this.setState({ srv: s.srv.filter((_, k) => k !== s.srvMenu), srvMenu: null, server: 0 }),
+      addServer: () => this.setState({ srvSheet: 'add', draftName: '', draftAddr: '' }),
+      srvSheetOpen: s.srvSheet != null, srvSheetTitle: editing ? 'Edit server' : 'Add server', srvSheetSave: editing ? 'Save' : 'Add',
+      draftName: s.draftName, draftAddr: s.draftAddr,
+      setDraftName: e => this.setState({ draftName: e.target.value }), setDraftAddr: e => this.setState({ draftAddr: e.target.value }),
+      saveSrv: () => {
+        const addr = s.draftAddr.trim();
+        if (!addr) return;
+        const name = s.draftName.trim() || addr.replace(/^https?:\/\//, '').replace(/[:/].*$/, '');
+        const srv = editing ? s.srv.map((x, k) => k === s.srvSheet ? { ...x, name, addr } : x) : [...s.srv, { id: 'n' + Date.now(), name, addr, meta: 'No accounts yet' }];
+        this.setState({ srv, srvSheet: null });
+      },
+      accounts, acctEditLabel: s.acctEdit ? 'Done' : 'Edit', canAddAcct: !s.acctEdit,
+      addRing: s.acctAdd ? 'var(--color-accent)' : 'var(--color-divider)',
+      toggleAcctEdit: () => this.setState({ acctEdit: !s.acctEdit, acctAdd: false }),
+      addAcct: () => this.setState({ acctAdd: true, acctSel: null }), cancelAdd: () => this.setState({ acctAdd: false }),
+      signIn: () => this.setState({ acctAdd: false }),
+      cardPassword: !!selAcct && selAcct.lock && !s.acctAdd && !s.acctEdit, cardAdd: s.acctAdd && !s.acctEdit,
+      acctName: selAcct ? selAcct.name : '',
       resume: vids.filter(v => v.hasProg),
       recent: vids.slice(2, 8),
       later: [vids[4], vids[9], vids[6]],
@@ -2084,10 +2301,85 @@ class Component extends DCLogic {
       playIconL: s.playingL ? 'ph-fill ph-pause' : 'ph-fill ph-play',
       togglePlayL: () => this.setState(x => ({ playingL: !x.playingL })),
       ptabs, tabMoments: s.ptab === 0, tabNext: s.ptab === 1, tabDetails: s.ptab === 2,
+      ...this.signinVals(s),
       ...this.filterVals(s, vids),
       ...this.libVals(s, vids),
       ...this.pathVals(s)
     };
+  }
+  signinVals(s) {
+    // 1n / 1o (tablet sign-in): the servers (s.srv) and the accounts kept for each (Living Room NAS = s.accts, shared with 1b;
+    // the others in s.acctsBy) are shared data; each frame keeps its own selection, menu, drawer and drafts in s.tab.
+    const key = x => x.id || x.addr;
+    const listOf = x => key(x) === 'nas' ? s.accts : (s.acctsBy[key(x)] || []);
+    const listPatch = (x, l) => key(x) === 'nas' ? { accts: l } : { acctsBy: { ...s.acctsBy, [key(x)]: l } };
+    const FILLS = [['var(--color-accent-800)', 'var(--color-accent-100)'], ['var(--color-neutral-800)', 'var(--color-neutral-100)'],
+      ['var(--color-accent-900)', 'var(--color-accent-300)'], ['var(--color-accent-700)', 'var(--color-accent-100)']];
+    const one = k => {
+      const t = s.tab[k];
+      const set = (o, more = {}) => this.setState(x => ({ ...more, tab: { ...x.tab, [k]: { ...x.tab[k], ...o } } }));
+      const sel = Math.max(0, Math.min(t.sel, s.srv.length - 1));
+      const cur = s.srv[sel], list = cur ? listOf(cur) : [];
+      const editingSrv = typeof t.sheet === 'number', sheetOpen = t.sheet != null;
+      const adding = !t.edit && (t.add || !list.length);
+      const acct = t.acct == null ? null : list[t.acct];
+      const srvs = s.srv.map((x, i) => {
+        const l = listOf(x);
+        return { name: x.name, addr: x.addr, op: x.off ? 0.55 : 1,
+          meta: x.off ? 'Offline · last reached 3 days ago' : l.length ? 'Signed in as ' + l.map(a => a.name).join(', ') : 'No accounts yet',
+          dot: x.off ? 'var(--color-neutral-600)' : 'var(--color-accent)', glow: x.off ? 'none' : '0 0 6px var(--color-accent)',
+          ring: sel === i ? 'inset 0 0 0 1px var(--color-accent),0 0 24px color-mix(in srgb,var(--color-accent) 22%,transparent)' : 'none',
+          menuOpen: t.menu === i,
+          menuInk: t.menu === i ? 'var(--color-text)' : 'color-mix(in srgb,var(--color-text) 45%,transparent)',
+          menuBg: t.menu === i ? 'color-mix(in srgb,var(--color-text) 8%,transparent)' : 'transparent',
+          pick: () => set({ sel: i, menu: null, acct: null, edit: false, add: false, user: '' }),
+          menu: () => set({ menu: t.menu === i ? null : i }) };
+      });
+      const menuSrv = t.menu == null ? null : s.srv[t.menu];
+      const accounts = list.map((a, i) => ({ ...a, ini: a.name[0], editing: t.edit,
+        sub: a.lock ? 'Password needed' : 'Signed in', op: t.edit ? 0.8 : 1,
+        pick: () => !t.edit && set({ acct: i, add: false }),
+        forget: () => set({ acct: null, edit: list.length > 1 }, listPatch(cur, list.filter((_, j) => j !== i))),
+        ring: !t.edit && !adding && t.acct === i ? '0 0 0 3px var(--color-bg),0 0 0 5px var(--color-accent),0 0 24px color-mix(in srgb,var(--color-accent) 40%,transparent)' : 'none' }));
+      return {
+        srvs, srvName: cur ? cur.name : '', srvAddr: cur ? cur.addr : '',
+        empty: !cur, offline: !!cur && !!cur.off, showAccts: !!cur && !cur.off,
+        menuOpen: !!menuSrv, sheetOpen,
+        closeAll: () => set({ menu: null, sheet: null }),
+        editSrv: () => set({ sheet: t.menu, menu: null, name: menuSrv.name, addr: menuSrv.addr }),
+        removeSrv: () => set({ menu: null, sel: 0, acct: null, edit: false, add: false }, { srv: s.srv.filter((_, j) => j !== t.menu) }),
+        addServer: () => set({ sheet: 'add', menu: null, name: '', addr: '' }),
+        editCur: () => set({ sheet: sel, name: cur.name, addr: cur.addr }),
+        retry: () => {},
+        sheetTitle: editingSrv ? 'Edit server' : 'Add server', sheetSave: editingSrv ? 'Save' : 'Add',
+        name: t.name, addr: t.addr,
+        setName: e => set({ name: e.target.value }), setAddr: e => set({ addr: e.target.value }),
+        saveSrv: () => {
+          const addr = t.addr.trim();
+          if (!addr) return;
+          const name = t.name.trim() || addr.replace(/^https?:\/\//, '').replace(/[:/].*$/, '');
+          if (editingSrv) return set({ sheet: null }, { srv: s.srv.map((x, j) => j === t.sheet ? { ...x, name, addr } : x) });
+          set({ sheet: null, sel: s.srv.length, acct: null, edit: false, add: false, user: '' },
+            { srv: [...s.srv, { id: 'n' + Date.now(), name, addr, meta: 'No accounts yet' }] });
+        },
+        dX: sheetOpen ? 'translateX(0)' : 'translateX(calc(100% + 24px))', dOp: sheetOpen ? 1 : 0, dPe: sheetOpen ? 'auto' : 'none',
+        accounts, canEdit: !!cur && !cur.off && list.length > 0, editLabel: t.edit ? 'Done' : 'Edit',
+        toggleEdit: () => set({ edit: !t.edit, add: false }),
+        canAdd: !t.edit && list.length > 0, heading: list.length ? "Who's watching?" : 'Sign in', addRing: adding ? 'var(--color-accent)' : 'var(--color-divider)',
+        addAcct: () => set({ add: true, acct: null }), cancelAdd: () => set({ add: false, user: '' }),
+        cardPassword: !!acct && acct.lock && !adding && !t.edit, acctName: acct ? acct.name : '',
+        signInPw: () => set({}, listPatch(cur, list.map((a, j) => j === t.acct ? { ...a, lock: false } : a))),
+        cardAdd: adding, canCancelAdd: list.length > 0,
+        user: t.user, setUser: e => set({ user: e.target.value }),
+        signInNew: () => {
+          const name = t.user.trim();
+          if (!name) return;
+          const [fill, ink] = FILLS[list.length % FILLS.length];
+          set({ add: false, user: '', acct: list.length }, listPatch(cur, [...list, { name: name[0].toUpperCase() + name.slice(1), lock: false, fill, ink }]));
+        }
+      };
+    };
+    return { tn: one('tn'), to: one('to') };
   }
   libVals(s, vids) {
     // Library (1f, 1g, 6a–6e): one screen, three views; every frame keeps its own state in s.lib.

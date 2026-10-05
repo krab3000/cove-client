@@ -48,6 +48,8 @@ export class CoveClient {
   private previews = new Map<number, Promise<boolean>>();
   private mediaToken: string | null = null;
   private mediaTokenId: string | null = null;
+  /** Told the new refresh token whenever it rotates, so a session kept on the device follows it. */
+  onRefreshToken: ((refreshToken: string) => void) | null = null;
 
   private constructor(
     readonly server: string,
@@ -75,6 +77,53 @@ export class CoveClient {
     );
     await client.issueMediaToken();
     return client;
+  }
+
+  /** A session kept on the device, resumed from its refresh token (rejected once it ran out). */
+  static async resume(
+    server: string,
+    username: string,
+    refreshToken: string
+  ): Promise<CoveClient> {
+    const base = server.trim().replace(/\/+$/, '');
+    const response = await CoveClient.send(base, 'POST', 'auth/refresh', {
+      refreshToken,
+    });
+    const pair = (await response.json()) as LoginResponse;
+    const client = new CoveClient(
+      base,
+      pair.user?.username ?? username,
+      pair.token,
+      pair.refreshToken
+    );
+    await client.issueMediaToken();
+    return client;
+  }
+
+  /** Whether a server answers (Cove's status needs no sign-in), within a few seconds. */
+  static async reachable(server: string): Promise<boolean> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 4000);
+    try {
+      await fetch(`${server}/api/system/status`, { signal: controller.signal });
+      return true; // any answer: it is there
+    } catch {
+      return false;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** Ends a session kept on the device (an account removed from it); quietly, the device forgets it either way. */
+  static async revoke(server: string, refreshToken: string): Promise<void> {
+    try {
+      await CoveClient.send(server, 'POST', 'auth/logout', { refreshToken });
+    } catch {}
+  }
+
+  /** The session's refresh token now (it rotates on every refresh). */
+  get currentRefreshToken(): string {
+    return this.refreshToken;
   }
 
   async logout(): Promise<void> {
@@ -421,6 +470,7 @@ export class CoveClient {
         const pair = (await response.json()) as LoginResponse;
         this.accessToken = pair.token;
         this.refreshToken = pair.refreshToken;
+        this.onRefreshToken?.(pair.refreshToken);
       } finally {
         this.refreshing = null;
       }

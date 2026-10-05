@@ -83,7 +83,9 @@ export interface LoginResponse {
   refreshToken: string;
   accessExpires: string;
   refreshExpires: string;
+  // Login's; a refresh has only user
   username: string;
+  user?: { id: number; username: string };
 }
 
 export interface ApiTokenResponse {
