@@ -20,7 +20,8 @@
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
     "cove:windows": "yarn workspace react-native-libav-cove-client windows",
     "start:cove": "yarn workspace react-native-libav-cove-client start",
-    "cove:android": "yarn workspace react-native-libav-cove-client android"
+    "cove:android": "yarn workspace react-native-libav-cove-client android",
+    "cove:server": "yarn workspace react-native-libav-cove-client test-server"
   },
   "devDependencies": {
     "@eslint/compat": "^2.1.0",

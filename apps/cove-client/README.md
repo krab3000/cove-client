@@ -12,6 +12,13 @@ yarn cove:android        # build and install on Android
 yarn cove:windows        # build and run on Windows
 ```
 
+## Test server
+
+`yarn cove:server` starts a Cove server in Docker with a large library: 100+ videos, among them 4K and 1080p
+at 60 fps, 10+ minute movies and many short clips in different codecs. The library is downloaded on first run. Sign in at
+`http://127.0.0.1:5073` (Windows), `http://10.0.2.2:5073` (Android emulator) or, after `adb reverse tcp:5073 tcp:5073`,
+`http://localhost:5073` (a phone over USB), as `admin` / `adminadmin`. See [test-server/README.md](test-server/README.md).
+
 ## Layout of `src/`
 
 | Folder | What lives there |

@@ -1,0 +1,54 @@
+# Cove test server for the Cove client: one all-in-one Cove container (PostgreSQL + FFmpeg + Cove) with a large
+# video library mounted at /media.
+#
+# Don't start this by hand the first time — run ./setup.ps1 (or ./setup.sh). It downloads the library into ./media,
+# writes .env, starts Cove, creates the owner account (admin / adminadmin) and scans the library.
+name: cove-test-server
+
+services:
+  cove:
+    image: ${COVE_IMAGE:-ghcr.io/yourcove/cove:latest}
+    restart: unless-stopped
+    ports:
+      - "${COVE_PORT:-5073}:5073"
+    environment:
+      # Seeds the library path on first start (a saved cove-config.json wins afterwards).
+      COVE__CovePaths__0__Path: /media
+      # Auth is on, as on a real server: the client signs in through /api/auth/login from any address
+      # (emulator, phone over adb reverse, desktop), and none of them needs to be a trusted host.
+      COVE__Auth__Enabled: "true"
+      # Fixed secret, so access/refresh tokens survive container restarts (Cove generates a new one each start otherwise).
+      COVE__Auth__JwtSecret: ${COVE_JWT_SECRET:?run setup.ps1 / setup.sh first (it writes .env)}
+      # Cove's default video extensions plus .ts/.m2ts/.mts/.ogv/.vob/.3gp for the edge-case samples. The whole list is
+      # given because the binder may append to or replace the default; duplicates are harmless.
+      COVE__VideoExtensions__0: .m4v
+      COVE__VideoExtensions__1: .mp4
+      COVE__VideoExtensions__2: .mov
+      COVE__VideoExtensions__3: .wmv
+      COVE__VideoExtensions__4: .avi
+      COVE__VideoExtensions__5: .mpg
+      COVE__VideoExtensions__6: .mpeg
+      COVE__VideoExtensions__7: .rmvb
+      COVE__VideoExtensions__8: .rm
+      COVE__VideoExtensions__9: .flv
+      COVE__VideoExtensions__10: .asf
+      COVE__VideoExtensions__11: .mkv
+      COVE__VideoExtensions__12: .webm
+      COVE__VideoExtensions__13: .f4v
+      COVE__VideoExtensions__14: .ts
+      COVE__VideoExtensions__15: .m2ts
+      COVE__VideoExtensions__16: .mts
+      COVE__VideoExtensions__17: .ogv
+      COVE__VideoExtensions__18: .vob
+      COVE__VideoExtensions__19: .3gp
+    volumes:
+      - pgdata:/var/lib/postgresql/cove-data
+      - ./.data/config:/config
+      - ./.data/generated:/generated     # covers, previews, sprites
+      - ./.data/backups:/backups
+      - cache:/cache
+      - ${COVE_TEST_MEDIA:-./media}:/media
+
+volumes:
+  pgdata:
+  cache:

@@ -7,7 +7,8 @@
     "windows": "npx @react-native-community/cli run-windows",
     "start": "react-native start",
     "typecheck": "tsc -p .",
-    "android": "react-native run-android"
+    "android": "react-native run-android",
+    "test-server": "powershell -NoProfile -ExecutionPolicy Bypass -File test-server/setup.ps1"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.1.1",

@@ -1,0 +1,272 @@
+# Test library for the Cove test server, read by setup.ps1 and setup.sh.
+#
+#   tier|target path under media/|url[|action]
+#
+# tier:   default (always), full (-Full / --full), edge (-EdgeCases / --edge-cases)
+# action: empty = place the downloaded file as is; remux = lossless ffmpeg remux into the target container
+# A .zip url is extracted and its largest file becomes the target. Lines are fetched in order; existing targets are skipped.
+
+# ---- Long open movies (10+ minutes) -------------------------------------------------------------------
+default|Movies/Big Buck Bunny (2008)/Big Buck Bunny 2160p60.mp4|https://download.blender.org/demo/movies/BBB/bbb_sunflower_2160p_60fps_normal.mp4.zip
+default|Movies/Big Buck Bunny (2008)/Big Buck Bunny 1080p60.mp4|https://download.blender.org/demo/movies/BBB/bbb_sunflower_1080p_60fps_normal.mp4.zip
+# Blender's m4v ends in a truncated MP4 box that Cove's scanner rejects; the remux writes a clean container.
+default|Movies/Big Buck Bunny (2008)/Big Buck Bunny 360p.mp4|https://download.blender.org/peach/bigbuckbunny_movies/BigBuckBunny_640x360.m4v.zip|remux
+default|Movies/Sintel (2010)/Sintel 1080p.mkv|https://download.blender.org/durian/movies/Sintel.2010.1080p.mkv
+default|Movies/Elephants Dream (2006)/Elephants Dream 480p.mov|https://download.blender.org/ED/elephantsdream-480-h264-st-aac.mov
+default|Movies/Tears of Steel (2012)/Tears of Steel 720p.mov|https://download.blender.org/demo/movies/ToS/tears_of_steel_720p.mov
+default|Movies/Tears of Steel (2012)/Tears of Steel 720p.en.srt|https://download.blender.org/demo/movies/ToS/subtitles/TOS-en.srt
+default|Movies/Tears of Steel (2012)/Tears of Steel 720p.de.srt|https://download.blender.org/demo/movies/ToS/subtitles/TOS-de.srt
+default|Movies/Tears of Steel (2012)/Tears of Steel 720p.fr.srt|https://download.blender.org/demo/movies/ToS/subtitles/TOS-fr-orig.srt
+default|Movies/Tears of Steel (2012)/Tears of Steel 720p.es.srt|https://download.blender.org/demo/movies/ToS/subtitles/TOS-es.srt
+default|Movies/Tears of Steel (2012)/Tears of Steel 720p.ru.srt|https://download.blender.org/demo/movies/ToS/subtitles/TOS-ru.srt
+# (setup also muxes the .mov and these subtitles into "Tears of Steel 720p (embedded subs).mkv")
+full|Movies/Big Buck Bunny (2008)/Big Buck Bunny 2160p30.mp4|https://download.blender.org/demo/movies/BBB/bbb_sunflower_2160p_30fps_normal.mp4.zip
+full|Movies/Tears of Steel (2012)/Tears of Steel 1080p.webm|https://download.blender.org/demo/movies/ToS/tears_of_steel_1080p.webm.zip
+
+# ---- PhotoJoseph A/V sync tests: HEVC .mov, 1080p and 2160p (photojoseph.com/SyncTest-<fps>-<HD|4K>) -----
+default|Sync Tests/PhotoJoseph AV Sync 59.94fps 2160p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_59%2C94_HEVC_2160p-by_PhotoJoseph.mov
+default|Sync Tests/PhotoJoseph AV Sync 59.94fps 1080p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_59%2C94_HEVC_1080p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 50fps 2160p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_50%2C00_HEVC_2160p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 50fps 1080p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_50%2C00_HEVC_1080p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 29.97fps 2160p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_29%2C97_HEVC_2160p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 29.97fps 1080p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_29%2C97_HEVC_1080p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 25fps 2160p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_25%2C00_HEVC_2160p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 25fps 1080p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_25%2C00_HEVC_1080p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 24fps 2160p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_24%2C00_HEVC_2160p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 24fps 1080p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_24%2C00_HEVC_1080p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 23.98fps 2160p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_23%2C98_HEVC_2160p-by_PhotoJoseph.mov
+full|Sync Tests/PhotoJoseph AV Sync 23.98fps 1080p HEVC.mov|https://files-transfers.s3-us-west-2.amazonaws.com/av-sync-tests/Audio_Video_Sync_23%2C98_HEVC_1080p-by_PhotoJoseph.mov
+
+# ---- Short Blender pieces ----------------------------------------------------------------------------
+default|Shorts/Blender/Sintel Trailer 1080p.mp4|https://download.blender.org/durian/trailer/sintel_trailer-1080p.mp4
+default|Shorts/Blender/Sintel Trailer 720p.mp4|https://download.blender.org/durian/trailer/sintel_trailer-720p.mp4
+default|Shorts/Blender/Elephants Dream Teaser.mp4|https://download.blender.org/demo/movies/elephantsdream_teaser.mp4.zip
+default|Shorts/Blender/Caminandes - Gran Dillama.mp4|https://download.blender.org/demo/movies/caminandes_gran_dillama.mp4.zip
+
+# ---- 10-second clips from test-videos.co.uk: codec x resolution x bitrate (1/5/30 MB default, 2/10/20 MB full)
+# Sintel 720p AV1 30MB and 20MB are corrupt upstream (dav1d rejects some packets): kept as decoder error-handling cases;
+# Cove imports them but cannot make a cover for the 30MB one.
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p H.264 1MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_1MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p H.264 5MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_5MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p H.264 30MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_30MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p H.264 1MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p H.264 5MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_5MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p H.264 30MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_30MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p H.264 1MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_1MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p H.264 5MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_5MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p H.264 30MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_30MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p HEVC 1MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/360/Big_Buck_Bunny_360_10s_1MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p HEVC 5MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/360/Big_Buck_Bunny_360_10s_5MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p HEVC 1MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/720/Big_Buck_Bunny_720_10s_1MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p HEVC 5MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/720/Big_Buck_Bunny_720_10s_5MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p HEVC 30MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/720/Big_Buck_Bunny_720_10s_30MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p HEVC 1MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/1080/Big_Buck_Bunny_1080_10s_1MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p HEVC 5MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/1080/Big_Buck_Bunny_1080_10s_5MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p HEVC 30MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/1080/Big_Buck_Bunny_1080_10s_30MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p AV1 1MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_1MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p AV1 5MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_5MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p AV1 1MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/720/Big_Buck_Bunny_720_10s_1MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p AV1 5MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/720/Big_Buck_Bunny_720_10s_5MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p AV1 30MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/720/Big_Buck_Bunny_720_10s_30MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p AV1 1MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/1080/Big_Buck_Bunny_1080_10s_1MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p AV1 5MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/1080/Big_Buck_Bunny_1080_10s_5MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p AV1 30MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/1080/Big_Buck_Bunny_1080_10s_30MB.mp4
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP9 1MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/360/Big_Buck_Bunny_360_10s_1MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP9 5MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/360/Big_Buck_Bunny_360_10s_5MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP9 30MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/360/Big_Buck_Bunny_360_10s_30MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP9 1MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/720/Big_Buck_Bunny_720_10s_1MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP9 5MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/720/Big_Buck_Bunny_720_10s_5MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP9 30MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/720/Big_Buck_Bunny_720_10s_30MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP9 1MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/1080/Big_Buck_Bunny_1080_10s_1MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP9 5MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/1080/Big_Buck_Bunny_1080_10s_5MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP9 30MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/1080/Big_Buck_Bunny_1080_10s_30MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP8 1MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/360/Big_Buck_Bunny_360_10s_1MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP8 5MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/360/Big_Buck_Bunny_360_10s_5MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP8 1MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/720/Big_Buck_Bunny_720_10s_1MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP8 5MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/720/Big_Buck_Bunny_720_10s_5MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP8 30MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/720/Big_Buck_Bunny_720_10s_30MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP8 1MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/1080/Big_Buck_Bunny_1080_10s_1MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP8 5MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/1080/Big_Buck_Bunny_1080_10s_5MB.webm
+default|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP8 30MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/1080/Big_Buck_Bunny_1080_10s_30MB.webm
+default|Shorts/Jellyfish/Jellyfish 360p H.264 1MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_1MB.mp4
+default|Shorts/Jellyfish/Jellyfish 360p H.264 5MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_5MB.mp4
+default|Shorts/Jellyfish/Jellyfish 360p H.264 30MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_30MB.mp4
+default|Shorts/Jellyfish/Jellyfish 720p H.264 1MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/720/Jellyfish_720_10s_1MB.mp4
+default|Shorts/Jellyfish/Jellyfish 720p H.264 5MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/720/Jellyfish_720_10s_5MB.mp4
+default|Shorts/Jellyfish/Jellyfish 720p H.264 30MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/720/Jellyfish_720_10s_30MB.mp4
+default|Shorts/Jellyfish/Jellyfish 1080p H.264 1MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/1080/Jellyfish_1080_10s_1MB.mp4
+default|Shorts/Jellyfish/Jellyfish 1080p H.264 5MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/1080/Jellyfish_1080_10s_5MB.mp4
+default|Shorts/Jellyfish/Jellyfish 1080p H.264 30MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/1080/Jellyfish_1080_10s_30MB.mp4
+default|Shorts/Jellyfish/Jellyfish 360p HEVC 1MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/360/Jellyfish_360_10s_1MB.mp4
+default|Shorts/Jellyfish/Jellyfish 360p HEVC 5MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/360/Jellyfish_360_10s_5MB.mp4
+default|Shorts/Jellyfish/Jellyfish 360p HEVC 30MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/360/Jellyfish_360_10s_30MB.mp4
+default|Shorts/Jellyfish/Jellyfish 720p HEVC 1MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/720/Jellyfish_720_10s_1MB.mp4
+default|Shorts/Jellyfish/Jellyfish 720p HEVC 5MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/720/Jellyfish_720_10s_5MB.mp4
+default|Shorts/Jellyfish/Jellyfish 720p HEVC 30MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/720/Jellyfish_720_10s_30MB.mp4
+default|Shorts/Jellyfish/Jellyfish 1080p HEVC 1MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/1080/Jellyfish_1080_10s_1MB.mp4
+default|Shorts/Jellyfish/Jellyfish 1080p HEVC 5MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/1080/Jellyfish_1080_10s_5MB.mp4
+default|Shorts/Jellyfish/Jellyfish 1080p HEVC 30MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/1080/Jellyfish_1080_10s_30MB.mp4
+default|Shorts/Jellyfish/Jellyfish 360p VP9 1MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/360/Jellyfish_360_10s_1MB.webm
+default|Shorts/Jellyfish/Jellyfish 360p VP9 5MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/360/Jellyfish_360_10s_5MB.webm
+default|Shorts/Jellyfish/Jellyfish 360p VP9 30MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/360/Jellyfish_360_10s_30MB.webm
+default|Shorts/Jellyfish/Jellyfish 720p VP9 1MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/720/Jellyfish_720_10s_1MB.webm
+default|Shorts/Jellyfish/Jellyfish 720p VP9 5MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/720/Jellyfish_720_10s_5MB.webm
+default|Shorts/Jellyfish/Jellyfish 720p VP9 30MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/720/Jellyfish_720_10s_30MB.webm
+default|Shorts/Jellyfish/Jellyfish 1080p VP9 1MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/1080/Jellyfish_1080_10s_1MB.webm
+default|Shorts/Jellyfish/Jellyfish 1080p VP9 5MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/1080/Jellyfish_1080_10s_5MB.webm
+default|Shorts/Jellyfish/Jellyfish 1080p VP9 30MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/1080/Jellyfish_1080_10s_30MB.webm
+default|Shorts/Jellyfish/Jellyfish 360p VP8 1MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/360/Jellyfish_360_10s_1MB.webm
+default|Shorts/Jellyfish/Jellyfish 360p VP8 5MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/360/Jellyfish_360_10s_5MB.webm
+default|Shorts/Jellyfish/Jellyfish 720p VP8 1MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/720/Jellyfish_720_10s_1MB.webm
+default|Shorts/Jellyfish/Jellyfish 720p VP8 5MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/720/Jellyfish_720_10s_5MB.webm
+default|Shorts/Jellyfish/Jellyfish 720p VP8 30MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/720/Jellyfish_720_10s_30MB.webm
+default|Shorts/Jellyfish/Jellyfish 1080p VP8 1MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/1080/Jellyfish_1080_10s_1MB.webm
+default|Shorts/Jellyfish/Jellyfish 1080p VP8 5MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/1080/Jellyfish_1080_10s_5MB.webm
+default|Shorts/Jellyfish/Jellyfish 1080p VP8 30MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/1080/Jellyfish_1080_10s_30MB.webm
+default|Shorts/Sintel/Sintel 360p H.264 1MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_1MB.mp4
+default|Shorts/Sintel/Sintel 360p H.264 5MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_5MB.mp4
+default|Shorts/Sintel/Sintel 720p H.264 1MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/720/Sintel_720_10s_1MB.mp4
+default|Shorts/Sintel/Sintel 720p H.264 5MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/720/Sintel_720_10s_5MB.mp4
+default|Shorts/Sintel/Sintel 720p H.264 30MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/720/Sintel_720_10s_30MB.mp4
+default|Shorts/Sintel/Sintel 1080p H.264 1MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/1080/Sintel_1080_10s_1MB.mp4
+default|Shorts/Sintel/Sintel 1080p H.264 5MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/1080/Sintel_1080_10s_5MB.mp4
+default|Shorts/Sintel/Sintel 1080p H.264 30MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/1080/Sintel_1080_10s_30MB.mp4
+default|Shorts/Sintel/Sintel 360p AV1 1MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/360/Sintel_360_10s_1MB.mp4
+default|Shorts/Sintel/Sintel 360p AV1 5MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/360/Sintel_360_10s_5MB.mp4
+default|Shorts/Sintel/Sintel 720p AV1 1MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/720/Sintel_720_10s_1MB.mp4
+default|Shorts/Sintel/Sintel 720p AV1 5MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/720/Sintel_720_10s_5MB.mp4
+default|Shorts/Sintel/Sintel 720p AV1 30MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/720/Sintel_720_10s_30MB.mp4
+default|Shorts/Sintel/Sintel 1080p AV1 1MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/1080/Sintel_1080_10s_1MB.mp4
+default|Shorts/Sintel/Sintel 1080p AV1 5MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/1080/Sintel_1080_10s_5MB.mp4
+default|Shorts/Sintel/Sintel 1080p AV1 30MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/1080/Sintel_1080_10s_30MB.mp4
+
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p H.264 2MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_2MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p H.264 10MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_10MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p H.264 20MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/360/Big_Buck_Bunny_360_10s_20MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p H.264 2MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_2MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p H.264 10MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_10MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p H.264 20MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_20MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p H.264 2MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_2MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p H.264 10MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_10MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p H.264 20MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/1080/Big_Buck_Bunny_1080_10s_20MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p HEVC 2MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/360/Big_Buck_Bunny_360_10s_2MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p HEVC 10MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/360/Big_Buck_Bunny_360_10s_10MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p HEVC 20MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/360/Big_Buck_Bunny_360_10s_20MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p HEVC 2MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/720/Big_Buck_Bunny_720_10s_2MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p HEVC 10MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/720/Big_Buck_Bunny_720_10s_10MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p HEVC 20MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/720/Big_Buck_Bunny_720_10s_20MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p HEVC 2MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/1080/Big_Buck_Bunny_1080_10s_2MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p HEVC 10MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/1080/Big_Buck_Bunny_1080_10s_10MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p HEVC 20MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/h265/1080/Big_Buck_Bunny_1080_10s_20MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p AV1 2MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_2MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p AV1 10MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_10MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p AV1 20MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/360/Big_Buck_Bunny_360_10s_20MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p AV1 2MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/720/Big_Buck_Bunny_720_10s_2MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p AV1 10MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/720/Big_Buck_Bunny_720_10s_10MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p AV1 20MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/720/Big_Buck_Bunny_720_10s_20MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p AV1 2MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/1080/Big_Buck_Bunny_1080_10s_2MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p AV1 10MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/1080/Big_Buck_Bunny_1080_10s_10MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p AV1 20MB.mp4|https://test-videos.co.uk/vids/bigbuckbunny/mp4/av1/1080/Big_Buck_Bunny_1080_10s_20MB.mp4
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP9 2MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/360/Big_Buck_Bunny_360_10s_2MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP9 10MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/360/Big_Buck_Bunny_360_10s_10MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP9 20MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/360/Big_Buck_Bunny_360_10s_20MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP9 2MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/720/Big_Buck_Bunny_720_10s_2MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP9 10MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/720/Big_Buck_Bunny_720_10s_10MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP9 20MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/720/Big_Buck_Bunny_720_10s_20MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP9 2MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/1080/Big_Buck_Bunny_1080_10s_2MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP9 10MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/1080/Big_Buck_Bunny_1080_10s_10MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP9 20MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp9/1080/Big_Buck_Bunny_1080_10s_20MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP8 2MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/360/Big_Buck_Bunny_360_10s_2MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP8 10MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/360/Big_Buck_Bunny_360_10s_10MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 360p VP8 20MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/360/Big_Buck_Bunny_360_10s_20MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP8 2MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/720/Big_Buck_Bunny_720_10s_2MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP8 10MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/720/Big_Buck_Bunny_720_10s_10MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 720p VP8 20MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/720/Big_Buck_Bunny_720_10s_20MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP8 2MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/1080/Big_Buck_Bunny_1080_10s_2MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP8 10MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/1080/Big_Buck_Bunny_1080_10s_10MB.webm
+full|Shorts/Big Buck Bunny/Big Buck Bunny 1080p VP8 20MB.webm|https://test-videos.co.uk/vids/bigbuckbunny/webm/vp8/1080/Big_Buck_Bunny_1080_10s_20MB.webm
+full|Shorts/Jellyfish/Jellyfish 360p H.264 2MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_2MB.mp4
+full|Shorts/Jellyfish/Jellyfish 360p H.264 10MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_10MB.mp4
+full|Shorts/Jellyfish/Jellyfish 360p H.264 20MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/360/Jellyfish_360_10s_20MB.mp4
+full|Shorts/Jellyfish/Jellyfish 720p H.264 2MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/720/Jellyfish_720_10s_2MB.mp4
+full|Shorts/Jellyfish/Jellyfish 720p H.264 10MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/720/Jellyfish_720_10s_10MB.mp4
+full|Shorts/Jellyfish/Jellyfish 720p H.264 20MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/720/Jellyfish_720_10s_20MB.mp4
+full|Shorts/Jellyfish/Jellyfish 1080p H.264 2MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/1080/Jellyfish_1080_10s_2MB.mp4
+full|Shorts/Jellyfish/Jellyfish 1080p H.264 10MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/1080/Jellyfish_1080_10s_10MB.mp4
+full|Shorts/Jellyfish/Jellyfish 1080p H.264 20MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h264/1080/Jellyfish_1080_10s_20MB.mp4
+full|Shorts/Jellyfish/Jellyfish 360p HEVC 2MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/360/Jellyfish_360_10s_2MB.mp4
+full|Shorts/Jellyfish/Jellyfish 360p HEVC 10MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/360/Jellyfish_360_10s_10MB.mp4
+full|Shorts/Jellyfish/Jellyfish 360p HEVC 20MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/360/Jellyfish_360_10s_20MB.mp4
+full|Shorts/Jellyfish/Jellyfish 720p HEVC 2MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/720/Jellyfish_720_10s_2MB.mp4
+full|Shorts/Jellyfish/Jellyfish 720p HEVC 10MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/720/Jellyfish_720_10s_10MB.mp4
+full|Shorts/Jellyfish/Jellyfish 720p HEVC 20MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/720/Jellyfish_720_10s_20MB.mp4
+full|Shorts/Jellyfish/Jellyfish 1080p HEVC 2MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/1080/Jellyfish_1080_10s_2MB.mp4
+full|Shorts/Jellyfish/Jellyfish 1080p HEVC 10MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/1080/Jellyfish_1080_10s_10MB.mp4
+full|Shorts/Jellyfish/Jellyfish 1080p HEVC 20MB.mp4|https://test-videos.co.uk/vids/jellyfish/mp4/h265/1080/Jellyfish_1080_10s_20MB.mp4
+full|Shorts/Jellyfish/Jellyfish 360p VP9 2MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/360/Jellyfish_360_10s_2MB.webm
+full|Shorts/Jellyfish/Jellyfish 360p VP9 10MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/360/Jellyfish_360_10s_10MB.webm
+full|Shorts/Jellyfish/Jellyfish 360p VP9 20MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/360/Jellyfish_360_10s_20MB.webm
+full|Shorts/Jellyfish/Jellyfish 720p VP9 2MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/720/Jellyfish_720_10s_2MB.webm
+full|Shorts/Jellyfish/Jellyfish 720p VP9 10MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/720/Jellyfish_720_10s_10MB.webm
+full|Shorts/Jellyfish/Jellyfish 720p VP9 20MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/720/Jellyfish_720_10s_20MB.webm
+full|Shorts/Jellyfish/Jellyfish 1080p VP9 2MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/1080/Jellyfish_1080_10s_2MB.webm
+full|Shorts/Jellyfish/Jellyfish 1080p VP9 10MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/1080/Jellyfish_1080_10s_10MB.webm
+full|Shorts/Jellyfish/Jellyfish 1080p VP9 20MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp9/1080/Jellyfish_1080_10s_20MB.webm
+full|Shorts/Jellyfish/Jellyfish 360p VP8 2MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/360/Jellyfish_360_10s_2MB.webm
+full|Shorts/Jellyfish/Jellyfish 360p VP8 10MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/360/Jellyfish_360_10s_10MB.webm
+full|Shorts/Jellyfish/Jellyfish 360p VP8 20MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/360/Jellyfish_360_10s_20MB.webm
+full|Shorts/Jellyfish/Jellyfish 720p VP8 2MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/720/Jellyfish_720_10s_2MB.webm
+full|Shorts/Jellyfish/Jellyfish 720p VP8 10MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/720/Jellyfish_720_10s_10MB.webm
+full|Shorts/Jellyfish/Jellyfish 720p VP8 20MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/720/Jellyfish_720_10s_20MB.webm
+full|Shorts/Jellyfish/Jellyfish 1080p VP8 2MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/1080/Jellyfish_1080_10s_2MB.webm
+full|Shorts/Jellyfish/Jellyfish 1080p VP8 10MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/1080/Jellyfish_1080_10s_10MB.webm
+full|Shorts/Jellyfish/Jellyfish 1080p VP8 20MB.webm|https://test-videos.co.uk/vids/jellyfish/webm/vp8/1080/Jellyfish_1080_10s_20MB.webm
+full|Shorts/Sintel/Sintel 360p H.264 2MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_2MB.mp4
+full|Shorts/Sintel/Sintel 360p H.264 10MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/360/Sintel_360_10s_10MB.mp4
+full|Shorts/Sintel/Sintel 720p H.264 2MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/720/Sintel_720_10s_2MB.mp4
+full|Shorts/Sintel/Sintel 720p H.264 10MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/720/Sintel_720_10s_10MB.mp4
+full|Shorts/Sintel/Sintel 720p H.264 20MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/720/Sintel_720_10s_20MB.mp4
+full|Shorts/Sintel/Sintel 1080p H.264 2MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/1080/Sintel_1080_10s_2MB.mp4
+full|Shorts/Sintel/Sintel 1080p H.264 10MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/1080/Sintel_1080_10s_10MB.mp4
+full|Shorts/Sintel/Sintel 1080p H.264 20MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/h264/1080/Sintel_1080_10s_20MB.mp4
+full|Shorts/Sintel/Sintel 360p AV1 2MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/360/Sintel_360_10s_2MB.mp4
+full|Shorts/Sintel/Sintel 360p AV1 10MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/360/Sintel_360_10s_10MB.mp4
+full|Shorts/Sintel/Sintel 720p AV1 2MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/720/Sintel_720_10s_2MB.mp4
+full|Shorts/Sintel/Sintel 720p AV1 10MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/720/Sintel_720_10s_10MB.mp4
+full|Shorts/Sintel/Sintel 720p AV1 20MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/720/Sintel_720_10s_20MB.mp4
+full|Shorts/Sintel/Sintel 1080p AV1 2MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/1080/Sintel_1080_10s_2MB.mp4
+full|Shorts/Sintel/Sintel 1080p AV1 10MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/1080/Sintel_1080_10s_10MB.mp4
+full|Shorts/Sintel/Sintel 1080p AV1 20MB.mp4|https://test-videos.co.uk/vids/sintel/mp4/av1/1080/Sintel_1080_10s_20MB.mp4
+
+# ---- Codec / container edge cases from samples.ffmpeg.org (opt-in) -----------------------------------
+# Test samples collected by the FFmpeg project; several are clips from commercial films (see README).
+edge|EdgeCases/HDR/PE2 Leopard 2160p HDR10.mkv|https://samples.ffmpeg.org/4khdr/PE2_Leopard_4K.mkv
+edge|EdgeCases/HDR/PE2 Leopard 1080p.mkv|https://samples.ffmpeg.org/4khdr/PE2_Leopard_1080.mkv
+edge|EdgeCases/HDR/Passengers Breakfast 2160p HDR10.mkv|https://samples.ffmpeg.org/4khdr/Passengers_Breakfast_4K.mkv
+edge|EdgeCases/Matroska/H264 + E-AC3.mkv|https://samples.ffmpeg.org/Matroska/H264%2BEAC3.mkv
+edge|EdgeCases/Matroska/Multiple tracks.mkv|https://samples.ffmpeg.org/Matroska/multiple_tracks.mkv
+edge|EdgeCases/Matroska/Anamorphic, ASS subtitles, embedded fonts.mkv|https://samples.ffmpeg.org/Matroska/haruhi.mkv
+edge|EdgeCases/Matroska/15 SSA subtitle tracks.mkv|https://samples.ffmpeg.org/Matroska/subtitles/SSA_15subtitles.mkv
+edge|EdgeCases/Matroska/Multiple subtitle tracks.mkv|https://samples.ffmpeg.org/Matroska/subtitles/multiple_sub_sample.mkv
+edge|EdgeCases/Matroska/x264 no B-frames.mkv|https://samples.ffmpeg.org/Matroska/x264_no-b-frames.mkv
+edge|EdgeCases/Matroska/Theora.mkv|https://samples.ffmpeg.org/Matroska/theora.mkv
+edge|EdgeCases/Matroska/Vorbis audio switch.mkv|https://samples.ffmpeg.org/Matroska/vorbis-audio-switch.mkv
+edge|EdgeCases/MP4 and MOV/Negative timestamps.mp4|https://samples.ffmpeg.org/mov/mp4-negative-stts-problem.mp4
+edge|EdgeCases/MP4 and MOV/Resolution change.mp4|https://samples.ffmpeg.org/mov/resolution.mp4
+edge|EdgeCases/MP4 and MOV/MPEG-2 video + MP2 audio.mp4|https://samples.ffmpeg.org/mov/Sample_V_mpeg2_A_mpeg1Layer2.mp4
+edge|EdgeCases/MP4 and MOV/MPEG-4 Part 2 + AAC.mov|https://samples.ffmpeg.org/mov/tigani-mide2.mov
+edge|EdgeCases/MP4 and MOV/Sorenson 3 vertical.mov|https://samples.ffmpeg.org/V-codecs/SVQ3/Vertical400kbit.sorenson3.mov
+edge|EdgeCases/AVI/MPEG-4 + AC3.avi|https://samples.ffmpeg.org/avi/GoneNutty.avi
+edge|EdgeCases/AVI/SSA subtitles.avi|https://samples.ffmpeg.org/avi/mewmew-ssa.avi
+edge|EdgeCases/AVI/DivX 3 + MP3.avi|https://samples.ffmpeg.org/avi/processor_burning.avi
+edge|EdgeCases/AVI/MS-MPEG4v2 + ADPCM.avi|https://samples.ffmpeg.org/avi/verona60avi56k.avi
+edge|EdgeCases/AVI/Indeo 5.avi|https://samples.ffmpeg.org/avi/toonumentary-skieth.avi
+edge|EdgeCases/Windows Media/ASF with chapters.wmv|https://samples.ffmpeg.org/asf-wmv/asf_with_chapters.wmv
+edge|EdgeCases/Windows Media/VC-1 1440x576.wmv|https://samples.ffmpeg.org/V-codecs/WVC1/Test_1440x576_WVC1_6Mbps.wmv
+edge|EdgeCases/Windows Media/WMV9 phone.wmv|https://samples.ffmpeg.org/V-codecs/WMV9/nokia_n90.wmv
+edge|EdgeCases/FLV/VP6.flv|https://samples.ffmpeg.org/FLV/zeldaHQ.flv
+edge|EdgeCases/MPEG-TS/HDTV MPEG-2 + AC3.ts|https://samples.ffmpeg.org/HDTV/channel9hdtv_ac3.ts
+edge|EdgeCases/MPEG-TS/MPEG-2 1080p + DTS.ts|https://samples.ffmpeg.org/HDTV/prev_seek_bug.ts
+edge|EdgeCases/MPEG-TS/VC-1 interlaced B-frames.m2ts|https://samples.ffmpeg.org/V-codecs/WVC1/vc1-interlaced-bframes.m2ts
+edge|EdgeCases/MPEG-PS/DVD MPEG-2.mpeg|https://samples.ffmpeg.org/MPEG2/dvd.mpeg
+edge|EdgeCases/Ogg/Theora.ogv|https://samples.ffmpeg.org/V-codecs/Theora/ED-small-sample-file.ogg
