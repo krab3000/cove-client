@@ -104,6 +104,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
   var subtitleTrack = -1
   var overlay = false
   var cache = false
+  var demux = ""
 
   // What the session was opened with
   private var openedSource: String? = null
@@ -111,6 +112,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
   private var openedLoop = false
   private var openedOverlay = false
   private var openedCache = false
+  private var openedDemux = ""
   private var openedAudioTrack = -1
   private var openedSubtitleTrack = -1
   private var openedPaused = false
@@ -130,7 +132,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
   /** After a batch of prop changes. */
   fun applyProps() {
     if (session == null || source != openedSource || hardwareDecoding != openedHardwareDecoding || loop != openedLoop ||
-      overlay != openedOverlay || cache != openedCache) {
+      overlay != openedOverlay || cache != openedCache || demux != openedDemux) {
       open()
       return
     }
@@ -168,6 +170,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     openedLoop = loop
     openedOverlay = overlay
     openedCache = cache
+    openedDemux = demux
     openedAudioTrack = audioTrack
     openedSubtitleTrack = subtitleTrack
     openedPaused = paused
@@ -297,6 +300,8 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       }
       if (loop)
         media.addOption(":input-repeat=65535")
+      if (demux.isNotEmpty())
+        media.addOption(":demux=$demux")
       if (!preview) media.setHWDecoderEnabled(hardwareDecoding, false)
       p.media = media
       media.release()

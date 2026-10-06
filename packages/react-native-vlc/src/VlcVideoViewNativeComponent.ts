@@ -105,6 +105,13 @@ export interface NativeProps extends ViewProps {
    * muted plays without audio there too.
    */
   cache?: CodegenTypes.WithDefault<boolean, false>;
+  /**
+   * The VLC demuxer for this source (VLC's ':demux' option), e.g. 'avformat' (FFmpeg's); empty lets VLC choose.
+   * libVLC 3's own MP4 demuxer reads up to 15 s ahead on a stream it cannot seek fast (http), then reports its
+   * time no further: progress stops for a whole clip shorter than that, and over the last 15 s of a longer one.
+   * FFmpeg's reads as it plays.
+   */
+  demux?: string;
   onLoad?: CodegenTypes.DirectEventHandler<LoadEvent>;
   onProgress?: CodegenTypes.DirectEventHandler<ProgressEvent>;
   /** A seek finished: the frame at currentTime is on screen. */

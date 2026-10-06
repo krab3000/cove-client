@@ -675,6 +675,7 @@ export function PlayerScreen({
           ref={player}
           style={StyleSheet.absoluteFill}
           source={client.streamUrl(video)}
+          demux={client.streamDemux(video)}
           paused={paused}
           muted={muted}
           volume={volume}

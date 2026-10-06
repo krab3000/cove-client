@@ -226,14 +226,16 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     const bool loop = newProps->loop.value_or(false);
     const bool cache = newProps->cache.value_or(false);
     const bool tlsVerify = newProps->tlsVerify;
+    const std::string demux = newProps->demux.value_or("");
     if (source != m_source || hardware != m_hardware || loop != m_loop || cache != m_cache ||
-        tlsVerify != m_tlsVerify || !m_propsSet) {
+        tlsVerify != m_tlsVerify || demux != m_demux || !m_propsSet) {
       m_propsSet = true;
       m_source = source;
       m_hardware = hardware;
       m_loop = loop;
       m_cache = cache;
       m_tlsVerify = tlsVerify;
+      m_demux = demux;
       m_paused = paused;
       m_muted = muted;
       m_volume = volume;
@@ -342,6 +344,8 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
     }
     if (m_loop)
       libvlc_media_add_option(media, ":input-repeat=65535");
+    if (!m_demux.empty())
+      libvlc_media_add_option(media, (":demux=" + m_demux).c_str());
     // D3D11VA decodes into the output's pictures, on the renderer's device.
     libvlc_media_add_option(media, m_hardware ? ":avcodec-hw=d3d11va" : ":avcodec-hw=none");
     session->player = libvlc_media_player_new_from_media(media);
@@ -666,6 +670,7 @@ struct VlcVideoView : winrt::implements<VlcVideoView, winrt::Windows::Foundation
   bool m_loop = false;
   bool m_cache = false;
   bool m_tlsVerify = true;
+  std::string m_demux;
   bool m_paused = false;
   bool m_muted = false;
   float m_volume = 1.0f;

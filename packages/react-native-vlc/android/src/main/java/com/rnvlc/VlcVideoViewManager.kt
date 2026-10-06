@@ -50,6 +50,10 @@ class VlcVideoViewManager : SimpleViewManager<VlcVideoView>(), VlcVideoViewManag
     view.tlsVerify = value
   }
 
+  override fun setDemux(view: VlcVideoView, value: String?) {
+    view.demux = value ?: ""
+  }
+
   override fun setSubtitleTrack(view: VlcVideoView, value: Int) {
     view.subtitleTrack = value
   }
