@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import {
   Image,
   Pressable,
@@ -23,7 +24,12 @@ import { Button } from '../../../ui/Button';
 import { CloseButton } from '../../../ui/IconButton';
 import { Rule, SectionLabel } from '../../../ui/Text';
 import { PersonChip, TagChip } from '../../../ui/Chip';
-import { RatingPill, ThumbBadge, ResumeBar } from '../../../ui/Thumb';
+import {
+  LoadingBar,
+  RatingPill,
+  ThumbBadge,
+  ResumeBar,
+} from '../../../ui/Thumb';
 import { MarkToggle } from '../../../ui/Toggle';
 import {
   usePersonal,
@@ -31,15 +37,17 @@ import {
   useToggleFavorite,
   useToggleSavedForLater,
 } from '../../../data/personal';
+import { HoverPreview } from './HoverPreview';
 
 /**
- * The tablet Library's preview (design 1h, in a Drawer): the video picked in the grid — a header with ✕; its cover with the rating, the resume
- * bar and a tick per segment; title and meta; Resume / Play, Save for later, Favorite; the moments (Cove's segments,
+ * The tablet Library's preview (design 1h, in a Drawer): the video picked in the grid — a header with ✕; its cover,
+ * playing Cove's preview clip (as a card does), with the rating, the resume bar and a tick per segment; title and meta; Resume / Play, Save for later, Favorite; the moments (Cove's segments,
  * each plays from there); people and tags (a tap adds one to the filter); the group.
  */
 export function VideoDetail({
   client,
   video,
+  preview,
   onPlay,
   onAddTag,
   onAddPerformer,
@@ -47,6 +55,8 @@ export function VideoDetail({
 }: {
   client: CoveClient;
   video: Video;
+  // Whether its preview may play (not under the player or the filter)
+  preview: boolean;
   // From a moment's start, or from where the user left off
   onPlay: (video: Video, startAt?: number) => void;
   onAddTag: (tag: { id: number; name: string }) => void;
@@ -70,6 +80,13 @@ export function VideoDetail({
   const group = video.groups?.[0];
   const people = video.performers ?? [];
   const tags = video.tags ?? [];
+  // The cover's size, for the preview; and the preview's state (the loading bar runs until it plays)
+  const [cover, setCover] = useState({ width: 0, height: 0 });
+  const [previewState, setPreviewState] = useState<{
+    id: number;
+    state: 'playing' | 'none';
+  } | null>(null);
+  const previewLoading = previewState?.id !== video.id;
 
   return (
     <ScrollView style={styles.pane} contentContainerStyle={styles.content}>
@@ -81,6 +98,12 @@ export function VideoDetail({
         onPress={() => onPlay(video)}
         accessibilityLabel={`Play ${videoTitle(video)}`}
         style={styles.cover}
+        onLayout={(e) =>
+          setCover({
+            width: e.nativeEvent.layout.width,
+            height: e.nativeEvent.layout.height,
+          })
+        }
       >
         <Image
           source={{ uri: client.imageUrl(video) }}
@@ -88,6 +111,18 @@ export function VideoDetail({
           resizeMode="cover"
           resizeMethod="resize"
         />
+        {preview && cover.width > 0 ? (
+          <HoverPreview
+            // Another video: another player, from its start
+            key={video.id}
+            client={client}
+            video={video}
+            width={cover.width}
+            height={cover.height}
+            onState={(state) => setPreviewState({ id: video.id, state })}
+          />
+        ) : null}
+        {preview && previewLoading ? <LoadingBar /> : null}
         {rating ? <RatingPill stars={rating} /> : null}
         <View style={styles.playRound}>
           <Icon name="play" fill size={22} color={n.text} />

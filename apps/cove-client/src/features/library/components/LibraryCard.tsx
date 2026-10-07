@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import {
   Image,
   Pressable,
@@ -60,33 +60,44 @@ export type CardActions = {
 };
 
 type CardProps = Omit<CardActions, 'selectedId'> & {
-  video: Video;
+  // None while its page loads (the card is a skeleton until then)
+  video: Video | undefined;
   view: LibraryView;
   width: number;
   // Every card is this tall (the grid's rows have a fixed height, see layout.ts).
   height: number;
   index: number; // in the grid
   selected: boolean;
+  // The grid's cards are moving to another view's places: a cover decoded again now would land mid-move (see Cover)
+  moving: boolean;
 };
+
+type DetailsProps = CardProps & { video: Video; thumbHeight: number };
+
+// A card grown this much past the size its cover was decoded for decodes it again (see Cover)
+const REDECODE_RATIO = 1.2;
 
 /**
  * A Library card, in all three views: a grid tile (design 1f) or a list card (1g). The cover (or a placeholder until
  * Cove's generate task has made one) is the same in every view, and so is this component: switching views moves and
- * resizes the cards that stay on screen (the grid keys them by video) instead of making new ones, and their covers
- * are not loaded again.
+ * resizes the cards that stay on screen instead of making new ones, and their covers are not loaded again. Nor does
+ * the grid make new cards as it scrolls: it gives the cards that scrolled away other videos (see LibraryGrid), so
+ * whatever this shows of one video goes with it (useKeyedState).
  *
  * It renders in two steps. Mounted, it is the cover in its frame only; the details (badges, titles, the preview,
  * the user's data and the touch handling) follow a few cards per frame (useStaged), so the UI thread is never busy
- * for long. Switched between a tile and a list card, the details change the same way.
+ * for long. Switched between a tile and a list card, the details change the same way. Without its video yet, it is a
+ * skeleton.
  */
 export const LibraryCard = memo(function LibraryCard(props: CardProps) {
-  const { client, video, view, width, height, selected } = props;
+  const { client, video, view, width, height, selected, moving } = props;
   const list = view === 'list';
   const complete = useStaged(list ? 'row' : 'tile');
-  const [hovered, setHovered] = useState(false);
-  const [imageFailed, setImageFailed] = useState(false);
+  const id = video?.id ?? null;
+  const [hovered, setHovered] = useKeyedState(false, id);
+  const [imageFailed, setImageFailed] = useKeyedState(false, id);
   const thumbHeight = Math.round((width * 9) / 16);
-  const file = primaryFile(video);
+  const file = video ? primaryFile(video) : undefined;
 
   return (
     <View style={{ width, height }}>
@@ -99,41 +110,103 @@ export const LibraryCard = memo(function LibraryCard(props: CardProps) {
           !list && selected && styles.thumbSelected,
         ]}
       >
-        {imageFailed ? (
+        {!video ? null : imageFailed ? (
           <View style={styles.placeholder}>
             <Text style={styles.placeholderCodec}>
               {(file?.videoCodec ?? '').toUpperCase()}
             </Text>
           </View>
         ) : (
-          <Image
-            // One address in every view (Cove serves generated covers at full size anyway), so a view switch
-            // keeps the loaded image.
-            source={{ uri: client.imageUrl(video) }}
-            style={StyleSheet.absoluteFill}
-            resizeMode="cover"
-            // Cove serves generated covers at the video's resolution (it ignores ?max= for them): a 4K cover is
-            // 33 MB decoded. Android decodes it downsampled to the card's size instead.
-            resizeMethod="resize"
+          <Cover
+            // One address in every view, so a view switch keeps the loaded image
+            uri={client.imageUrl(video)}
+            width={width}
+            redecode={!moving}
             onError={() => setImageFailed(true)}
           />
         )}
       </View>
-      {complete ? (
-        list ? (
-          <RowDetails {...props} thumbHeight={thumbHeight} />
-        ) : (
-          <TileDetails
-            {...props}
-            thumbHeight={thumbHeight}
-            hovered={hovered}
-            onHover={setHovered}
-          />
-        )
-      ) : null}
+      {!video ? (
+        <View style={styles.skeleton} />
+      ) : !complete ? null : list ? (
+        <RowDetails {...props} video={video} thumbHeight={thumbHeight} />
+      ) : (
+        <TileDetails
+          {...props}
+          video={video}
+          thumbHeight={thumbHeight}
+          hovered={hovered}
+          onHover={setHovered}
+        />
+      )}
     </View>
   );
 });
+
+/** State that starts over when `key` changes (a card given another video). */
+function useKeyedState<T>(initial: T, key: unknown): [T, (value: T) => void] {
+  const [state, setState] = useState({ key, value: initial });
+  const value = Object.is(state.key, key) ? state.value : initial;
+  const set = useCallback((next: T) => setState({ key, value: next }), [key]);
+  return [value, set];
+}
+
+/**
+ * The cover. Cove serves generated covers at the video's resolution (it ignores ?max= for them): a 4K cover is 33 MB
+ * decoded, so Android decodes it downsampled to the card's size. It does that once, for the size the view had then:
+ * a card grown since (another view) showed its cover blurred. So a card grown well past that decodes it again, over
+ * the one shown, which goes once the new one has loaded (with a blank meanwhile the cover would flash). Not while the
+ * cards move to a view's places, though: each decoded cover goes to the GPU in a frame of its own, which made the
+ * move's frames late; the covers are decoded again once it is over.
+ *
+ * A card given another video keeps its image view, which goes on showing the old cover until the new one has loaded
+ * (or failed): so the cover stays hidden from a new address until it has loaded.
+ */
+function Cover({
+  uri,
+  width,
+  redecode,
+  onError,
+}: {
+  uri: string;
+  width: number;
+  redecode: boolean;
+  onError: () => void;
+}) {
+  const [decoded, setDecoded] = useState({ uri, width });
+  const [loaded, setLoaded] = useState<string | null>(null);
+  // A decode again that failed (the cover stays as it was decoded; it is not tried again at that size)
+  const [failed, setFailed] = useState<string | null>(null);
+  let base = decoded;
+  if (decoded.uri !== uri) {
+    base = { uri, width };
+    setDecoded(base);
+  }
+  const widths =
+    redecode &&
+    width > base.width * REDECODE_RATIO &&
+    failed !== `${uri}@${width}`
+      ? [base.width, width]
+      : [base.width];
+  // Keyed by width: the new image stays the same view when the old one goes
+  return widths.map((w, i) => (
+    <Image
+      key={w}
+      source={{ uri }}
+      style={[StyleSheet.absoluteFill, loaded !== uri && styles.hidden]}
+      resizeMode="cover"
+      resizeMethod="resize"
+      // The same cover sharper: no fade in (the one under it goes as it loads, so a fade showed it half-transparent)
+      fadeDuration={i > 0 ? 0 : undefined}
+      onLoad={() => {
+        setLoaded(uri);
+        if (i > 0) setDecoded({ uri, width: w });
+      }}
+      // The cover shown is there still when a decode again fails
+      onError={i > 0 ? () => setFailed(`${uri}@${w}`) : onError}
+    />
+  ));
+}
 
 /** The preview of a card: shown hovered (desktop), pressed and held, or in the middle of the screen (touch). */
 function usePreview(
@@ -180,8 +253,7 @@ function TileDetails({
   thumbHeight,
   hovered,
   onHover,
-}: CardProps & {
-  thumbHeight: number;
+}: DetailsProps & {
   hovered: boolean;
   onHover: (hovered: boolean) => void;
 }) {
@@ -269,11 +341,11 @@ function RowDetails({
   onHold,
   onRelease,
   thumbHeight,
-}: CardProps & { thumbHeight: number }) {
+}: DetailsProps) {
   const personal = usePersonal(video);
   const onToggleFavorite = useToggleFavorite();
   const onToggleLater = useToggleSavedForLater();
-  const [hovered, setHovered] = useState(false);
+  const [hovered, setHovered] = useKeyedState(false, video.id);
   const preview = usePreview(video, index, focus, held, hovered);
   const rating = personal?.rating ? stars(personal.rating) : null;
   const meta = videoMeta(video, personal ? personal.playCount : null);
@@ -370,30 +442,6 @@ function RowDetails({
   );
 }
 
-/** A card whose video is still loading. */
-export function PlaceholderCard({
-  width,
-  height,
-  list,
-}: {
-  width: number;
-  height: number;
-  list: boolean;
-}) {
-  return (
-    <View style={{ width, height }}>
-      <View
-        style={[
-          styles.thumb,
-          list ? styles.thumbList : styles.thumbTile,
-          { height: Math.round((width * 9) / 16) },
-        ]}
-      />
-      <View style={styles.skeleton} />
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   // Rounded on its own: React Native Windows does not clip children to a parent's rounded corners.
   thumb: {
@@ -408,6 +456,7 @@ const styles = StyleSheet.create({
   thumbList: { borderRadius: 14, borderWidth: 1, borderColor: 'transparent' },
   thumbHover: { borderColor: n.accent },
   thumbSelected: { borderWidth: 2 },
+  hidden: { opacity: 0 },
   placeholder: {
     ...StyleSheet.absoluteFillObject,
     justifyContent: 'center',

@@ -1,10 +1,4 @@
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   StyleSheet,
@@ -75,12 +69,20 @@ import { useGridLayout } from './layout';
 const TOP = 8;
 // One wheel notch scrolls this much of a row (React Native Windows' own step is 120 px).
 const WHEEL_ROWS_PER_NOTCH = 0.75;
-// Pages load once scrolling rests this long (dragging the scrollbar across the library loads nothing on the way).
+// Pages load once scrolling rests this long, and while it goes on, every so often: for the rows in view and where
+// the list is heading (this far ahead at its speed). Faster than this many screens a second (the scrollbar dragged
+// across a large library), nothing loads on the way.
 const LOAD_DELAY_MS = 120;
+const LOAD_EVERY_MS = 100;
+const LOAD_AHEAD_S = 0.6;
+const LOAD_MAX_SCREENS_PER_S = 30;
 // Also load this many screens above and below the visible rows.
 const PREFETCH_SCREENS = 1;
-// Touch: the card in the middle of the screen plays its preview, switching as soon as another one gets there.
+// Touch, the list view: the card in the middle of the screen plays its preview once the list has rested this long,
+// none while it moves (each card reaching the middle started a video player; in a fling, that was most of the
+// frames' work).
 const touch = Platform.OS === 'android';
+const PREVIEW_REST_MS = 300;
 // The player's Up next: this many videos after the one played.
 const UP_NEXT = 20;
 // The search applies once typing pauses this long.
@@ -195,8 +197,8 @@ export function LibraryScreen({
   // Measured, not useWindowDimensions: that one does not follow window resizes on Windows.
   const [width, setWidth] = useState(1000);
   const [height, setHeight] = useState(800);
-  // A large screen (design 1h): sidebar and Library, a preview drawer over it. A phone held sideways (6f–6h): the header in one row,
-  // two list cards in a row. Both from the window's own size, so split screen, rotation and resizing just work.
+  // A large screen (design 1h): sidebar and Library, a preview drawer over it. A phone held sideways (6f–6h): the header in one row.
+  // Both from the window's own size, so split screen, rotation and resizing just work.
   const large = isLarge(width, height);
   const compact = !large && width > height;
   // The Library column's width (the grid's), measured: on a large screen the sidebar and the filter take the rest.
@@ -207,11 +209,8 @@ export function LibraryScreen({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = useCallback(() => setDrawerOpen(false), []);
   useBackHandler(drawerOpen && (() => setDrawerOpen(false)), Layer.drawer);
-  const { spec, columns, cardWidth, cardHeight, rowHeight } = useGridLayout(
-    listWidth,
-    view,
-    compact
-  );
+  const { spec, columns, cardWidth, cardHeight, rowHeight, padX } =
+    useGridLayout(listWidth, view);
 
   // --- Pages ---------------------------------------------------------------------------------------------------
   // The list's pages live in the query cache, keyed by the filter, the search and the order: another of those is
@@ -242,24 +241,50 @@ export function LibraryScreen({
   const layout = useRef({ columns, rowHeight });
   layout.current = { columns, rowHeight };
 
-  // Loads the pages for the rows in view and a screen around them.
-  const loadVisible = useCallback(() => {
-    if (total == null) return;
-    const { offset, viewport } = scrollRef.current;
-    const { columns: cols, rowHeight: rh } = layout.current;
-    const margin = viewport * PREFETCH_SCREENS;
-    const firstRow = Math.max(0, Math.floor((offset - TOP - margin) / rh));
-    const lastRow = Math.floor((offset + viewport + margin - TOP) / rh);
-    const first = firstRow * cols;
-    const last = Math.min(total - 1, (lastRow + 1) * cols - 1);
-    ensurePages(first, last);
-  }, [total, ensurePages]);
+  // Loads the pages for the rows in view and a screen around them, and `ahead` pixels further (up if negative).
+  const loadVisible = useCallback(
+    (ahead = 0) => {
+      if (total == null) return;
+      const { offset, viewport } = scrollRef.current;
+      const { columns: cols, rowHeight: rh } = layout.current;
+      const margin = viewport * PREFETCH_SCREENS;
+      const firstRow = Math.max(
+        0,
+        Math.floor((offset - TOP - margin + Math.min(0, ahead)) / rh)
+      );
+      const lastRow = Math.floor(
+        (offset + viewport + margin + Math.max(0, ahead) - TOP) / rh
+      );
+      const first = firstRow * cols;
+      const last = Math.min(total - 1, (lastRow + 1) * cols - 1);
+      ensurePages(first, last);
+    },
+    [total, ensurePages]
+  );
 
   const loadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const scheduleLoad = useCallback(() => {
     if (loadTimer.current) clearTimeout(loadTimer.current);
-    loadTimer.current = setTimeout(loadVisible, LOAD_DELAY_MS);
+    loadTimer.current = setTimeout(() => loadVisible(), LOAD_DELAY_MS);
   }, [loadVisible]);
+  // While scrolling: where the list was at the last event, and when the pages were last loaded
+  const lastScroll = useRef({ offset: 0, time: 0 });
+  const lastLoad = useRef(0);
+  const loadWhileScrolling = useCallback(
+    (offset: number) => {
+      const now = Date.now();
+      const prev = lastScroll.current;
+      lastScroll.current = { offset, time: now };
+      if (now - lastLoad.current < LOAD_EVERY_MS || now - prev.time > 200)
+        return;
+      const speed = (offset - prev.offset) / ((now - prev.time) / 1000 || 1); // px/s
+      const { viewport } = scrollRef.current;
+      if (Math.abs(speed) > viewport * LOAD_MAX_SCREENS_PER_S) return;
+      lastLoad.current = now;
+      loadVisible(speed * LOAD_AHEAD_S);
+    },
+    [loadVisible]
+  );
   useEffect(
     () => () => {
       if (loadTimer.current) clearTimeout(loadTimer.current);
@@ -311,16 +336,39 @@ export function LibraryScreen({
     },
     [client, total, videoAt]
   );
+  const viewRef = useRef(view);
+  viewRef.current = view;
   const updateFocus = useCallback(() => {
     if (!touch) return;
-    const range = visibleCards();
+    // The list only: a grid's cards are too small to watch a preview in (press and hold still plays one)
+    const range = viewRef.current === 'list' ? visibleCards() : NO_RANGE;
     setFocused(range);
     if (range.last >= range.first) prefetchAround(range);
   }, [visibleCards, setFocused, prefetchAround]);
   // The first screen, once the list is there.
   useEffect(() => {
     updateFocus();
-  }, [updateFocus, viewportHeight, view]);
+  }, [updateFocus, viewportHeight]);
+  // Moving: no preview until the list rests
+  const focusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const focusAtRest = useCallback(() => {
+    if (!touch) return;
+    setFocused(NO_RANGE);
+    if (focusTimer.current) clearTimeout(focusTimer.current);
+    focusTimer.current = setTimeout(updateFocus, PREVIEW_REST_MS);
+  }, [setFocused, updateFocus]);
+  useEffect(
+    () => () => {
+      if (focusTimer.current) clearTimeout(focusTimer.current);
+    },
+    []
+  );
+  // Another view: no preview until the grid's move to it is over (onGridSettled), and the list has rested
+  useEffect(() => {
+    if (focusTimer.current) clearTimeout(focusTimer.current);
+    setFocused(NO_RANGE);
+  }, [view, setFocused]);
+  const onGridSettled = useCallback(() => focusAtRest(), [focusAtRest]);
 
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -330,10 +378,11 @@ export function LibraryScreen({
         content: contentSize.height,
         viewport: layoutMeasurement.height,
       });
+      loadWhileScrolling(contentOffset.y);
       scheduleLoad();
-      updateFocus();
+      focusAtRest();
     },
-    [scheduleLoad, updateFocus, setScroll]
+    [loadWhileScrolling, scheduleLoad, focusAtRest, setScroll]
   );
 
   // The pages in view (the first page asks itself)
@@ -866,7 +915,8 @@ export function LibraryScreen({
     [setScroll]
   );
   const onListLayout = useCallback(
-    (e: LayoutChangeEvent) => setScroll({ viewport: e.nativeEvent.layout.height }),
+    (e: LayoutChangeEvent) =>
+      setScroll({ viewport: e.nativeEvent.layout.height }),
     [setScroll]
   );
 
@@ -1009,7 +1059,7 @@ export function LibraryScreen({
             cardWidth={cardWidth}
             cardHeight={cardHeight}
             rowHeight={rowHeight}
-            padX={spec.padX}
+            padX={padX}
             gapX={spec.gapX}
             cards={cardActions}
             onScroll={onScroll}
@@ -1021,6 +1071,7 @@ export function LibraryScreen({
             refreshing={list.refreshing}
             onRefresh={refresh}
             onWheel={onWheel}
+            onSettled={onGridSettled}
           />
         </View>
         {large && selected ? (
@@ -1028,6 +1079,7 @@ export function LibraryScreen({
             <VideoDetail
               client={client}
               video={selected}
+              preview={previews}
 
               onPlay={playVideo}
 
