@@ -1,6 +1,6 @@
 import { memo } from 'react';
 import type { SavedFilter } from '../../../api/types';
-import { formatCount } from '../../../lib/format';
+import { formatCount } from '../../../utils/format';
 import type { IconName } from '../../../ui/Icon';
 import {
   Sheet,

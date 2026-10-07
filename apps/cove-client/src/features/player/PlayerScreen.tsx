@@ -26,7 +26,7 @@ import {
   initials,
   partialDate,
   stars,
-} from '../../lib/format';
+} from '../../utils/format';
 import {
   playerEngine,
   VideoView,

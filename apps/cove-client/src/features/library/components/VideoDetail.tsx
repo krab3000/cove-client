@@ -16,7 +16,7 @@ import {
   groupLabel,
   stars,
   videoMeta,
-} from '../../../lib/format';
+} from '../../../utils/format';
 import { Icon } from '../../../ui/Icon';
 
 import { Button } from '../../../ui/Button';

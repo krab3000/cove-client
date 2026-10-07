@@ -46,11 +46,11 @@ import {
   createSelection,
   NO_RANGE,
   type IndexRange,
-} from '../../lib/selection';
+} from '../../utils/selection';
 
 import { prefetchMedia } from '../../platform/player';
 import { type WheelEvent } from '../../native/WheelCaptureNativeComponent';
-import { formatSize } from '../../lib/format';
+import { formatSize } from '../../utils/format';
 import { isLarge } from '../../theme/layout';
 import { Button } from '../../ui/Button';
 import { ErrorText, Spinner } from '../../ui/Text';

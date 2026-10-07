@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native';
 import type { SpriteSheet } from '../../../api/cove';
-import { formatDuration } from '../../../lib/format';
+import { formatDuration } from '../../../utils/format';
 import { nocturne as n } from '../../../theme/tokens';
 import { SpriteCell } from '../../library/components/SpriteCell';
 

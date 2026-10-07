@@ -28,7 +28,7 @@ import {
   type KeptServer,
   type SignIn,
 } from '../../../state/signIn';
-import { initialOf } from '../../../lib/format';
+import { initialOf } from '../../../utils/format';
 
 // Avatar fills, in turn (design 1b)
 const AVATARS = [

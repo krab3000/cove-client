@@ -1,5 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
-import { initialOf, initials } from '../lib/format';
+import { initialOf, initials } from '../utils/format';
 import { fonts, nocturne as n } from '../theme/tokens';
 
 /**

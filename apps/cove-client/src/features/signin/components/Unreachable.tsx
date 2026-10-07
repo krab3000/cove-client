@@ -3,7 +3,7 @@ import { Button } from '../../../ui/Button';
 import { StatusDot } from '../../../ui/Text';
 import { fonts, nocturne as n } from '../../../theme/tokens';
 import { type KeptServer } from '../../../state/signIn';
-import { ago } from '../../../lib/format';
+import { ago } from '../../../utils/format';
 
 /** A tablet's pane for a server that doesn't answer: what is known, and what to do. */
 export function Unreachable({

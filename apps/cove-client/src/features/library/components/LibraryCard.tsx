@@ -18,7 +18,7 @@ import {
   videoMeta,
   videoSubtitle,
   videoTitle,
-} from '../../../lib/format';
+} from '../../../utils/format';
 import { HoverPreview } from './HoverPreview';
 import { Icon } from '../../../ui/Icon';
 import {
@@ -26,7 +26,7 @@ import {
   useIsSelected,
   type IndexRange,
   type Selection,
-} from '../../../lib/selection';
+} from '../../../utils/selection';
 import {
   LoadingBar,
   RatingPill,
@@ -40,7 +40,7 @@ import {
   useToggleFavorite,
   useToggleSavedForLater,
 } from '../../../data/personal';
-import { useStaged } from '../../../lib/staged';
+import { useStaged } from '../../../utils/staged';
 import type { LibraryView } from './LibraryHeader';
 
 /** What every card of the grid gets from the Library (the same object for all of them). */
@@ -147,9 +147,7 @@ function usePreview(
   const autoplay = useInRange(focus, index);
   const show = hovered || held || autoplay;
   // The loading bar runs from the preview being chosen until it plays (or turns out to have nothing to play).
-  const [state, setState] = useState<'loading' | 'playing' | 'none'>(
-    'loading'
-  );
+  const [state, setState] = useState<'loading' | 'playing' | 'none'>('loading');
   useEffect(() => {
     if (show) setState('loading');
   }, [show]);
@@ -284,7 +282,11 @@ function RowDetails({
   return (
     <>
       <View
-        style={[styles.coverLayer, styles.coverLayerList, { height: thumbHeight }]}
+        style={[
+          styles.coverLayer,
+          styles.coverLayerList,
+          { height: thumbHeight },
+        ]}
       >
         {preview.show ? (
           <HoverPreview
@@ -401,7 +403,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   thumbTile: { borderRadius: 6, borderWidth: 1, borderColor: 'transparent' },
-  thumbList: { borderRadius: 14 },
+  // The same border width as a tile's: a card switched between the views keeps its frame, and on Android a frame
+  // whose border width changed went on clipping its cover away entirely (the cover showed again only once remounted).
+  thumbList: { borderRadius: 14, borderWidth: 1, borderColor: 'transparent' },
   thumbHover: { borderColor: n.accent },
   thumbSelected: { borderWidth: 2 },
   placeholder: {

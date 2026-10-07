@@ -1,6 +1,6 @@
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Segment } from '../../../api/types';
-import { formatDuration } from '../../../lib/format';
+import { formatDuration } from '../../../utils/format';
 import { fonts, nocturne as n } from '../../../theme/tokens';
 import { Sheet, SheetHeading, SheetRow, SheetSection } from '../../../ui/Sheet';
 import { segmentLabel } from '../moments';
