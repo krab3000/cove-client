@@ -1,23 +1,69 @@
-import { memo } from 'react';
+import { memo, useRef, useState, type ComponentRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { fonts, nocturne as n } from '../../../theme/tokens';
 import { Icon, type IconName } from '../../../ui/Icon';
 import { Avatar } from '../../../ui/Avatar';
 import { EditedTag } from '../../../ui/Chip';
+import { Popover } from '../../../ui/Menu';
 
 export type LibraryView = 'grid2' | 'grid3' | 'list';
 
 const VIEWS: { view: LibraryView; icon: IconName; label: string }[] = [
-  { view: 'grid2', icon: 'squares-four', label: '2 columns' },
-  { view: 'grid3', icon: 'dots-nine', label: '3 columns' },
-  { view: 'list', icon: 'rows', label: 'List' },
+  { view: 'grid2', icon: 'squares-four', label: 'Grid' },
+  { view: 'grid3', icon: 'dots-nine', label: 'Dense grid' },
+  { view: 'list', icon: 'rows', label: 'Feed' },
 ];
+
+/**
+ * The view switch as one button (a phone, where three of them did not fit the toolbar): the view in effect, opening a
+ * menu of the three under it.
+ */
+function ViewMenu({
+  view,
+  onView,
+}: {
+  view: LibraryView;
+  onView: (view: LibraryView) => void;
+}) {
+  const button = useRef<ComponentRef<typeof View>>(null);
+  const [anchor, setAnchor] = useState<{ x: number; y: number } | null>(null);
+  const current = VIEWS.find((v) => v.view === view) ?? VIEWS[0]!;
+  return (
+    <>
+      <Pressable
+        ref={button}
+        onPress={() =>
+          button.current?.measureInWindow((x, y, w, h) =>
+            setAnchor({ x: x + w, y: y + h })
+          )
+        }
+        accessibilityRole="button"
+        accessibilityLabel={`View: ${current.label}`}
+        style={({ pressed }) => [styles.viewMenu, pressed && styles.pressedBg]}
+      >
+        <Icon name={current.icon} size={16} color={n.accent} />
+        <Icon name="caret-down" size={12} color={n.textAlpha(55)} />
+      </Pressable>
+      <Popover
+        visible={anchor != null}
+        anchor={anchor}
+        onClose={() => setAnchor(null)}
+        items={VIEWS.map((v) => ({
+          icon: v.icon,
+          label: v.label,
+          selected: v.view === view,
+          onPress: () => onView(v.view),
+        }))}
+      />
+    </>
+  );
+}
 
 /**
  * The Library's header (design turn 6), the same over all three views. Each control has one place: the search field
  * (Cove's search) and the avatar (the account) on top; the title, which says what is shown and opens the Show sheet,
  * with the count line under it (on a large screen it shares its row with the search); then the toolbar: Filter with its
- * count, the sort, Shuffle, Play all and the view switch. No screen lists the filter's conditions (only the editor
+ * count, the sort, Shuffle, Play all and the view switch (on a phone one button with a menu, see ViewMenu). No screen lists the filter's conditions (only the editor
  * does). A phone held sideways (compact, design 6f–6h) gets all of it in one row; on a large screen (large, 1h) the
  * sidebar holds the account and the saved filters, so there is no avatar and the title picks nothing.
  * Saving is the filter editor's, not the header's.
@@ -250,6 +296,25 @@ export const LibraryHeader = memo(function LibraryHeader({
       ) : null}
     </View>
   );
+  const viewSwitch = (
+    <View style={styles.views}>
+      {VIEWS.map((v) => (
+        <Pressable
+          key={v.view}
+          onPress={() => onView(v.view)}
+          accessibilityLabel={v.label}
+          accessibilityState={{ selected: view === v.view }}
+          style={[styles.viewButton, view === v.view && styles.viewOn]}
+        >
+          <Icon
+            name={v.icon}
+            size={16}
+            color={view === v.view ? n.accent : n.textAlpha(60)}
+          />
+        </Pressable>
+      ))}
+    </View>
+  );
   const titleBlock = (
     <Pressable
       onPress={large ? undefined : onOpenShow}
@@ -361,23 +426,7 @@ export const LibraryHeader = memo(function LibraryHeader({
         >
           <Icon name="play" fill size={14} color={n.accent200} />
         </Pressable>
-        <View style={styles.views}>
-          {VIEWS.map((v) => (
-            <Pressable
-              key={v.view}
-              onPress={() => onView(v.view)}
-              accessibilityLabel={v.label}
-              accessibilityState={{ selected: view === v.view }}
-              style={[styles.viewButton, view === v.view && styles.viewOn]}
-            >
-              <Icon
-                name={v.icon}
-                size={16}
-                color={view === v.view ? n.accent : n.textAlpha(60)}
-              />
-            </Pressable>
-          ))}
-        </View>
+        {large ? viewSwitch : <ViewMenu view={view} onView={onView} />}
       </View>
     </View>
   );
@@ -613,4 +662,14 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   viewOn: { borderColor: n.accent },
+  viewMenu: {
+    height: 36,
+    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderRadius: n.radiusMd,
+    borderWidth: 1,
+    borderColor: n.divider,
+  },
 });
