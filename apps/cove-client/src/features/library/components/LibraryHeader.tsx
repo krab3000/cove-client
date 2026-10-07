@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { fonts, nocturne as n } from '../../../theme/tokens';
 import { Icon, type IconName } from '../../../ui/Icon';
@@ -21,7 +22,7 @@ const VIEWS: { view: LibraryView; icon: IconName; label: string }[] = [
  * sidebar holds the account and the saved filters, so there is no avatar and the title picks nothing.
  * Saving is the filter editor's, not the header's.
  */
-export function LibraryHeader({
+export const LibraryHeader = memo(function LibraryHeader({
   query,
   onQuery,
   onSubmitQuery,
@@ -380,7 +381,7 @@ export function LibraryHeader({
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   // Compact: a phone held sideways, one row

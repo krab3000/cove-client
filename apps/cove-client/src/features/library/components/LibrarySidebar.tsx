@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { SavedFilter } from '../../../api/types';
 import { fonts, nocturne as n } from '../../../theme/tokens';
@@ -22,7 +23,7 @@ export interface SidebarQuick {
  * The tablet's sidebar (design 1h): the Show sheet's job, always open — the Library (all videos, with the count), the
  * quick filters (Watch), the saved filters with their counts, Save as new filter — and the account as its bottom row.
  */
-export function LibrarySidebar({
+export const LibrarySidebar = memo(function LibrarySidebar({
   server,
   username,
   allCount,
@@ -122,7 +123,7 @@ export function LibrarySidebar({
       </Pressable>
     </View>
   );
-}
+});
 
 function Row({
   icon,

@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { fonts, nocturne as n } from '../../../theme/tokens';
 import { Avatar } from '../../../ui/Avatar';
@@ -5,7 +6,7 @@ import { Sheet, SheetRow, SheetRule } from '../../../ui/Sheet';
 import { StatusDot } from '../../../ui/Text';
 
 /** The avatar's account sheet (design 6e): who and where, Refresh library, Log out. */
-export function AccountSheet({
+export const AccountSheet = memo(function AccountSheet({
   visible,
   onClose,
   username,
@@ -55,7 +56,7 @@ export function AccountSheet({
       />
     </Sheet>
   );
-}
+});
 
 const styles = StyleSheet.create({
   account: {

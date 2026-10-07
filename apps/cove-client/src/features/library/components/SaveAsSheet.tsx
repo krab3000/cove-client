@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { fonts, nocturne as n } from '../../../theme/tokens';
 import { Button } from '../../../ui/Button';
@@ -6,7 +7,7 @@ import { ErrorText } from '../../../ui/Text';
 import { TextField } from '../../../ui/TextField';
 
 /** Save as…: a name for the new saved filter (the filter, the search and the view). */
-export function SaveAsSheet({
+export const SaveAsSheet = memo(function SaveAsSheet({
   visible,
   onClose,
   name,
@@ -46,7 +47,7 @@ export function SaveAsSheet({
       />
     </Sheet>
   );
-}
+});
 
 const styles = StyleSheet.create({
   hint: {

@@ -66,14 +66,19 @@ export function useVideoCounts(
   enabled: boolean
 ): Record<string, number | undefined> {
   const client = useClient();
+  // Stable, so the counts object only changes with the counts (useQueries re-runs an inline combine every render)
+  const combine = useCallback(
+    (results: { data?: number }[]) =>
+      Object.fromEntries(entries.map((e, i) => [e.key, results[i]?.data])),
+    [entries]
+  );
   return useQueries({
     queries: entries.map((e) => ({
       queryKey: ['count', listKey(e.filter, e.q)],
       queryFn: () => client.countVideos(e.filter, e.q),
       enabled,
     })),
-    combine: (results) =>
-      Object.fromEntries(entries.map((e, i) => [e.key, results[i]?.data])),
+    combine,
   });
 }
 

@@ -4,10 +4,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react';
 import {
-  FlatList,
   Platform,
   StyleSheet,
   Text,
@@ -15,8 +13,6 @@ import {
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
-  type StyleProp,
-  type ViewStyle,
 } from 'react-native';
 import { type CoveClient } from '../../api/cove';
 import type { FilterExpression, SavedFilter, Video } from '../../api/types';
@@ -24,6 +20,7 @@ import { LibraryHeader, type LibraryView } from './components/LibraryHeader';
 import {
   LibrarySidebar,
   type SidebarActive,
+  type SidebarQuick,
 } from './components/LibrarySidebar';
 import { Drawer } from '../../ui/Drawer';
 import { VideoDetail } from './components/VideoDetail';
@@ -52,9 +49,7 @@ import {
 } from '../../lib/selection';
 
 import { prefetchMedia } from '../../platform/player';
-import WheelCapture, {
-  type WheelEvent,
-} from '../../native/WheelCaptureNativeComponent';
+import { type WheelEvent } from '../../native/WheelCaptureNativeComponent';
 import { formatSize } from '../../lib/format';
 import { isLarge } from '../../theme/layout';
 import { Button } from '../../ui/Button';
@@ -63,7 +58,8 @@ import { Layer, useBackHandler } from '../../app/back';
 import { prefs } from '../../state/prefs';
 import { useSnapshot } from 'valtio';
 import { useVideoPages } from '../../data/videoPages';
-import { GridRow } from './components/GridRow';
+import { LibraryGrid, type GridHandle } from './components/LibraryGrid';
+import type { CardActions } from './components/LibraryCard';
 import {
   useAggregate,
   useKeepSavedFilter,
@@ -130,13 +126,19 @@ const BUILT_IN: {
   },
 ];
 
+// The sidebar's shortcuts (the same filters as BUILT_IN, in the sidebar's order and words).
+const SIDEBAR_QUICK: SidebarQuick[] = [
+  { key: 'progress', label: 'Continue watching', icon: 'play-circle' },
+  { key: 'unwatched', label: 'Unwatched', icon: 'eye-slash' },
+];
+
 /**
  * The Library (design 1f/1g): one screen, three views (2 columns, 3 columns, list) under one header with the filter
  * bar. The grid is virtual in both senses: the list is as long as the library from the first page on (videos/find
  * reports the total), so the scrollbar shows the real size and position, and it can jump anywhere. Rows have a fixed
  * height, so their offsets are known without rendering them. Pages of videos/find load for the rows in view (and a
- * screen around them); rows whose page has not arrived show placeholders. FlatList renders only the rows near the
- * viewport.
+ * screen around them); cards whose page has not arrived show placeholders. LibraryGrid renders only the cards near
+ * the viewport, keyed by video, so a view switch moves them rather than making them again.
  */
 export function LibraryScreen({
   client,
@@ -215,35 +217,28 @@ export function LibraryScreen({
   // The list's pages live in the query cache, keyed by the filter, the search and the order: another of those is
   // another list (answers for the one before are simply not shown). The first page says how many there are.
   const list = useVideoPages({ filter: applied, q: searched, seed });
-  const { total, ensure: ensurePages } = list;
+  // The list object is new on every render; its functions are stable (callbacks below depend on those, not on it)
+  const { total, ensure: ensurePages, videoAt, after: videosAfter } = list;
   // What went wrong saving (a page that failed to load is the list's own error)
   const [error, setError] = useState('');
   const shownError = list.error || error;
 
-  const rowCount = total == null ? 0 : Math.ceil(total / columns);
-  const rows = useMemo(
-    () => Array.from({ length: rowCount }, (_, i) => i),
-    [rowCount]
-  );
-
   // --- Scrolling -----------------------------------------------------------------------------------------------
-  const listRef = useRef<FlatList<number>>(null);
-  // The scroll position lives in a ref: scroll events come at 60 Hz, and re-rendering the grid for each one kept
-  // the JS thread busy on slow devices. State changes only with the content height or the viewport (the scrollbar
-  // and the page loading need those).
+  const listRef = useRef<GridHandle>(null);
+  // The scroll position and the content height live in a ref: scroll events come at 60 Hz, and re-rendering the
+  // grid for each one kept the JS thread busy on slow devices. State holds only what renders need: the viewport's
+  // height (the page loading, the centred card) and whether the content overflows it (the scrollbar). So a new
+  // content height (every view switch, every page of results) re-renders nothing unless it changes the overflow.
   const scrollRef = useRef({ offset: 0, content: 0, viewport: 0 });
-  const [scroll, setScrollState] = useState(scrollRef.current);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [overflows, setOverflows] = useState(false);
   const setScroll = useCallback((next: Partial<typeof scrollRef.current>) => {
-    const prev = scrollRef.current;
-    scrollRef.current = { ...prev, ...next };
-    if (
-      scrollRef.current.content !== prev.content ||
-      scrollRef.current.viewport !== prev.viewport
-    )
-      setScrollState(scrollRef.current);
+    scrollRef.current = { ...scrollRef.current, ...next };
+    const { content, viewport } = scrollRef.current;
+    // Same values: React skips the render
+    setViewportHeight(viewport);
+    setOverflows(content > viewport);
   }, []);
-  // The first video in view, to keep it in view when the grid reflows (window resize, rotation, another view).
-  const anchor = useRef(0);
   const layout = useRef({ columns, rowHeight });
   layout.current = { columns, rowHeight };
 
@@ -306,7 +301,7 @@ export function LibraryScreen({
       const lastRow = Math.floor(range.last / cols) + 1;
       for (let index = firstRow * cols; index < (lastRow + 1) * cols; index++) {
         if (index < 0 || total == null || index >= total) continue;
-        const video = list.videoAt(index);
+        const video = videoAt(index);
         if (!video || prefetched.current.has(video.id)) continue;
         prefetched.current.add(video.id);
         client.previewAvailable(video).then((has) => {
@@ -314,7 +309,7 @@ export function LibraryScreen({
         });
       }
     },
-    [client, total, list]
+    [client, total, videoAt]
   );
   const updateFocus = useCallback(() => {
     if (!touch) return;
@@ -325,7 +320,7 @@ export function LibraryScreen({
   // The first screen, once the list is there.
   useEffect(() => {
     updateFocus();
-  }, [updateFocus, scroll.viewport, view]);
+  }, [updateFocus, viewportHeight, view]);
 
   const onScroll = useCallback(
     (e: NativeSyntheticEvent<NativeScrollEvent>) => {
@@ -335,9 +330,6 @@ export function LibraryScreen({
         content: contentSize.height,
         viewport: layoutMeasurement.height,
       });
-      const { columns: cols, rowHeight: rh } = layout.current;
-      anchor.current =
-        Math.max(0, Math.floor((contentOffset.y - TOP + rh / 2) / rh)) * cols;
       scheduleLoad();
       updateFocus();
     },
@@ -347,19 +339,14 @@ export function LibraryScreen({
   // The pages in view (the first page asks itself)
   useEffect(() => {
     loadVisible();
-  }, [loadVisible, scroll.viewport]);
+  }, [loadVisible, viewportHeight]);
 
-  // Reflow: the same video stays at the top.
+  // Reflow (the grid keeps the same video at the top): the pages for the rows now in view.
   const lastLayout = useRef({ columns, rowHeight });
   useEffect(() => {
     const prev = lastLayout.current;
     lastLayout.current = { columns, rowHeight };
     if (prev.columns === columns && prev.rowHeight === rowHeight) return;
-    const row = Math.floor(anchor.current / columns);
-    listRef.current?.scrollToOffset({
-      offset: row * rowHeight,
-      animated: false,
-    });
     scheduleLoad();
   }, [columns, rowHeight, scheduleLoad]);
 
@@ -390,32 +377,6 @@ export function LibraryScreen({
     [rowHeight, scrollTo]
   );
 
-  // Each row of the grid sits in a WheelCapture (Windows), which hands wheel turns to onWheel.
-  const onWheelRef = useRef(onWheel);
-  onWheelRef.current = onWheel;
-  const Cell = useMemo(
-    () =>
-      function WheelCell({
-        children,
-        style,
-        onLayout,
-      }: {
-        children: ReactNode;
-        style?: StyleProp<ViewStyle>;
-        onLayout?: (e: LayoutChangeEvent) => void;
-      }) {
-        // The list measures cells through a plain View: the custom component's layout events carry no data.
-        return (
-          <View style={style} onLayout={onLayout}>
-            <WheelCapture onWheel={(e) => onWheelRef.current(e)}>
-              {children}
-            </WheelCapture>
-          </View>
-        );
-      },
-    []
-  );
-
   // The same list again from the server (pull to refresh, Refresh library)
   const { refresh: refreshList } = list;
   const refresh = useCallback(() => {
@@ -427,7 +388,6 @@ export function LibraryScreen({
   // A new filter or order: the grid starts over from the top with its results.
   const restart = useCallback(() => {
     if (loadTimer.current) clearTimeout(loadTimer.current);
-    anchor.current = 0;
     wheelTarget.current = null;
     focus.set(NO_RANGE);
     held.set(null);
@@ -626,9 +586,9 @@ export function LibraryScreen({
   // A card's video, with the loaded videos after it as Up next.
   const playVideo = useCallback(
     (video: Video, startAt?: number) => {
-      onPlay(video, list.after(video.id, UP_NEXT), startAt);
+      onPlay(video, videosAfter(video.id, UP_NEXT), startAt);
     },
-    [onPlay, list]
+    [onPlay, videosAfter]
   );
   // Large screen: a tap opens the preview drawer on the video (or switches it), a tap on the one it shows plays it.
   // Elsewhere a tap plays.
@@ -808,25 +768,37 @@ export function LibraryScreen({
     [savedFilters]
   );
   const sheetCounts = useVideoCounts(countEntries, sheet === 'show' || large);
-  const quickOn = (c: Condition) =>
-    !saved &&
-    conditions === 1 &&
-    JSON.stringify(toWire(appliedTree)) ===
-      JSON.stringify(toWire({ ...emptyTree(), children: [c] }));
+  // Which built-in shortcut the filter is, if one (by key)
+  const quickChecked = useMemo(() => {
+    const wire = JSON.stringify(toWire(appliedTree));
+    return Object.fromEntries(
+      BUILT_IN.map((q) => [
+        q.key,
+        !saved &&
+          conditions === 1 &&
+          wire ===
+            JSON.stringify(toWire({ ...emptyTree(), children: [q.make()] })),
+      ])
+    ) as Record<string, boolean>;
+  }, [saved, conditions, appliedTree]);
 
   const count = aggregate?.count ?? total;
-  const countLine =
-    count == null
-      ? ' '
-      : [
-          `${count.toLocaleString('en-US')} videos`,
-          aggregate
-            ? `${Math.round(aggregate.duration / 3600).toLocaleString('en-US')} h`
-            : null,
-          aggregate ? formatSize(aggregate.fileSize) : null,
-        ]
-          .filter(Boolean)
-          .join(' · ');
+  // Memoized: toLocaleString is slow on Hermes, and the Library renders often
+  const countLine = useMemo(
+    () =>
+      count == null
+        ? ' '
+        : [
+            `${count.toLocaleString('en-US')} videos`,
+            aggregate
+              ? `${Math.round(aggregate.duration / 3600).toLocaleString('en-US')} h`
+              : null,
+            aggregate ? formatSize(aggregate.fileSize) : null,
+          ]
+            .filter(Boolean)
+            .join(' · '),
+    [count, aggregate]
+  );
 
   // --- Touch preview -------------------------------------------------------------------------------------------
   // Press and hold a card. It lasts while the finger is down, also when the finger goes on to scroll the list: the
@@ -856,21 +828,12 @@ export function LibraryScreen({
     [held]
   );
 
-  // A row is a GridRow: it reads its own page(s), so a page arriving re-renders its rows only
-  const rowProps = useMemo(
+  // What every card gets (one object: the cards re-render only when it changes)
+  const selectedId = large && drawerOpen && selected ? selected.id : null;
+  const cardActions: CardActions = useMemo(
     () => ({
-      columns,
-      total: total ?? 0,
-      pages: list.pages,
-      view,
-      cardWidth,
-      cardHeight,
-      rowHeight,
-      gapX: spec.gapX,
-      padX: spec.padX,
-      gapY: spec.gapY,
       client,
-      selectedId: large && drawerOpen && selected ? selected.id : null,
+      selectedId,
       onPress: pressVideo,
       onAddTag,
       onAddPerformer,
@@ -880,18 +843,8 @@ export function LibraryScreen({
       onRelease,
     }),
     [
-      columns,
-      total,
-      list.pages,
-      view,
-      cardWidth,
-      cardHeight,
-      rowHeight,
-      spec,
       client,
-      large,
-      drawerOpen,
-      selected,
+      selectedId,
       pressVideo,
       onAddTag,
       onAddPerformer,
@@ -901,32 +854,76 @@ export function LibraryScreen({
       onRelease,
     ]
   );
-  const renderRow = useCallback(
-    ({ item: row }: { item: number }) => <GridRow row={row} {...rowProps} />,
-    [rowProps]
+  const onScrollBeginDrag = useCallback(() => {
+    dragging.current = true;
+  }, []);
+  const onScrollEndDrag = useCallback(() => {
+    dragging.current = false;
+    held.set(null); // finger up
+  }, [held]);
+  const onContentSizeChange = useCallback(
+    (_: number, h: number) => setScroll({ content: h }),
+    [setScroll]
   );
-
-  const getItemLayout = useCallback(
-    (_: ArrayLike<number> | null | undefined, index: number) => ({
-      length: rowHeight,
-      offset: TOP + rowHeight * index,
-      index,
-    }),
-    [rowHeight]
+  const onListLayout = useCallback(
+    (e: LayoutChangeEvent) => setScroll({ viewport: e.nativeEvent.layout.height }),
+    [setScroll]
   );
 
   // The sidebar's mark: what the Library shows
-  const quickKey = BUILT_IN.find((q) => quickOn(q.make()))?.key;
-  const active: SidebarActive = saved
-    ? { kind: 'saved', id: saved.filter.id }
-    : quickKey
-      ? { kind: 'quick', key: quickKey }
-      : !conditions && !searched
-        ? { kind: 'all' }
-        : { kind: 'other' };
-  const savedCounts = Object.fromEntries(
-    savedFilters.map((f) => [f.id, sheetCounts[`saved-${f.id}`]])
-  ) as Record<number, number>;
+  // The sidebar and the sheets are memo components; their props are kept stable here, so they don't re-render with
+  // the grid (a view switch, a scroll that changes the content height).
+  const quickKey = BUILT_IN.find((q) => quickChecked[q.key])?.key;
+  const savedId = saved?.filter.id;
+  const showsAll = !conditions && !searched;
+  const active: SidebarActive = useMemo(
+    () =>
+      savedId != null
+        ? { kind: 'saved', id: savedId }
+        : quickKey
+          ? { kind: 'quick', key: quickKey }
+          : showsAll
+            ? { kind: 'all' }
+            : { kind: 'other' },
+    [savedId, quickKey, showsAll]
+  );
+  const savedCounts = useMemo(
+    () =>
+      Object.fromEntries(
+        savedFilters.map((f) => [f.id, sheetCounts[`saved-${f.id}`]])
+      ) as Record<number, number>,
+    [savedFilters, sheetCounts]
+  );
+  const onQuick = useCallback(
+    (key: string) => {
+      const q = BUILT_IN.find((b) => b.key === key);
+      if (q) showQuick(q.make);
+    },
+    [showQuick]
+  );
+  const quickItems = useMemo(
+    () =>
+      BUILT_IN.map((q) => ({
+        key: q.key,
+        label: q.label,
+        icon: q.icon,
+        checked: quickChecked[q.key] ?? false,
+        onPress: () => showQuick(q.make),
+      })),
+    [quickChecked, showQuick]
+  );
+  const openAccount = useCallback(() => setSheet('account'), []);
+  const openShow = useCallback(() => setSheet('show'), []);
+  const closeSheet = useCallback(() => setSheet(null), []);
+  const onNewName = useCallback((t: string) => {
+    setNewName(t);
+    setSheetError('');
+  }, []);
+  const submitQuery = useCallback(
+    () => applySearch(query),
+    [applySearch, query]
+  );
+  const playAll = useCallback(() => playFirst(applied), [playFirst, applied]);
 
   return (
     <View
@@ -942,25 +939,15 @@ export function LibraryScreen({
           username={client.username}
           allCount={sheetCounts.all ?? null}
           active={active}
-          quick={[
-            {
-              key: 'progress',
-              label: 'Continue watching',
-              icon: 'play-circle',
-            },
-            { key: 'unwatched', label: 'Unwatched', icon: 'eye-slash' },
-          ]}
+          quick={SIDEBAR_QUICK}
           saved={savedFilters}
           savedCounts={savedCounts}
           canSaveNew={!saved && !!(conditions || searched)}
           onAll={showAll}
-          onQuick={(key) => {
-            const q = BUILT_IN.find((b) => b.key === key);
-            if (q) showQuick(q.make);
-          }}
+          onQuick={onQuick}
           onSaved={loadSaved}
           onSaveNew={openSaveAs}
-          onAccount={() => setSheet('account')}
+          onAccount={openAccount}
         />
       ) : null}
       <View
@@ -976,19 +963,19 @@ export function LibraryScreen({
         <LibraryHeader
           query={query}
           onQuery={onQuery}
-          onSubmitQuery={() => applySearch(query)}
+          onSubmitQuery={submitQuery}
           account={client.username}
-          onOpenAccount={() => setSheet('account')}
+          onOpenAccount={openAccount}
           title={title}
           savedFilter={!!saved}
           countLine={countLine}
           edited={edited}
-          onOpenShow={() => setSheet('show')}
+          onOpenShow={openShow}
           filterCount={conditions + hidden}
           onOpenFilter={filterOpen ? closeFilter : openFilter}
           shuffled={seed != null}
           onShuffle={shuffle}
-          onPlayAll={() => playFirst(applied)}
+          onPlayAll={playAll}
           view={view}
           onView={setView}
           compact={compact}
@@ -1012,38 +999,28 @@ export function LibraryScreen({
               <Text style={styles.empty}>No videos match this filter.</Text>
             </View>
           ) : null}
-          <FlatList
+          <LibraryGrid
             ref={listRef}
-            data={rows}
-            keyExtractor={(row) => String(row)}
-            renderItem={renderRow}
-            getItemLayout={getItemLayout}
-            extraData={rowProps}
-            contentContainerStyle={styles.content}
+            top={TOP}
+            total={total ?? 0}
+            pages={list.pages}
+            view={view}
+            columns={columns}
+            cardWidth={cardWidth}
+            cardHeight={cardHeight}
+            rowHeight={rowHeight}
+            padX={spec.padX}
+            gapX={spec.gapX}
+            cards={cardActions}
             onScroll={onScroll}
-            onScrollBeginDrag={() => {
-              dragging.current = true;
-            }}
-            onScrollEndDrag={() => {
-              dragging.current = false;
-              held.set(null); // finger up
-            }}
-            // RNW's native scrollbar hides itself for good once the content fits the viewport (as it does before
-            // the first page arrives): only a change of this prop makes it check again. So it flips with the overflow.
-            showsVerticalScrollIndicator={scroll.content > scroll.viewport}
-            scrollEventThrottle={16}
-            onContentSizeChange={(_, h) => setScroll({ content: h })}
-            onLayout={(e) => {
-              // Read now: the event is released once the handler returns, before the updater runs.
-              const viewport = e.nativeEvent.layout.height;
-              setScroll({ viewport });
-            }}
-            CellRendererComponent={Platform.OS === 'windows' ? Cell : undefined}
+            onScrollBeginDrag={onScrollBeginDrag}
+            onScrollEndDrag={onScrollEndDrag}
+            showsVerticalScrollIndicator={overflows}
+            onContentSizeChange={onContentSizeChange}
+            onLayout={onListLayout}
             refreshing={list.refreshing}
             onRefresh={refresh}
-            initialNumToRender={4}
-            maxToRenderPerBatch={4}
-            windowSize={5}
+            onWheel={onWheel}
           />
         </View>
         {large && selected ? (
@@ -1097,26 +1074,20 @@ export function LibraryScreen({
 
       <ShowSheet
         visible={sheet === 'show'}
-        onClose={() => setSheet(null)}
+        onClose={closeSheet}
         counts={sheetCounts}
         allChecked={!saved && !conditions && !searched}
         onAll={showAll}
         savedFilters={savedFilters}
         savedId={saved?.filter.id ?? null}
         onSaved={loadSaved}
-        quick={BUILT_IN.map((q) => ({
-          key: q.key,
-          label: q.label,
-          icon: q.icon,
-          checked: quickOn(q.make()),
-          onPress: () => showQuick(q.make),
-        }))}
+        quick={quickItems}
         canSaveNew={!!(conditions || searched)}
         onSaveNew={openSaveAs}
       />
       <AccountSheet
         visible={sheet === 'account'}
-        onClose={() => setSheet(null)}
+        onClose={closeSheet}
         username={client.username}
         server={client.server}
         onRefresh={refresh}
@@ -1124,12 +1095,9 @@ export function LibraryScreen({
       />
       <SaveAsSheet
         visible={sheet === 'saveAs'}
-        onClose={() => setSheet(null)}
+        onClose={closeSheet}
         name={newName}
-        onName={(t) => {
-          setNewName(t);
-          setSheetError('');
-        }}
+        onName={onNewName}
         error={sheetError}
         onSave={saveAs}
       />
@@ -1148,8 +1116,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   empty: { color: n.textAlpha(55), fontSize: 14, fontFamily: fonts.regular },
-  // Rows carry the gap below them (part of their fixed height).
-  content: { paddingTop: TOP },
   errorRow: {
     flexDirection: 'row',
     alignItems: 'center',

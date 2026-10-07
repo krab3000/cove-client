@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import type { SavedFilter } from '../../../api/types';
 import { formatCount } from '../../../lib/format';
 import type { IconName } from '../../../ui/Icon';
@@ -17,7 +18,7 @@ const videos = (num: number | undefined) =>
  * The title's Show sheet (design 6d): all videos, the saved filters with their counts and the view they open in,
  * the quick filters, and Save as new filter while there is a filter or a search.
  */
-export function ShowSheet({
+export const ShowSheet = memo(function ShowSheet({
   visible,
   onClose,
   counts,
@@ -106,4 +107,4 @@ export function ShowSheet({
       ) : null}
     </Sheet>
   );
-}
+});
