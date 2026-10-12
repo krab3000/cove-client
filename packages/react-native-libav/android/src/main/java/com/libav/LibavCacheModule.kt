@@ -1,5 +1,6 @@
 package com.libav
 
+import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
@@ -26,10 +27,28 @@ class LibavCacheModule(private val context: ReactApplicationContext) : ReactCont
     HttpAuth.set(server, value)
   }
 
-  /** The http(s) byte-range cache the player streams through (HttpChunkCache): bytes per request, the cache's limit. */
+  /**
+   * The C++ HTTP cache the player streams through (cpp/HttpCache): bytes per range request, the RAM and disk tiers'
+   * limits, the disk tier's directory; -1 (or null) for each: derived from the device.
+   */
   @ReactMethod
-  fun configureHttp(chunkSize: Double, maxSize: Double) {
-    HttpChunkCache.configure(chunkSize.toInt(), maxSize.toLong())
+  fun configureHttp(chunkSize: Double, memorySize: Double, diskSize: Double, diskDir: String?) {
+    HttpFetch.attach(context)
+    HttpFetch.nativeConfigure(chunkSize.toLong(), memorySize.toLong(), diskSize.toLong(), diskDir)
+  }
+
+  /** Empties both tiers (sign-out: cached private media must not stay). */
+  @ReactMethod
+  fun clearHttpCache() {
+    HttpFetch.attach(context)
+    HttpFetch.nativeClear()
+  }
+
+  /** What the cache holds and has done: RAM and disk bytes, downloads, hits (JSON). */
+  @ReactMethod
+  fun getHttpCacheStats(promise: Promise) {
+    HttpFetch.attach(context)
+    promise.resolve(String(HttpFetch.nativeStats(), Charsets.UTF_8))
   }
 
   companion object {

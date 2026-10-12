@@ -28,20 +28,72 @@ export function prefetchMedia(urls: string[]): void {
 }
 
 /**
- * Android: how http(s) sources are streamed. The player reads them through the platform's HTTP stack and an
- * in-memory cache of byte ranges: each read is served from a chunk of chunkSize bytes (default 1 MB), downloaded
- * with one Range request on a miss; the cache keeps at most maxSize bytes (default 100 MB), least recently used
- * chunks evicted first. Does nothing elsewhere.
+ * Android: the HTTP cache http(s) sources play through (C++, cpp/HttpCache). Each read is served from a chunk of
+ * chunkSize bytes (default 1 MB), from RAM, else from the disk tier, else downloaded with one Range request and kept
+ * in both. The disk tier persists across launches, so a video reopened later starts from disk.
+ * - chunkSize: bytes per range request and cache entry
+ * - memorySize: the RAM tier (default: from device RAM, 8-64 MB: a 4 GB device gets 16 MB)
+ * - diskSize: the disk tier (default 512 MB, never more than half the free space), 0 for none
+ * - diskDir: the disk tier's directory (default: the app's cache directory/libav-http)
+ * - maxSize: deprecated, taken as memorySize
+ * Unset options are derived from the device. Does nothing elsewhere yet.
  */
 export function configureHttpCache({
-  chunkSize = 1 << 20,
-  maxSize = 100 << 20,
+  chunkSize,
+  memorySize,
+  diskSize,
+  diskDir,
+  maxSize,
 }: {
   chunkSize?: number;
+  memorySize?: number;
+  diskSize?: number;
+  diskDir?: string;
   maxSize?: number;
 }): void {
-  if (Platform.OS === 'android')
-    NativeModules.LibavCache?.configureHttp(chunkSize, maxSize);
+  if (Platform.OS !== 'android') return;
+  const memory = memorySize ?? maxSize;
+  NativeModules.LibavCache?.configureHttp(
+    chunkSize ?? -1,
+    memory ?? -1,
+    diskSize ?? -1,
+    diskDir ?? null
+  );
+}
+
+/** Android: empties the HTTP cache's RAM and disk tiers (e.g. on sign-out). Does nothing elsewhere yet. */
+export function clearHttpCache(): void {
+  if (Platform.OS === 'android') NativeModules.LibavCache?.clearHttpCache();
+}
+
+export type HttpCacheStats = {
+  chunkSize: number;
+  ramBytes: number;
+  ramLimit: number;
+  ramChunks: number;
+  liveChunkBytes: number;
+  fetches: number;
+  fetchedBytes: number;
+  fetchMs: number;
+  failed: number;
+  inFlight: number;
+  disk: {
+    enabled: boolean;
+    bytes: number;
+    limit: number;
+    chunks: number;
+    writes: number;
+    droppedWrites: number;
+    reads: number;
+    corrupt: number;
+    evicted: number;
+  };
+};
+
+/** Android: what the HTTP cache holds and has done; null elsewhere. */
+export async function getHttpCacheStats(): Promise<HttpCacheStats | null> {
+  if (Platform.OS !== 'android' || !NativeModules.LibavCache) return null;
+  return JSON.parse(await NativeModules.LibavCache.getHttpCacheStats());
 }
 
 /**

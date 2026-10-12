@@ -34,6 +34,7 @@ import {
   type VideoViewHandle,
 } from '../../platform/player';
 import { useSafeInsets } from '../../platform/insets';
+import { firstFrameShown } from '../../state/player';
 import { isLarge } from '../../theme/layout';
 import { BackButton, IconButton } from '../../ui/IconButton';
 import { PersonChip, TagChip } from '../../ui/Chip';
@@ -691,6 +692,7 @@ export function PlayerScreen({
             if (clipStart > 0) player.current?.seek(clipStart);
           }}
           onProgress={(e) => {
+            firstFrameShown();
             if (scrub !== null || seeking) return;
             const t = e.nativeEvent.currentTime;
             timeRef.current = t;

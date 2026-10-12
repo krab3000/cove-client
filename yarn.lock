@@ -8008,6 +8008,7 @@ __metadata:
     react-native-monorepo-config: "npm:^0.4.0"
     react-native-vlc: "workspace:*"
     react-native-windows: "npm:0.84.0"
+    rn-trace: "workspace:*"
     typescript: "npm:^6.0.3"
     valtio: "npm:^2.3.2"
   languageName: unknown
@@ -8516,6 +8517,20 @@ __metadata:
   checksum: 10c0/9cb7757acb489bd83757ba1a274ab545eafd75598a9d817e0c3f8b164238dd90eba50d6b848bd4dcc5f3040912e882dc7ba71653e35af660d77b25c381d402e8
   languageName: node
   linkType: hard
+
+"rn-trace@workspace:*, rn-trace@workspace:packages/rn-trace":
+  version: 0.0.0-use.local
+  resolution: "rn-trace@workspace:packages/rn-trace"
+  dependencies:
+    "@types/react": "npm:^19.2.0"
+    react: "npm:19.2.3"
+    react-native: "npm:0.84.1"
+    typescript: "npm:^6.0.3"
+  peerDependencies:
+    react: "*"
+    react-native: "*"
+  languageName: unknown
+  linkType: soft
 
 "run-parallel@npm:^1.1.9":
   version: 1.2.0

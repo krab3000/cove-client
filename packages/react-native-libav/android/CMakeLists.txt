@@ -12,7 +12,7 @@ if(NOT EXISTS ${FFMPEG_DIR}/include/libavcodec/avcodec.h)
   message(FATAL_ERROR "FFmpeg for Android not found in ${FFMPEG_DIR}. Run: yarn build-ffmpeg-android")
 endif()
 
-file(GLOB ENGINE_SOURCES ${ENGINE_DIR}/*.cpp)
+file(GLOB ENGINE_SOURCES CONFIGURE_DEPENDS ${ENGINE_DIR}/*.cpp) # new engine files are picked up without a reconfigure
 add_library(reactnativelibav SHARED
   ${ENGINE_SOURCES}
   src/main/cpp/AAudioDevice.cpp
@@ -29,16 +29,13 @@ endforeach()
 
 target_link_libraries(reactnativelibav aaudio android log mediandk nativewindow)
 
-# Perfetto trace points (cpp/Trace.h), when the SDK is there: scripts/fetch-perfetto.sh.
-set(PERFETTO_SDK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/perfetto/sdk)
-if(EXISTS ${PERFETTO_SDK_DIR}/perfetto.cc)
-  target_sources(reactnativelibav PRIVATE ${PERFETTO_SDK_DIR}/perfetto.cc)
-  set_source_files_properties(${PERFETTO_SDK_DIR}/perfetto.cc PROPERTIES COMPILE_OPTIONS "-w")
-  target_include_directories(reactnativelibav PRIVATE ${PERFETTO_SDK_DIR})
-  target_compile_definitions(reactnativelibav PRIVATE LIBAV_PERFETTO)
-  message(STATUS "libav: Perfetto trace points on (${PERFETTO_SDK_DIR})")
-else()
-  message(STATUS "libav: no Perfetto SDK, trace points off (scripts/fetch-perfetto.sh)")
+# Trace points (cpp/Trace.h) through rn-trace, the process's one tracer, when the app has it (android/build.gradle
+# passes LIBAV_RNTRACE and brings its Prefab package).
+if(LIBAV_RNTRACE)
+  find_package(rn-trace REQUIRED CONFIG) # Prefab: the package is named after the Gradle project
+  target_link_libraries(reactnativelibav rn-trace::rntrace)
+  target_compile_definitions(reactnativelibav PRIVATE LIBAV_RNTRACE)
+  message(STATUS "libav: trace points through rn-trace")
 endif()
 # 16 KB page sizes (Android 15+ devices)
 target_link_options(reactnativelibav PRIVATE -Wl,-z,max-page-size=16384)

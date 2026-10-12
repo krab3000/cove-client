@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Records a Perfetto system trace on an Android device and pulls it: libav's trace points (category "libav", see
-# cpp/Trace.h; the app must be built with the SDK from scripts/fetch-perfetto.sh), the app's android.os.Trace
-# sections, thread scheduling and CPU frequency, and the system's graphics, input, video (MediaCodec) and
-# window manager trace points. Open the file at https://ui.perfetto.dev (it is read in the browser, not uploaded).
+# Records a Perfetto system trace on an Android device and pulls it: rn-trace's events (categories "app" from
+# JavaScript, "libav" from react-native-libav, "native" and others; librntrace built with its backend: a debug build
+# with the SDK from scripts/fetch-perfetto.sh), the app's android.os.Trace sections, thread scheduling and CPU
+# frequency, and the system's graphics, input, video (MediaCodec) and window manager trace points. Open the file at
+# https://ui.perfetto.dev (it is read in the browser, not uploaded).
 #
 #   scripts/perfetto-trace.sh [-s serial] [-t seconds] [-p package] [-o file] [--cpu]
 #     -t     how long to record (default 10)
@@ -29,8 +30,8 @@ while [ $# -gt 0 ]; do
 done
 adb=(adb)
 [ -n "$serial" ] && adb+=(-s "$serial")
-[ -n "$out" ] || out="libav-$(date +%Y%m%d-%H%M%S).perfetto-trace"
-remote=/data/misc/perfetto-traces/libav.perfetto-trace
+[ -n "$out" ] || out="trace-$(date +%Y%m%d-%H%M%S).perfetto-trace"
+remote=/data/misc/perfetto-traces/rntrace.perfetto-trace
 
 perf_source=""
 if [ "$cpu" = 1 ]; then
@@ -52,7 +53,7 @@ buffers { size_kb: 4096 fill_policy: RING_BUFFER }
 data_sources {
   config {
     name: \"track_event\"
-    track_event_config { enabled_categories: \"libav\" disabled_categories: \"*\" }
+    track_event_config { enabled_categories: \"*\" }
   }
 }
 data_sources {

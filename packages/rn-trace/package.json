@@ -1,0 +1,42 @@
+{
+  "name": "rn-trace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "One Perfetto tracer per process for React Native: a C API (librntrace) native libraries link, and a TurboModule for JavaScript",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "react-native": "src/index.ts",
+  "files": [
+    "src",
+    "cpp",
+    "android",
+    "!android/build",
+    "!android/.cxx",
+    "!android/.gradle",
+    "react-native.config.js",
+    "scripts"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "fetch-perfetto": "bash scripts/fetch-perfetto.sh",
+    "trace": "bash scripts/perfetto-trace.sh"
+  },
+  "codegenConfig": {
+    "name": "RnTraceSpec",
+    "type": "modules",
+    "jsSrcsDir": "src",
+    "android": {
+      "javaPackageName": "com.rntrace"
+    }
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.0",
+    "react": "19.2.3",
+    "react-native": "0.84.1",
+    "typescript": "^6.0.3"
+  },
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  }
+}

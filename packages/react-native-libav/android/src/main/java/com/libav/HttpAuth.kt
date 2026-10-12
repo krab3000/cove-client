@@ -9,7 +9,7 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The Authorization header for each server (origin), set by the app (setHttpAuthorization in JS) and kept current as
- * its token renews. Media requests to that server carry it: the player's range requests (HttpChunkCache), preview
+ * its token renews. Media requests to that server carry it: the player's range requests (HttpFetch), preview
  * downloads (MediaCache), and, through interceptor() on React Native's OkHttp client, images. Media URLs need no
  * token in them, so they stay the same across renewals (caches keep working) and a short-lived token works for a
  * long playback: each request takes the header current then.

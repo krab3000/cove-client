@@ -7,6 +7,8 @@
 #include <jni.h>
 #include <sys/system_properties.h>
 
+#include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <future>
 #include <memory>
@@ -21,6 +23,7 @@ extern "C" {
 }
 
 #include "AndroidVideoSink.h"
+#include "HttpCache.h"
 #include "Platform.h"
 #include "Player.h"
 #include "Trace.h"
@@ -153,91 +156,87 @@ NativePlayer *From(jlong handle) {
   return reinterpret_cast<NativePlayer *>(handle);
 }
 
-// com.libav.HttpSource's static methods (looked up in JNI_OnLoad: engine threads cannot find app classes).
+// com.libav.HttpFetch: the HTTP part of the C++ cache, and FetchResult's fields.
 struct {
   jclass cls = nullptr;
-  jmethodID open = nullptr, size = nullptr, read = nullptr, cancel = nullptr, close = nullptr;
-} g_httpSource;
+  jmethodID fetch = nullptr, cancel = nullptr, setStreaming = nullptr, headers = nullptr;
+  jfieldID status = nullptr, code = nullptr, length = nullptr, total = nullptr, etag = nullptr,
+           lastModified = nullptr, error = nullptr;
+} g_httpFetch;
 
-// http(s) sources read through Android's HTTP stack and a chunk cache (HttpSource.kt, HttpChunkCache.kt) instead of
-// FFmpeg's http protocol. FFmpeg's reads land in its own buffer, wrapped as a direct ByteBuffer (no copy).
-class JavaHttpSource final : public ByteSource {
+std::string JavaString(JNIEnv *env, jobject object, jfieldID field) {
+  auto text = static_cast<jstring>(env->GetObjectField(object, field));
+  if (!text)
+    return {};
+  const char *chars = env->GetStringUTFChars(text, nullptr);
+  std::string value = chars ? chars : "";
+  env->ReleaseStringUTFChars(text, chars);
+  env->DeleteLocalRef(text);
+  return value;
+}
+
+bool JavaFailed(JNIEnv *env) {
+  if (!env->ExceptionCheck())
+    return false;
+  env->ExceptionDescribe();
+  env->ExceptionClear();
+  return true;
+}
+
+// The cache's fetcher on Android: HttpFetch.kt (Android's HTTP stack, HttpAuth, keep-alive, user CAs). The bytes
+// land straight in the cache's buffer (a direct ByteBuffer over it). Cancelling the token disconnects the request.
+class JavaHttpFetcher final : public HttpFetcher {
  public:
-  explicit JavaHttpSource(const std::string &url) {
-    JNIEnv *env = Env();
-    jstring text = env->NewStringUTF(url.c_str());
-    m_handle = env->CallStaticLongMethod(g_httpSource.cls, g_httpSource.open, text);
-    env->DeleteLocalRef(text);
-  }
-
-  ~JavaHttpSource() override { Env()->CallStaticVoidMethod(g_httpSource.cls, g_httpSource.close, m_handle); }
-
-  int Read(uint8_t *buffer, int size) override {
-    JNIEnv *env = Env();
-    jobject dst = env->NewDirectByteBuffer(buffer, size);
-    const jint read = env->CallStaticIntMethod(g_httpSource.cls, g_httpSource.read, m_handle, jlong(m_position), dst,
-                                               jint(size));
-    env->DeleteLocalRef(dst);
-    if (Failed(env) || read < 0)
-      return AVERROR(EIO);
-    m_position += read;
-    return read;
-  }
-
-  int64_t Seek(int64_t offset, int whence) override {
-    switch (whence) {
-      case AVSEEK_SIZE:
-        return Size();
-      case SEEK_SET:
-        m_position = offset;
-        break;
-      case SEEK_CUR:
-        m_position += offset;
-        break;
-      case SEEK_END: {
-        const int64_t size = Size();
-        if (size < 0)
-          return AVERROR(ENOSYS);
-        m_position = size + offset;
-        break;
-      }
-      default:
-        return AVERROR(EINVAL);
+  FetchResult Fetch(const FetchRequest &request, uint8_t *buffer, size_t capacity, CancelToken &token) override {
+    FetchResult result;
+    static std::atomic<int64_t> nextId{0};
+    const jlong id = ++nextId;
+    if (!token.SetHook([id] {
+          JNIEnv *e = Env();
+          e->CallStaticVoidMethod(g_httpFetch.cls, g_httpFetch.cancel, id);
+          JavaFailed(e);
+        })) {
+      result.status = FetchResult::Status::Cancelled;
+      return result;
     }
-    return m_position;
-  }
-
-  void Abort() override { Env()->CallStaticVoidMethod(g_httpSource.cls, g_httpSource.cancel, m_handle); }
-
-  const char *Name() const override { return "android http"; }
-
- private:
-  int64_t Size() {
     JNIEnv *env = Env();
-    const jlong size = env->CallStaticLongMethod(g_httpSource.cls, g_httpSource.size, m_handle);
-    return Failed(env) ? -1 : size;
+    env->PushLocalFrame(16); // worker threads never return to Java: free each fetch's local references
+    jstring url = env->NewStringUTF(request.url.c_str());
+    jstring ifRange = request.ifRange.empty() ? nullptr : env->NewStringUTF(request.ifRange.c_str());
+    jobject dst = env->NewDirectByteBuffer(buffer, jlong(capacity));
+    jobject r = env->CallStaticObjectMethod(g_httpFetch.cls, g_httpFetch.fetch, id, url, jlong(request.start),
+                                            jlong(request.end), ifRange, dst);
+    token.ClearHook();
+    if (JavaFailed(env) || !r) {
+      result.status = FetchResult::Status::NetworkError;
+      result.error = "HttpFetch.fetch failed";
+    } else {
+      result.status = FetchResult::Status(env->GetIntField(r, g_httpFetch.status));
+      result.httpCode = env->GetIntField(r, g_httpFetch.code);
+      result.length = size_t(std::max(0, int(env->GetIntField(r, g_httpFetch.length))));
+      result.totalSize = env->GetLongField(r, g_httpFetch.total);
+      result.etag = JavaString(env, r, g_httpFetch.etag);
+      result.lastModified = JavaString(env, r, g_httpFetch.lastModified);
+      result.error = JavaString(env, r, g_httpFetch.error);
+    }
+    env->PopLocalFrame(nullptr);
+    return result;
   }
 
-  static bool Failed(JNIEnv *env) {
-    if (!env->ExceptionCheck())
-      return false;
-    env->ExceptionDescribe();
-    env->ExceptionClear();
-    return true;
+  void SetStreaming(bool on) override {
+    JNIEnv *env = Env();
+    env->CallStaticVoidMethod(g_httpFetch.cls, g_httpFetch.setStreaming, jboolean(on));
+    JavaFailed(env);
   }
 
-  jlong m_handle = 0;
-  int64_t m_position = 0;
+  const char *Name() const override { return "kotlin"; }
 };
 
-// Android's HTTP for http(s) sources, unless the system property debug.libav.http is "ffmpeg" (FFmpeg's own http
-// protocol, for comparison):  adb shell setprop debug.libav.http ffmpeg
-ByteSourceFactory HttpSourceFactory() {
-  char value[PROP_VALUE_MAX] = {};
-  __system_property_get("debug.libav.http", value);
-  if (std::string(value) == "ffmpeg" || !g_httpSource.cls)
-    return nullptr;
-  return [](const std::string &url) { return std::make_unique<JavaHttpSource>(url); };
+// The player's source for http(s) URLs, by the debug switch debug.libav.http (read at each open):
+//   kotlin (default)  the C++ cache over HttpFetch.kt     ffmpeg-fetch  the C++ cache over FFmpeg's http
+//   ffmpeg            no cache: FFmpeg's http protocol
+ByteSourceFactory HttpSourceFactory(bool tlsVerify) {
+  return HttpCache::MakeSourceFactory(HttpCache::ModeFromDebug(), tlsVerify);
 }
 
 // The view's inputOptions, then, for http(s) sources, the system property debug.libav.input_opts (read at each open,
@@ -285,18 +284,45 @@ extern "C" JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void * /*reserved*/) {
   InitTracing();
   JNIEnv *env = nullptr;
   if (vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6) == JNI_OK) {
-    if (jclass cls = env->FindClass("com/libav/HttpSource")) {
-      g_httpSource.cls = static_cast<jclass>(env->NewGlobalRef(cls));
-      g_httpSource.open = env->GetStaticMethodID(cls, "open", "(Ljava/lang/String;)J");
-      g_httpSource.size = env->GetStaticMethodID(cls, "size", "(J)J");
-      g_httpSource.read = env->GetStaticMethodID(cls, "read", "(JJLjava/nio/ByteBuffer;I)I");
-      g_httpSource.cancel = env->GetStaticMethodID(cls, "cancel", "(J)V");
-      g_httpSource.close = env->GetStaticMethodID(cls, "close", "(J)V");
+    if (jclass cls = env->FindClass("com/libav/HttpFetch")) {
+      g_httpFetch.cls = static_cast<jclass>(env->NewGlobalRef(cls));
+      g_httpFetch.fetch = env->GetStaticMethodID(
+          cls, "fetch", "(JLjava/lang/String;JJLjava/lang/String;Ljava/nio/ByteBuffer;)Lcom/libav/HttpFetch$FetchResult;");
+      g_httpFetch.cancel = env->GetStaticMethodID(cls, "cancel", "(J)V");
+      g_httpFetch.setStreaming = env->GetStaticMethodID(cls, "setStreaming", "(Z)V");
+      g_httpFetch.headers = env->GetStaticMethodID(cls, "headers", "(Ljava/lang/String;)Ljava/lang/String;");
       env->DeleteLocalRef(cls);
     }
-    if (env->ExceptionCheck()) { // a missing class or method: FFmpeg's http then
+    if (jclass result = env->FindClass("com/libav/HttpFetch$FetchResult")) {
+      g_httpFetch.status = env->GetFieldID(result, "status", "I");
+      g_httpFetch.code = env->GetFieldID(result, "code", "I");
+      g_httpFetch.length = env->GetFieldID(result, "length", "I");
+      g_httpFetch.total = env->GetFieldID(result, "total", "J");
+      g_httpFetch.etag = env->GetFieldID(result, "etag", "Ljava/lang/String;");
+      g_httpFetch.lastModified = env->GetFieldID(result, "lastModified", "Ljava/lang/String;");
+      g_httpFetch.error = env->GetFieldID(result, "error", "Ljava/lang/String;");
+      env->DeleteLocalRef(result);
+    }
+    if (env->ExceptionCheck()) {
       env->ExceptionClear();
-      g_httpSource.cls = nullptr;
+      g_httpFetch.cls = nullptr;
+    }
+    if (g_httpFetch.cls) {
+      HttpCache::SetFetcher(std::make_shared<JavaHttpFetcher>());
+      HttpCache::SetHeaderProvider([](const std::string &url) { // for the FFmpeg fetcher: HttpAuth's header
+        JNIEnv *e = Env();
+        e->PushLocalFrame(4);
+        jstring text = e->NewStringUTF(url.c_str());
+        auto headers = static_cast<jstring>(e->CallStaticObjectMethod(g_httpFetch.cls, g_httpFetch.headers, text));
+        std::string value;
+        if (!JavaFailed(e) && headers) {
+          const char *chars = e->GetStringUTFChars(headers, nullptr);
+          value = chars ? chars : "";
+          e->ReleaseStringUTFChars(headers, chars);
+        }
+        e->PopLocalFrame(nullptr);
+        return value;
+      });
     }
   }
   return JNI_VERSION_1_6;
@@ -366,7 +392,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeOpen(JNIEnv *
   np->player->SetTlsVerify(np->tlsVerify);
   std::string url = FromUtf8(env, source);
   np->player->SetInputOptions(InputOptions(FromUtf8(env, inputOptions), url));
-  np->player->SetByteSourceFactory(HttpSourceFactory());
+  np->player->SetByteSourceFactory(HttpSourceFactory(np->tlsVerify));
   np->player->Open(std::move(url), hardwareDecoding, audioTrack);
 }
 
@@ -421,4 +447,59 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSeek(JNIEnv *
                                                                        jdouble seconds) {
   if (NativePlayer *np = From(handle); np->player)
     np->player->Seek(seconds);
+}
+
+// com.libav.HttpFetch's natives: the C++ HTTP cache's platform facts, settings and state.
+
+extern "C" JNIEXPORT void JNICALL Java_com_libav_HttpFetch_nativeSetPlatform(JNIEnv *env, jclass, jlong totalRam,
+                                                                            jboolean lowRam, jstring dir,
+                                                                            jlong quota) {
+  PlatformInfo info;
+  info.totalRam = uint64_t(std::max<jlong>(totalRam, 0));
+  info.lowRam = lowRam;
+  if (dir) {
+    const char *chars = env->GetStringUTFChars(dir, nullptr);
+    info.defaultDir = chars ? chars : "";
+    env->ReleaseStringUTFChars(dir, chars);
+  }
+  info.diskQuota = uint64_t(std::max<jlong>(quota, 0));
+  HttpCache::SetPlatform(info);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_libav_HttpFetch_nativeConfigure(JNIEnv *env, jclass, jlong chunkSize,
+                                                                          jlong memorySize, jlong diskSize,
+                                                                          jstring diskDir) {
+  CacheOverrides overrides; // -1: derived from the device
+  overrides.chunkSize = chunkSize;
+  overrides.memorySize = memorySize;
+  overrides.diskSize = diskSize;
+  if (diskDir) {
+    const char *chars = env->GetStringUTFChars(diskDir, nullptr);
+    overrides.diskDir = chars ? chars : "";
+    env->ReleaseStringUTFChars(diskDir, chars);
+  }
+  HttpCache::Override(overrides);
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_libav_HttpFetch_nativeTrimMemory(JNIEnv *, jclass) {
+  HttpCache::Instance()->TrimMemory();
+}
+
+extern "C" JNIEXPORT void JNICALL Java_com_libav_HttpFetch_nativeClear(JNIEnv *, jclass) {
+  HttpCache::Instance()->Clear();
+}
+
+extern "C" JNIEXPORT jbyteArray JNICALL Java_com_libav_HttpFetch_nativeStats(JNIEnv *env, jclass) {
+  const CacheStats s = HttpCache::Instance()->Stats();
+  const CacheConfig c = HttpCache::Instance()->Config();
+  auto n = [](auto v) { return std::to_string(v); };
+  const std::string json = "{\"chunkSize\":" + n(c.chunkSize) + ",\"ramBytes\":" + n(s.ramBytes) +
+      ",\"ramLimit\":" + n(s.ramLimit) + ",\"ramChunks\":" + n(s.ramChunks) + ",\"liveChunkBytes\":" +
+      n(s.liveChunkBytes) + ",\"fetches\":" + n(s.fetches) + ",\"fetchedBytes\":" + n(s.fetchedBytes) +
+      ",\"fetchMs\":" + n(s.fetchMs) + ",\"failed\":" + n(s.failed) + ",\"inFlight\":" + n(s.inFlight) +
+      ",\"disk\":{\"enabled\":" + (s.disk.enabled ? "true" : "false") + ",\"bytes\":" + n(s.disk.bytes) +
+      ",\"limit\":" + n(s.disk.limit) + ",\"chunks\":" + n(s.disk.chunks) + ",\"writes\":" + n(s.disk.writes) +
+      ",\"droppedWrites\":" + n(s.disk.droppedWrites) + ",\"reads\":" + n(s.disk.reads) + ",\"corrupt\":" +
+      n(s.disk.corrupt) + ",\"evicted\":" + n(s.disk.evicted) + "}}";
+  return Utf8(env, json);
 }

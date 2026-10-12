@@ -1,0 +1,95 @@
+buildscript {
+  ext.RnTrace = [
+    kotlinVersion: "2.1.20",
+    minSdkVersion: 24,
+    compileSdkVersion: 36,
+    ndkVersion: "27.1.12297006"
+  ]
+
+  ext.getExtOrDefault = { prop ->
+    if (rootProject.ext.has(prop)) {
+      return rootProject.ext.get(prop)
+    }
+
+    return RnTrace[prop]
+  }
+
+  repositories {
+    google()
+    mavenCentral()
+  }
+
+  dependencies {
+    classpath "com.android.tools.build:gradle:8.12.0"
+    // noinspection DifferentKotlinGradleVersion
+    classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:${getExtOrDefault('kotlinVersion')}"
+  }
+}
+
+apply plugin: "com.android.library"
+
+if (project.extensions.findByName("kotlin") == null) {
+  apply plugin: "kotlin-android"
+}
+
+apply plugin: "com.facebook.react" // codegen of the RnTrace module's spec (src/NativeRnTrace.ts)
+
+// The Perfetto backend: debug builds have it, release builds get the no-op library (same API, a few KB) unless the
+// Gradle property rnTraceEnabled says otherwise (gradle.properties: rnTraceEnabled=true, or -PrnTraceEnabled=...).
+def tracing = { String buildType ->
+  def property = project.findProperty("rnTraceEnabled")
+  return property != null ? property.toString().toBoolean() : buildType == "debug"
+}
+
+android {
+  namespace "com.rntrace"
+
+  compileSdkVersion getExtOrDefault("compileSdkVersion")
+  ndkVersion getExtOrDefault("ndkVersion")
+
+  defaultConfig {
+    minSdkVersion getExtOrDefault("minSdkVersion")
+    externalNativeBuild {
+      cmake {
+        arguments "-DANDROID_STL=c++_shared"
+        targets "rntrace"
+      }
+    }
+  }
+
+  buildTypes {
+    debug {
+      externalNativeBuild { cmake { arguments "-DRNTRACE_ENABLED=${tracing('debug') ? 'ON' : 'OFF'}" } }
+    }
+    release {
+      externalNativeBuild { cmake { arguments "-DRNTRACE_ENABLED=${tracing('release') ? 'ON' : 'OFF'}" } }
+    }
+  }
+
+  externalNativeBuild {
+    cmake {
+      path "../cpp/CMakeLists.txt"
+      version "3.22.1"
+    }
+  }
+
+  // librntrace and its headers for other native libraries (react-native-libav, the app's TurboModule):
+  // buildFeatures.prefab and find_package(rn-trace CONFIG) / rn-trace::rntrace on their side.
+  buildFeatures {
+    prefabPublishing true
+  }
+  prefab {
+    rntrace {
+      headers "../cpp/include"
+    }
+  }
+
+  compileOptions {
+    sourceCompatibility JavaVersion.VERSION_17
+    targetCompatibility JavaVersion.VERSION_17
+  }
+}
+
+dependencies {
+  implementation "com.facebook.react:react-android"
+}

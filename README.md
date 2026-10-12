@@ -3,6 +3,7 @@
 | Path | What |
 | --- | --- |
 | [`packages/react-native-libav`](packages/react-native-libav) | The library: `<LibavVideoView>` for Windows and Android (see its README) |
+| [`packages/rn-trace`](packages/rn-trace) | One Perfetto tracer per process for JS and native code (C API + TurboModule; see its README) |
 | `apps/example-ui` | The example screen (player, seek bar, volume, audio tracks), shared by both examples |
 | `apps/example-windows` | React Native Windows example app |
 | `apps/example-android` | Android example app |

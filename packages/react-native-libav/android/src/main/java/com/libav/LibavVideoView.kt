@@ -87,7 +87,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   private var restoreAt = -1.0 // reopened after the surface came back: seek here, quietly
 
   init {
-    HttpSource.attach(reactContext)
+    HttpFetch.attach(reactContext) // the C++ cache's platform facts, the Wi-Fi lock
     setBackgroundColor(Color.BLACK)
     addView(surfaceView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     surfaceView.holder.addCallback(this)

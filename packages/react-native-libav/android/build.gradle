@@ -35,6 +35,10 @@ if (project.extensions.findByName("kotlin") == null) {
 
 apply plugin: "com.facebook.react"
 
+// rn-trace, when the app has it: libav's trace points record into its librntrace (Prefab), the tracer the app's
+// JavaScript and other native code use too. Without it they compile to nothing.
+def rnTrace = rootProject.findProject(":rn-trace")
+
 // FFmpeg built by scripts/ffmpeg-android (yarn build-ffmpeg-android); its .so files ship in the app next to ours.
 def ffmpegAbis = ["arm64-v8a"]
 def ffmpegDir = file("../third_party/ffmpeg")
@@ -53,9 +57,13 @@ android {
     }
     externalNativeBuild {
       cmake {
-        arguments "-DANDROID_STL=c++_shared"
+        arguments "-DANDROID_STL=c++_shared", "-DLIBAV_RNTRACE=${rnTrace != null ? 'ON' : 'OFF'}"
       }
     }
+  }
+
+  buildFeatures {
+    prefab rnTrace != null
   }
 
   externalNativeBuild {
@@ -97,4 +105,7 @@ preBuild.dependsOn "copyFFmpegLibs"
 
 dependencies {
   implementation "com.facebook.react:react-android"
+  if (rnTrace != null) {
+    implementation rnTrace
+  }
 }

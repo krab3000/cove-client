@@ -171,7 +171,9 @@ void Player::LogStartup(double onScreen) const {
   Log("startup " + ms(onScreen) + " ms to screen: input " + ms(s.input) + ", probe " + ms(s.probe) + ", decoder " +
       ms(s.decoder) + " (" + s.decoderName + "), audio " + (m_audioIndex >= 0 ? ms(s.audio) : std::string("none")) +
       ", first frame " + ms(s.firstFrame) + ", on screen " + ms(onScreen) + " | " + s.source +
-      (m_source ? std::string(" (") + m_source->Name() + ")" : "") +
+      (m_source ? std::string(" (") + m_source->Name() +
+                      (m_source->Summary().empty() ? "" : ": " + m_source->Summary()) + ")"
+                : "") +
       (m_inputOptions.empty() ? "" : " [" + m_inputOptions + "]"));
 }
 
