@@ -83,6 +83,8 @@ const PREFETCH_SCREENS = 1;
 // frames' work).
 const touch = Platform.OS === 'android';
 const PREVIEW_REST_MS = 300;
+// Touch: preview clips downloaded ahead, in rows past the centred card in the direction the list moves.
+const PREFETCH_ROWS_AHEAD = 3;
 // The player's Up next: this many videos after the one played.
 const UP_NEXT = 20;
 // The search applies once typing pauses this long.
@@ -316,14 +318,20 @@ export function LibraryScreen({
     const index = Math.min(total - 1, row * cols + Math.floor((cols - 1) / 2));
     return { first: index, last: index };
   }, [total]);
-  // Touch: the preview clips of the centred card's row and a row either side download ahead (Android caches them), so
-  // previews start from a local file. Each video once.
+  // Touch: the preview clips of the centred card's row, PREFETCH_ROWS_AHEAD rows in the direction the list last moved
+  // and a row behind download ahead (Android caches them), so previews start from a local file. A swipe often
+  // carries the list past more than one card, so a row either side was not enough (a missed clip waits ~400 ms
+  // for its download, a cached one shows in ~45 ms). Each video once.
   const prefetched = useRef(new Set<number>());
+  const lastPrefetchRow = useRef(0);
   const prefetchAround = useCallback(
     (range: IndexRange) => {
       const { columns: cols } = layout.current;
-      const firstRow = Math.floor(range.first / cols) - 1;
-      const lastRow = Math.floor(range.last / cols) + 1;
+      const row = Math.floor(range.first / cols);
+      const down = row >= lastPrefetchRow.current;
+      lastPrefetchRow.current = row;
+      const firstRow = row - (down ? 1 : PREFETCH_ROWS_AHEAD);
+      const lastRow = Math.floor(range.last / cols) + (down ? PREFETCH_ROWS_AHEAD : 1);
       for (let index = firstRow * cols; index < (lastRow + 1) * cols; index++) {
         if (index < 0 || total == null || index >= total) continue;
         const video = videoAt(index);

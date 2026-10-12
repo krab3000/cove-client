@@ -1,2 +1,4 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- A Wi-Fi lock while an http(s) source streams (HttpSource.kt): keeps Wi-Fi out of power saving. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
 </manifest>

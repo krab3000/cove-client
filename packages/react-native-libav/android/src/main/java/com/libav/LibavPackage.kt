@@ -9,5 +9,6 @@ class LibavPackage : ReactPackage {
   override fun createViewManagers(reactContext: ReactApplicationContext): List<ViewManager<*, *>> =
     listOf(LibavVideoViewManager())
 
-  override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> = emptyList()
+  override fun createNativeModules(reactContext: ReactApplicationContext): List<NativeModule> =
+    listOf(LibavCacheModule(reactContext))
 }

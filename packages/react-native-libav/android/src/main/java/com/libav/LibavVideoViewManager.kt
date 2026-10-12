@@ -50,6 +50,14 @@ class LibavVideoViewManager : SimpleViewManager<LibavVideoView>(), LibavVideoVie
     view.audioTrack = value
   }
 
+  override fun setCache(view: LibavVideoView, value: Boolean) {
+    view.cache = value
+  }
+
+  override fun setInputOptions(view: LibavVideoView, value: String?) {
+    view.inputOptions = value ?: ""
+  }
+
   override fun seek(view: LibavVideoView, time: Double) {
     view.seek(time)
   }

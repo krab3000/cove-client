@@ -1,5 +1,7 @@
+import { AppState } from 'react-native';
 import { proxy, ref } from 'valtio';
 import { CoveClient, authFailure } from '../api/cove';
+import { bindMediaAuth } from '../platform/player';
 import { withAccount, withServer } from './signIn';
 import { accounts, changeAccounts, hydrateAccounts } from './accounts';
 import { player } from './player';
@@ -53,8 +55,22 @@ export async function startSession() {
   }
 }
 
+// Undoes what enter() set up for the session in use: its media auth binding and foreground listener.
+let unbindSession: (() => void) | null = null;
+
 /** Signed in: the session is kept (its refresh token follows every rotation) and resumes on the next launch. */
 export function enter(client: CoveClient, serverId: string) {
+  unbindSession?.();
+  const unbindMedia = bindMediaAuth(client);
+  // Back in front: timers did not run in the background, so a token that ran out is renewed now.
+  const foreground = AppState.addEventListener('change', (state) => {
+    if (state === 'active') client.renewIfExpiring().catch(() => {});
+  });
+  unbindSession = () => {
+    foreground.remove();
+    unbindMedia();
+    client.dispose(); // its renewal timer stops with it
+  };
   client.onRefreshToken = (refreshToken) =>
     changeAccounts((state) =>
       withServer(state, serverId, (server) =>
@@ -78,6 +94,8 @@ export function logout() {
   const { client, serverId } = session;
   if (!client || !serverId) return;
   client.onRefreshToken = null;
+  unbindSession?.();
+  unbindSession = null;
   client.logout();
   changeAccounts((state) => ({
     ...withServer(state, serverId, (server) =>

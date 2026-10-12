@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds: main/res/xml/network_security_config.xml, plus plain http:// to any host, so a phone can reach a
+  development server on the LAN over Wi-Fi (http://<the PC's address>:5073) rather than through adb reverse, whose
+  USB tunnel is slow (~2 MB/s) and skews playback timings. Release builds keep the main config.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+    <domain-config>
+        <domain includeSubdomains="true">haloworld.lan</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </domain-config>
+</network-security-config>

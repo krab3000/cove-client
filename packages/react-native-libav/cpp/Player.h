@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <memory>
 #include <optional>
@@ -9,9 +10,11 @@
 #include <vector>
 
 #include "AudioOutput.h"
+#include "ByteSource.h"
 #include "Clock.h"
 #include "FFmpeg.h"
 #include "Queues.h"
+#include "Trace.h"
 #include "VideoSink.h"
 
 namespace ReactNativeLibav {
@@ -67,6 +70,13 @@ class Player {
   void SetLoop(bool loop) noexcept { m_loop = loop; }
   // For https sources: verify the server certificate (the default). Applies to the next Open.
   void SetTlsVerify(bool verify) noexcept { m_tlsVerify = verify; }
+  // FFmpeg options for opening the input, "key=value:key=value", passed to avformat_open_input: the demuxer's
+  // (probesize=1000000, interleaved_read=0, ...) and the protocol's (multiple_requests=1, short_seek_size=..., ...).
+  // async=1 reads the source through FFmpeg's async: protocol (a read-ahead thread). Applies to the next Open.
+  void SetInputOptions(std::string options) { m_inputOptions = std::move(options); }
+  // Where http(s) sources are read from (see ByteSource); without one, or when it returns nullptr, FFmpeg's own
+  // http protocol reads them. Applies to the next Open.
+  void SetByteSourceFactory(ByteSourceFactory factory) { m_sourceFactory = std::move(factory); }
   // Seconds from the start. Asynchronous: onSeek reports when the frame there is on screen.
   void Seek(double seconds);
   // Stream index, -1 for the default track. Playback continues from the current position on the new track.
@@ -88,6 +98,10 @@ class Player {
   std::shared_ptr<AudioOutput> Audio();
   void Fail(const std::string &message);
   static int Interrupt(void *opaque) noexcept;
+  static int ReadSource(void *opaque, uint8_t *buffer, int size);
+  static int64_t SeekSource(void *opaque, int64_t offset, int whence);
+  double SinceOpen() const;
+  void LogStartup(double onScreen) const;
 
   std::shared_ptr<VideoSink> m_sink;
   PlayerCallbacks m_callbacks;
@@ -102,6 +116,11 @@ class Player {
   SwsContext *m_sws = nullptr;
   bool m_hardwareDecoding = true;
   bool m_tlsVerify = true;
+  std::string m_inputOptions;
+  ByteSourceFactory m_sourceFactory;
+  std::mutex m_sourceMutex;             // m_source: set by the demux thread, aborted by the destructor
+  std::unique_ptr<ByteSource> m_source; // the input's custom IO, if any (m_avio reads from it)
+  AVIOContext *m_avio = nullptr;
   bool m_loaded = false;
   MediaInfo m_info;
 
@@ -127,6 +146,21 @@ class Player {
   std::mutex m_requestMutex;
   std::optional<double> m_seekRequest;
   std::optional<int> m_trackRequest;
+
+  // Startup timeline, ms since Open, logged once the first frame is on screen. The demux thread writes the stages
+  // up to the decoder before it starts the decode and render threads; the decode thread writes firstFrame before
+  // queueing that frame, which the render thread pops before it reads it.
+  struct Startup {
+    std::chrono::steady_clock::time_point opened;
+    double input = 0, probe = 0, decoder = 0, audio = 0, firstFrame = 0;
+    std::string decoderName;
+    std::string source; // for the log, without the query (tokens)
+  } m_startup;
+  // Perfetto tracks (Trace.h), made in Open before the threads start. m_startupTraced: the startup span has ended
+  // (render thread; the destructor ends it after joining, if the first frame never came).
+  std::unique_ptr<PlayerTracks> m_tracks;
+  bool m_startupTraced = false;
+  std::atomic<bool> m_seekTraced{false}; // a seek span is open (begun by the demux thread, ended by the render one)
 
   std::thread m_demuxThread;
   std::thread m_decodeThread;

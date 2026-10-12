@@ -67,6 +67,20 @@ export interface NativeProps extends ViewProps {
   tlsVerify?: CodegenTypes.WithDefault<boolean, true>;
   /** Audio stream to play (an index from onLoad's audioTracks); -1 picks the default track. */
   audioTrack?: CodegenTypes.WithDefault<CodegenTypes.Int32, -1>;
+  /**
+   * Android: download the whole http(s) source into the app's cache first and play the local file (streams it if
+   * the download fails). For small files such as preview clips, which then start much sooner (no streaming round
+   * trips, no network buffer); see prefetchMedia. `adb logcat -s LibavCache` tells whether a source played from
+   * the cache, was downloaded first, or streamed. Ignored on Windows.
+   */
+  cache?: CodegenTypes.WithDefault<boolean, false>;
+  /**
+   * FFmpeg options for opening the source, "key=value:key=value": the demuxer's (probesize, analyzeduration,
+   * interleaved_read, ...) and the protocol's (multiple_requests, short_seek_size, ...); async=1 adds a read-ahead
+   * thread for http(s). Changing it reopens the source. Android: the system property debug.libav.input_opts is
+   * added for http(s) sources and wins (for trying options without a rebuild). Ignored on Windows.
+   */
+  inputOptions?: string;
   onLoad?: CodegenTypes.DirectEventHandler<LoadEvent>;
   onProgress?: CodegenTypes.DirectEventHandler<ProgressEvent>;
   /** A seek finished: the frame at currentTime is on screen. */

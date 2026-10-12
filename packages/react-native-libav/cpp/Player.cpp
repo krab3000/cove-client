@@ -56,6 +56,11 @@ Player::Player(std::shared_ptr<VideoSink> sink, PlayerCallbacks callbacks)
 
 Player::~Player() {
   m_abort = true;
+  {
+    std::lock_guard lock(m_sourceMutex); // a read blocked on the network returns now
+    if (m_source)
+      m_source->Abort();
+  }
   m_videoPackets.Abort();
   m_audioPackets.Abort();
   m_frames.Abort();
@@ -66,15 +71,32 @@ Player::~Player() {
     m_decodeThread.join();
   if (m_renderThread.joinable())
     m_renderThread.join();
+  if (m_tracks && !m_startupTraced)
+    LIBAV_TRACE_END(m_tracks->player); // closed before its first frame
+  if (m_tracks && m_seekTraced)
+    LIBAV_TRACE_END(m_tracks->seek);
   m_audio.reset();
   sws_freeContext(m_sws);
   m_videoCodec.reset();
   avformat_close_input(&m_format);
+  if (m_avio) { // custom IO: not freed by avformat_close_input
+    av_freep(&m_avio->buffer);
+    avio_context_free(&m_avio);
+  }
+  m_source.reset();
   m_sink->ResetCaches();
 }
 
 void Player::Open(std::string source, bool hardwareDecoding, int audioTrack) {
   m_hardwareDecoding = hardwareDecoding;
+  m_startup.opened = std::chrono::steady_clock::now();
+  m_startup.source = source.substr(0, source.find('?'));
+  // The trace's name for it: the path after /api/ for a server URL, else the file name.
+  const std::string &s = m_startup.source;
+  const size_t api = s.find("/api/");
+  m_tracks = std::make_unique<PlayerTracks>(
+      this, api != std::string::npos ? s.substr(api + 5) : s.substr(s.find_last_of('/') + 1));
+  LIBAV_TRACE_BEGIN("startup", m_tracks->player);
   {
     std::lock_guard lock(m_requestMutex); // Demux takes the initial track from here
     m_trackRequest = audioTrack;
@@ -125,6 +147,34 @@ int Player::Interrupt(void *opaque) noexcept {
   return static_cast<Player *>(opaque)->m_abort ? 1 : 0;
 }
 
+// The custom IO's callbacks (OpenInput): FFmpeg's demux-thread reads and seeks, served by the ByteSource.
+int Player::ReadSource(void *opaque, uint8_t *buffer, int size) {
+  const int read = static_cast<ByteSource *>(opaque)->Read(buffer, size);
+  return read == 0 ? AVERROR_EOF : read;
+}
+
+int64_t Player::SeekSource(void *opaque, int64_t offset, int whence) {
+  return static_cast<ByteSource *>(opaque)->Seek(offset, whence & ~AVSEEK_FORCE);
+}
+
+double Player::SinceOpen() const {
+  return std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - m_startup.opened).count();
+}
+
+// One line per source, e.g. (Android: adb logcat -s libav)
+//   startup 74 ms to screen: input 9, probe 3, decoder 2 (h264), audio 6, first frame 31, on screen 74 | <source>
+// Each stage is the time since Open when it was done: input opened (connect, headers), stream info read, video
+// decoder open, audio output started, first frame decoded, first frame presented.
+void Player::LogStartup(double onScreen) const {
+  const Startup &s = m_startup;
+  auto ms = [](double v) { return std::to_string(int(std::lround(v))); };
+  Log("startup " + ms(onScreen) + " ms to screen: input " + ms(s.input) + ", probe " + ms(s.probe) + ", decoder " +
+      ms(s.decoder) + " (" + s.decoderName + "), audio " + (m_audioIndex >= 0 ? ms(s.audio) : std::string("none")) +
+      ", first frame " + ms(s.firstFrame) + ", on screen " + ms(onScreen) + " | " + s.source +
+      (m_source ? std::string(" (") + m_source->Name() + ")" : "") +
+      (m_inputOptions.empty() ? "" : " [" + m_inputOptions + "]"));
+}
+
 // index if it is an audio stream, else the default audio stream (-1 if there is none).
 int Player::ValidAudioTrack(int index) const {
   if (index >= 0 && unsigned(index) < m_format->nb_streams &&
@@ -137,7 +187,23 @@ void Player::OpenInput(const std::string &source, int audioTrack) {
   m_format = avformat_alloc_context();
   m_format->interrupt_callback = {&Player::Interrupt, this};
   AVDictionary *options = nullptr;
-  if (source.rfind("http://", 0) == 0 || source.rfind("https://", 0) == 0) {
+  const bool http = source.rfind("http://", 0) == 0 || source.rfind("https://", 0) == 0;
+  if (http && m_sourceFactory) {
+    if (std::unique_ptr<ByteSource> byteSource = m_sourceFactory(source)) {
+      std::lock_guard lock(m_sourceMutex);
+      m_source = std::move(byteSource);
+      if (m_abort)
+        m_source->Abort();
+    }
+  }
+  if (m_source) {
+    // FFmpeg reads through the source (custom IO): its http protocol, and options for it, are not used.
+    constexpr int kBufferSize = 64 * 1024;
+    auto *buffer = static_cast<uint8_t *>(av_malloc(kBufferSize));
+    m_avio = avio_alloc_context(buffer, kBufferSize, 0, m_source.get(), &ReadSource, nullptr, &SeekSource);
+    m_format->pb = m_avio;
+    m_format->flags |= AVFMT_FLAG_CUSTOM_IO;
+  } else if (http) {
     // Streaming from a server: ride out dropped connections instead of ending playback.
     av_dict_set(&options, "reconnect", "1", 0);
     av_dict_set(&options, "reconnect_on_network_error", "1", 0);
@@ -145,12 +211,44 @@ void Player::OpenInput(const std::string &source, int audioTrack) {
     if (!m_tlsVerify)
       av_dict_set(&options, "tls_verify", "0", 0);
   }
-  int ret = avformat_open_input(&m_format, source.c_str(), nullptr, &options);
+  // The caller's options (SetInputOptions) go on top, overriding these.
+  std::string url = source;
+  if (!m_inputOptions.empty()) {
+    AVDictionary *extra = nullptr;
+    if (av_dict_parse_string(&extra, m_inputOptions.c_str(), "=", ":", 0) < 0)
+      Log("cannot parse the input options \"" + m_inputOptions + "\" (key=value:key=value)");
+    if (const AVDictionaryEntry *async = av_dict_get(extra, "async", nullptr, 0)) {
+      if (http && !m_source && std::string(async->value) != "0")
+        url = "async:" + source;
+      av_dict_set(&extra, "async", nullptr, 0);
+    }
+    av_dict_copy(&options, extra, 0);
+    av_dict_free(&extra);
+  }
+  int ret;
+  {
+    LIBAV_TRACE("avformat_open_input");
+    ret = avformat_open_input(&m_format, url.c_str(), nullptr, &options);
+  }
+  // What is left was not an option of the demuxer or the protocol: a typo, or one for another kind of source.
+  if (ret >= 0 && !m_inputOptions.empty()) {
+    std::string unused;
+    for (const AVDictionaryEntry *e = nullptr; (e = av_dict_iterate(options, e));)
+      unused += std::string(unused.empty() ? "" : ", ") + e->key;
+    if (!unused.empty())
+      Log("input options not used: " + unused);
+  }
   av_dict_free(&options);
   if (ret < 0)
     throw std::runtime_error("Cannot open " + source + ": " + AvError(ret));
-  if ((ret = avformat_find_stream_info(m_format, nullptr)) < 0)
+  m_startup.input = SinceOpen();
+  {
+    LIBAV_TRACE("avformat_find_stream_info");
+    ret = avformat_find_stream_info(m_format, nullptr);
+  }
+  if (ret < 0)
     throw std::runtime_error("Cannot read stream info: " + AvError(ret));
+  m_startup.probe = SinceOpen();
 
   m_videoIndex = av_find_best_stream(m_format, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
   if (m_videoIndex < 0)
@@ -177,13 +275,17 @@ void Player::OpenInput(const std::string &source, int audioTrack) {
   m_startTime = m_format->start_time != AV_NOPTS_VALUE ? double(m_format->start_time) / AV_TIME_BASE : 0;
   m_duration = m_format->duration != AV_NOPTS_VALUE ? double(m_format->duration) / AV_TIME_BASE : 0;
   OpenVideoDecoder();
+  m_startup.decoder = SinceOpen();
+  m_startup.decoderName = m_videoCodec->codec->name;
 
   if (const int index = ValidAudioTrack(audioTrack); index >= 0 && !StartAudio(index))
     m_audioIndex = -1; // undecodable audio: play the video alone
+  m_startup.audio = SinceOpen();
 }
 
 // Starts playing audio stream index (none is playing). False if it cannot be decoded.
 bool Player::StartAudio(int index) {
+  LIBAV_TRACE("start audio");
   auto audio = std::make_shared<AudioOutput>(m_format->streams[index], m_audioPackets, m_clock, m_seek);
   audio->SetPaused(m_paused);
   audio->SetMuted(m_muted);
@@ -224,7 +326,11 @@ bool Player::OpenDecoder(const AVCodec *codec, bool hardware) {
   } else {
     ctx->thread_count = 0; // one thread per core
   }
-  const int ret = avcodec_open2(ctx.get(), codec, &options);
+  int ret;
+  {
+    LIBAV_TRACE("avcodec_open2", "codec", codec->name);
+    ret = avcodec_open2(ctx.get(), codec, &options);
+  }
   av_dict_free(&options);
   if (ret < 0) {
     Log(std::string("cannot open the ") + codec->name + " decoder: " + AvError(ret));
@@ -268,6 +374,8 @@ bool Player::HandleRequests() {
   if (!seek)
     return false;
 
+  if (!m_seekTraced.exchange(true)) // a seek before the last one's frame showed continues its span
+    LIBAV_TRACE_BEGIN("seek", m_tracks->seek); // ends with onSeek, when the frame there is on screen
   const double seconds = std::clamp(*seek, 0.0, m_duration > 0 ? m_duration : 1e12);
   const double target = m_startTime + seconds; // in stream time: the loop shift starts over from 0
   m_seek.target = target;
@@ -317,7 +425,11 @@ void Player::Demux(std::string source) {
       continue;
     }
     const int serial = m_seek.serial;
-    const int ret = av_read_frame(m_format, packet.get());
+    int ret;
+    {
+      LIBAV_TRACE("av_read_frame");
+      ret = av_read_frame(m_format, packet.get());
+    }
     if (ret < 0) {
       if (m_abort)
         break;
@@ -354,10 +466,13 @@ void Player::Demux(std::string source) {
     PacketPtr item{av_packet_alloc()};
     av_packet_move_ref(item.get(), packet.get());
     (index == m_videoIndex ? m_videoPackets : m_audioPackets).Push({PacketItem::Kind::Data, std::move(item), serial});
+    LIBAV_TRACE_COUNTER(m_tracks->videoPackets, int64_t(m_videoPackets.Size()));
+    LIBAV_TRACE_COUNTER(m_tracks->audioPackets, int64_t(m_audioPackets.Size()));
   }
 }
 
 FramePtr Player::ToSoftwareFormat(FramePtr frame) {
+  LIBAV_TRACE("sws_scale");
   const AVPixelFormat format = m_sink->SoftwareFormat();
   m_sws = sws_getCachedContext(m_sws, frame->width, frame->height, AVPixelFormat(frame->format), frame->width,
                                frame->height, format, SWS_BILINEAR, nullptr, nullptr, nullptr);
@@ -404,6 +519,8 @@ bool Player::ReceiveVideoFrames() {
     SetFrameSerial(frame.get(), m_decodeSerial);
     if (!m_loaded) {
       m_loaded = true;
+      m_startup.firstFrame = SinceOpen();
+      LIBAV_TRACE_INSTANT("first frame decoded", m_tracks->player);
       if (m_callbacks.onLoad) {
         AVStream *stream = m_format->streams[m_videoIndex];
         MediaInfo info = m_info;
@@ -422,6 +539,7 @@ bool Player::ReceiveVideoFrames() {
     }
     if (!m_frames.Push(std::move(frame)))
       return false;
+    LIBAV_TRACE_COUNTER(m_tracks->frames, int64_t(m_frames.Size()));
   }
 }
 
@@ -441,6 +559,7 @@ void Player::DecodeVideo() {
       m_decodeTarget = m_seek.target;
     }
     if (item->kind == PacketItem::Kind::Data) {
+      LIBAV_TRACE("decode packet", "size", item->packet->size);
       int ret;
       while ((ret = avcodec_send_packet(m_videoCodec.get(), item->packet.get())) == AVERROR(EAGAIN))
         if (!ReceiveVideoFrames())
@@ -471,6 +590,8 @@ void Player::Render() {
   int serial = m_seek.serial;
   bool seekPending = false; // report (and, while paused, show) the first frame after a seek
   bool endReported = false;
+  bool startupLogged = false;
+  [[maybe_unused]] int64_t dropped = 0; // for the trace
   double lastProgress = -1;
   const double period = m_duration;
   auto pts = [&](const FramePtr &frame) { return Seconds(frame->pts, m_videoTimeBase); };
@@ -519,10 +640,13 @@ void Player::Render() {
           if (pts(ready.front()) <= displayTime) {
             // Behind: skip frames whose successor is also due, by more than half a refresh (the slack keeps clock
             // jitter from dropping a frame, then repeating one, when the frame and refresh rates are close).
-            while (fill(2) && pts(ready[1]) <= displayTime - refresh / 2)
+            while (fill(2) && pts(ready[1]) <= displayTime - refresh / 2) {
               ready.pop_front();
+              LIBAV_TRACE_COUNTER(m_tracks->dropped, ++dropped);
+            }
             next = std::move(ready.front());
             ready.pop_front();
+            LIBAV_TRACE_COUNTER(m_tracks->lateness, (displayTime - pts(next)) * 1000);
             if (!audioMaster && displayTime - pts(next) > 0.5) // stalled without audio: catch the clock up
               m_clock.Set(pts(next) - lead, serial);
           }
@@ -534,12 +658,23 @@ void Player::Render() {
       }
 
       if (next) {
-        m_sink->Present(next.get());
+        {
+          LIBAV_TRACE("present");
+          m_sink->Present(next.get());
+        }
+        if (!startupLogged) {
+          startupLogged = true;
+          LogStartup(SinceOpen());
+          LIBAV_TRACE_END(m_tracks->player);
+          m_startupTraced = true;
+        }
         shown = std::move(next);
         const double t = position(pts(shown));
         m_position = t;
         if (seekPending) {
           seekPending = false;
+          if (m_seekTraced.exchange(false))
+            LIBAV_TRACE_END(m_tracks->seek);
           if (m_callbacks.onSeek)
             m_callbacks.onSeek(t);
         }

@@ -1,7 +1,6 @@
 import { Platform } from 'react-native';
 import type {
   Aggregate,
-  ApiTokenResponse,
   Engagement,
   FilterExpression,
   Segment,
@@ -39,17 +38,23 @@ export function authFailure(error: unknown): 'expired' | 'offline' | null {
 // 300 px frame, which starves weak devices' memory and GPU. Turn back on once frames come cropped.
 const SPRITE_SHEETS = false;
 
-// How long the media token (thumbnail and stream URLs) lives.
-const MEDIA_TOKEN_HOURS = 24;
+// The access JWT is renewed this long before it expires (Cove's last 15 minutes by default).
+const RENEW_EARLY_MS = 60_000;
+// A renewal that failed (offline, the server restarting) is tried again after this long.
+const RENEW_RETRY_MS = 30_000;
+// Android: media requests (the player, preview downloads, images) carry the JWT as an Authorization header that
+// react-native-libav keeps current (platform/player.android.ts), so media URLs have no token. Elsewhere players and
+// images load bare URLs: the current JWT goes in them.
+const TOKEN_IN_MEDIA_URLS = Platform.OS !== 'android';
 
 /**
  * A session with a Cove server, like Cove's own CLI client (cli/src/client.ts): a 15-minute access JWT sent as a
- * Bearer header, refreshed once on 401 with the rotating refresh token.
+ * Bearer header, renewed with the rotating refresh token a minute before it expires (and once on a 401).
  *
- * Media URLs (thumbnails, the video stream) carry a token as ?access_token=, since images and the player cannot
- * send headers. A JWT there would expire mid-playback (FFmpeg keeps issuing range requests on the same URL), so
- * after login the client issues a read-only API token for them; without the permission to do so it falls back to
- * the JWT.
+ * Media (thumbnails, frames, preview clips, the video stream) uses the same JWT, never an API token: Cove checks an
+ * API token with BCrypt on every request (~300 ms each), a JWT by its signature. On Android media requests send it
+ * as a header that follows every renewal (onAccessToken), so a long playback outlives any one token; elsewhere media
+ * URLs carry it (mediaAuth).
  */
 export class CoveClient {
   private refreshing: Promise<void> | null = null;
@@ -57,8 +62,8 @@ export class CoveClient {
   private sprites = new Map<number, Promise<SpriteSheet | null>>();
   // Whether a video has a preview clip, by video id.
   private previews = new Map<number, Promise<boolean>>();
-  private mediaToken: string | null = null;
-  private mediaTokenId: string | null = null;
+  private renewTimer: ReturnType<typeof setTimeout> | null = null;
+  private tokenListeners = new Set<(accessToken: string) => void>();
   /** Told the new refresh token whenever it rotates, so a session kept on the device follows it. */
   onRefreshToken: ((refreshToken: string) => void) | null = null;
 
@@ -86,7 +91,7 @@ export class CoveClient {
       login.token,
       login.refreshToken
     );
-    await client.issueMediaToken();
+    client.scheduleRenewal();
     return client;
   }
 
@@ -107,7 +112,7 @@ export class CoveClient {
       pair.token,
       pair.refreshToken
     );
-    await client.issueMediaToken();
+    client.scheduleRenewal();
     return client;
   }
 
@@ -137,10 +142,43 @@ export class CoveClient {
     return this.refreshToken;
   }
 
+  /** The access JWT now (it renews a minute before it expires). */
+  get currentAccessToken(): string {
+    return this.accessToken;
+  }
+
+  /** Calls listener with the access JWT now and after every renewal. Returns the unsubscribe function. */
+  onAccessToken(listener: (accessToken: string) => void): () => void {
+    this.tokenListeners.add(listener);
+    listener(this.accessToken);
+    return () => {
+      this.tokenListeners.delete(listener);
+    };
+  }
+
+  /** Renews the access JWT now (a media request was refused). One renewal runs at a time. */
+  renew(): Promise<void> {
+    return this.refresh();
+  }
+
+  /** Renews the JWT if it expires soon: the app is back in front, and timers did not run in the background. */
+  async renewIfExpiring(): Promise<void> {
+    const expires = jwtExpiry(this.accessToken);
+    if (expires !== null && expires - Date.now() < RENEW_EARLY_MS * 2)
+      await this.refresh();
+    else this.scheduleRenewal();
+  }
+
+  /** The session is over here: no more renewals or listeners. */
+  dispose(): void {
+    if (this.renewTimer) clearTimeout(this.renewTimer);
+    this.renewTimer = null;
+    this.tokenListeners.clear();
+  }
+
   async logout(): Promise<void> {
+    this.dispose();
     try {
-      if (this.mediaTokenId)
-        await this.request('DELETE', `apitokens/${this.mediaTokenId}`);
       await CoveClient.send(this.server, 'POST', 'auth/logout', {
         refreshToken: this.refreshToken,
       });
@@ -214,7 +252,7 @@ export class CoveClient {
   frameUrl(video: Video, seconds: number): string {
     return (
       `${this.server}/api/stream/video/${video.id}/screenshot?seconds=${Math.max(0, Math.round(seconds))}` +
-      `&access_token=${encodeURIComponent(this.mediaAccessToken)}`
+      this.mediaAuth('&')
     );
   }
 
@@ -349,16 +387,16 @@ export class CoveClient {
   imageUrl(video: Video, max = 640): string {
     return (
       `${this.server}/api/videos/${video.id}/image?max=${max}` +
-      `&v=${encodeURIComponent(video.updatedAt)}&access_token=${encodeURIComponent(this.mediaAccessToken)}`
+      `&v=${encodeURIComponent(video.updatedAt)}${this.mediaAuth('&')}`
     );
   }
 
   streamUrl(video: Video): string {
     const file = primaryFile(video);
     return (
-      `${this.server}/api/stream/video/${video.id}?` +
-      (file ? `fileId=${file.id}&` : '') +
-      `access_token=${encodeURIComponent(this.mediaAccessToken)}`
+      `${this.server}/api/stream/video/${video.id}` +
+      (file ? `?fileId=${file.id}` : '') +
+      this.mediaAuth(file ? '&' : '?')
     );
   }
 
@@ -374,7 +412,7 @@ export class CoveClient {
 
   /** The short preview clip Cove's generate task makes (low resolution, a few seconds); see previewAvailable. */
   previewUrl(video: Video): string {
-    return `${this.server}/api/stream/video/${video.id}/preview?access_token=${encodeURIComponent(this.mediaAccessToken)}`;
+    return `${this.server}/api/stream/video/${video.id}/preview${this.mediaAuth('?')}`;
   }
 
   previewAvailable(video: Video): Promise<boolean> {
@@ -422,32 +460,32 @@ export class CoveClient {
     const cues = parseSpriteVtt(vtt);
     if (!cues.length) return null;
     return {
-      url: `${this.server}/api/stream/video/${video.id}/sprite?access_token=${encodeURIComponent(this.mediaAccessToken)}`,
+      url: `${this.server}/api/stream/video/${video.id}/sprite${this.mediaAuth('?')}`,
       cues,
       width: Math.max(...cues.map((c) => c.x + c.w)),
       height: Math.max(...cues.map((c) => c.y + c.h)),
     };
   }
 
-  private get mediaAccessToken(): string {
-    return this.mediaToken ?? this.accessToken;
+  /** The token part of a media URL: none on Android (a header carries it), else the current JWT. */
+  private mediaAuth(separator: '?' | '&'): string {
+    return TOKEN_IN_MEDIA_URLS
+      ? `${separator}access_token=${encodeURIComponent(this.accessToken)}`
+      : '';
   }
 
-  private async issueMediaToken(): Promise<void> {
-    try {
-      const expiresAt = new Date(
-        Date.now() + MEDIA_TOKEN_HOURS * 3600_000
-      ).toISOString();
-      const token = await this.request<ApiTokenResponse>('POST', 'apitokens', {
-        name: `cove-client (${Platform.OS})`,
-        scope: ['videos.read', 'stream.read'],
-        expiresAt,
+  /** Renews the JWT a minute before it expires (again after a while if that fails, e.g. offline). */
+  private scheduleRenewal(delay?: number): void {
+    if (this.renewTimer) clearTimeout(this.renewTimer);
+    const expires = jwtExpiry(this.accessToken);
+    if (delay === undefined && expires === null) return;
+    const wait = delay ?? Math.max(5_000, expires! - Date.now() - RENEW_EARLY_MS);
+    this.renewTimer = setTimeout(() => {
+      this.renewTimer = null;
+      this.refresh().catch((e) => {
+        if (authFailure(e) !== 'expired') this.scheduleRenewal(RENEW_RETRY_MS);
       });
-      this.mediaToken = token.plaintextToken;
-      this.mediaTokenId = token.id;
-    } catch {
-      this.mediaToken = null; // no api_tokens.write: media URLs use the JWT
-    }
+    }, wait);
   }
 
   async request<T>(
@@ -492,6 +530,8 @@ export class CoveClient {
         this.accessToken = pair.token;
         this.refreshToken = pair.refreshToken;
         this.onRefreshToken?.(pair.refreshToken);
+        this.scheduleRenewal();
+        for (const listener of this.tokenListeners) listener(pair.token);
       } finally {
         this.refreshing = null;
       }
@@ -538,6 +578,23 @@ export class CoveClient {
       );
     }
     return response;
+  }
+}
+
+// Hermes has atob (base64 to a binary string); React Native's TypeScript types don't declare it.
+declare function atob(data: string): string;
+
+/** When a JWT expires (ms since the epoch), from its exp claim; null if it cannot be read. */
+function jwtExpiry(token: string): number | null {
+  try {
+    const part = token.split('.')[1];
+    if (!part) return null;
+    const payload = part.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = payload + '='.repeat((4 - (payload.length % 4)) % 4);
+    const exp = JSON.parse(atob(padded)).exp;
+    return typeof exp === 'number' ? exp * 1000 : null;
+  } catch {
+    return null;
   }
 }
 

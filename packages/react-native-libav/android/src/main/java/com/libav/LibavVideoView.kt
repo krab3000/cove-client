@@ -2,7 +2,11 @@ package com.libav
 
 import android.graphics.Color
 import android.net.Uri
+import android.os.Build
 import android.os.ParcelFileDescriptor
+import android.os.SystemClock
+import android.os.Trace
+import android.util.Log
 import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.widget.FrameLayout
@@ -14,6 +18,7 @@ import com.facebook.react.uimanager.UIManagerHelper
 import com.facebook.react.uimanager.events.Event
 import org.json.JSONArray
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.roundToInt
 
 /**
@@ -38,13 +43,42 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   var hardwareDecoding = true
   var tlsVerify = true
   var audioTrack = -1
+  var cache = false
+  var inputOptions = ""
 
   // What the player has
   private var openedSource: String? = null
   private var openedHardwareDecoding = true
   private var openedTlsVerify = true
+  private var openedCache = false
+  private var openedInputOptions = ""
+  private var openCount = 0 // a download that finishes for an older open() is dropped
+
+  // Startup profile: the first frame on screen is logged with the time since open() (a download included) and
+  // since the player started (adb logcat -s LibavStartup). The engine's own breakdown: adb logcat -s libav.
+  private var openedAt = 0L
+  private var startedAt = 0L
+  private var startupVia = ""
+  private var startupLabel = ""
+  private var firstFrameLogged = true
+  private var traceCookie = 0 // the open async trace section (open to first frame), 0 when none
+
+  private fun endTraceSection() {
+    if (traceCookie != 0 && Build.VERSION.SDK_INT >= 29) {
+      Trace.endAsyncSection(TRACE_SECTION, traceCookie)
+      traceCookie = 0
+    }
+  }
+
+  companion object {
+    // System trace (scripts/perfetto-trace.sh): from open() to the first frame on screen, a download included.
+    private const val TRACE_SECTION = "libav view: open to first frame"
+    private val nextTraceCookie = AtomicInteger()
+  }
   private var openedAudioTrack = -1
   private var surfaceReady = false
+  private var surfaceUsedByCpu = false // a source drew into it in software (see open)
+  private var recreatingSurface = false
   private var sourceFile: ParcelFileDescriptor? = null
 
   private var aspect = 0.0
@@ -53,6 +87,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   private var restoreAt = -1.0 // reopened after the surface came back: seek here, quietly
 
   init {
+    HttpSource.attach(reactContext)
     setBackgroundColor(Color.BLACK)
     addView(surfaceView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
     surfaceView.holder.addCallback(this)
@@ -60,13 +95,16 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
 
   /** After a batch of prop changes. */
   fun applyProps() {
-    if (source != openedSource || hardwareDecoding != openedHardwareDecoding || tlsVerify != openedTlsVerify) {
+    if (source != openedSource || hardwareDecoding != openedHardwareDecoding || tlsVerify != openedTlsVerify ||
+      cache != openedCache || inputOptions != openedInputOptions) {
       open(restoring = false)
     } else if (audioTrack != openedAudioTrack) {
       openedAudioTrack = audioTrack
       player.setAudioTrack(audioTrack)
     }
     player.setPaused(paused)
+    // A playing video keeps the screen on (the window's FLAG_KEEP_SCREEN_ON while any such view is shown).
+    keepScreenOn = !paused && !source.isNullOrEmpty()
     player.setMuted(muted)
     player.setVolume(volume)
     player.setLoop(loop)
@@ -78,6 +116,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   }
 
   fun release() {
+    endTraceSection()
     surfaceView.holder.removeCallback(this)
     player.release()
     closeSourceFile()
@@ -87,7 +126,11 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
     openedSource = source
     openedHardwareDecoding = hardwareDecoding
     openedTlsVerify = tlsVerify
+    openedCache = cache
+    openedInputOptions = inputOptions
     openedAudioTrack = audioTrack
+    val count = ++openCount
+    endTraceSection()
     if (!restoring) {
       loaded = false
       aspect = 0.0
@@ -98,8 +141,50 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
     val src = source
     if (src.isNullOrEmpty() || !surfaceReady)
       return // opens once the surface is there
+    if (hardwareDecoding && surfaceUsedByCpu) {
+      // A source drew in software here: that connects the surface to the CPU for good (the NDK has no disconnect),
+      // and MediaCodec cannot connect to it (configure fails, the player falls back to software). Hiding the
+      // SurfaceView destroys its surface; surfaceDestroyed shows it again and surfaceCreated opens on the new one.
+      Log.i("libav", "new surface for hardware decoding (the last source drew in software)")
+      recreatingSurface = true
+      surfaceView.visibility = INVISIBLE
+      return
+    }
+    openedAt = SystemClock.elapsedRealtime()
+    startupLabel = MediaCache.label(src)
+    if (Build.VERSION.SDK_INT >= 29) {
+      traceCookie = nextTraceCookie.incrementAndGet()
+      Trace.beginAsyncSection(TRACE_SECTION, traceCookie)
+    }
+    if (!cache || !(src.startsWith("http://") || src.startsWith("https://"))) {
+      start(resolve(src), "direct")
+      return
+    }
+    // With cache, an http(s) source plays from MediaCache: downloaded first if needed, streamed if that fails.
+    val label = MediaCache.label(src)
+    MediaCache.cached(reactContext, src)?.let { file ->
+      Log.i(MediaCache.TAG, "play: from cache $label")
+      start(file.path, "from cache")
+      return
+    }
+    MediaCache.fetch(reactContext, src, "play") { file ->
+      if (count != openCount || !surfaceReady) return@fetch // replaced or gone meanwhile
+      if (file != null) {
+        Log.i(MediaCache.TAG, "play: downloaded, now from cache $label")
+        start(file.path, "downloaded first")
+      } else {
+        Log.i(MediaCache.TAG, "play: not cached, streaming $label")
+        start(src, "streamed")
+      }
+    }
+  }
+
+  private fun start(path: String, via: String) {
+    startupVia = via
+    startedAt = SystemClock.elapsedRealtime()
+    firstFrameLogged = false
     player.setTlsVerify(tlsVerify)
-    player.open(resolve(src), hardwareDecoding, audioTrack)
+    player.open(path, hardwareDecoding, audioTrack, inputOptions)
     player.setPaused(paused)
   }
 
@@ -127,6 +212,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   // SurfaceHolder.Callback
   override fun surfaceCreated(holder: SurfaceHolder) {
     surfaceReady = true
+    surfaceUsedByCpu = false
     player.setSurface(holder.surface)
     if (!source.isNullOrEmpty()) {
       restoreAt = if (loaded) position else -1.0
@@ -139,10 +225,16 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   override fun surfaceDestroyed(holder: SurfaceHolder) {
     surfaceReady = false
     player.setSurface(null) // stops the decoder before the surface dies
+    if (recreatingSurface) {
+      recreatingSurface = false
+      post { surfaceView.visibility = VISIBLE }
+    }
   }
 
   // LibavPlayer.Listener (main thread)
   override fun onLoad(info: JSONObject) {
+    if (!info.optBoolean("hwDecoding", true))
+      surfaceUsedByCpu = true
     aspect = info.optDouble("aspect", 0.0)
     requestLayout()
     if (restoreAt >= 0) {
@@ -156,6 +248,16 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
 
   override fun onProgress(currentTime: Double, duration: Double) {
     position = currentTime
+    if (!firstFrameLogged) {
+      firstFrameLogged = true // the first progress report comes with the first frame on screen
+      endTraceSection()
+      val now = SystemClock.elapsedRealtime()
+      Log.i(
+        "LibavStartup",
+        "first frame ${now - openedAt} ms after open ($startupVia, player ${now - startedAt} ms; " +
+          "${if (hardwareDecoding) "hw allowed" else "sw only"}) $startupLabel",
+      )
+    }
     emit("topProgress", Arguments.createMap().apply {
       putDouble("currentTime", currentTime)
       putDouble("duration", duration)

@@ -29,9 +29,12 @@ internal class LibavPlayer(private val listener: Listener) {
     nativeSetSurface(handle, surface)
   }
 
-  fun open(source: String, hardwareDecoding: Boolean, audioTrack: Int) {
+  fun open(source: String, hardwareDecoding: Boolean, audioTrack: Int, inputOptions: String) {
     generation++
-    nativeOpen(handle, generation, source.toByteArray(Charsets.UTF_8), hardwareDecoding, audioTrack)
+    nativeOpen(
+      handle, generation, source.toByteArray(Charsets.UTF_8), hardwareDecoding, audioTrack,
+      inputOptions.toByteArray(Charsets.UTF_8),
+    )
   }
 
   fun close() {
@@ -90,7 +93,8 @@ internal class LibavPlayer(private val listener: Listener) {
     generation: Int,
     source: ByteArray,
     hardwareDecoding: Boolean,
-    audioTrack: Int
+    audioTrack: Int,
+    inputOptions: ByteArray,
   )
   private external fun nativeClose(handle: Long)
   private external fun nativeSetPaused(handle: Long, paused: Boolean)

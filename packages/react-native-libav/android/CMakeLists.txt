@@ -28,5 +28,17 @@ foreach(lib avformat avcodec avutil swresample swscale)
 endforeach()
 
 target_link_libraries(reactnativelibav aaudio android log mediandk nativewindow)
+
+# Perfetto trace points (cpp/Trace.h), when the SDK is there: scripts/fetch-perfetto.sh.
+set(PERFETTO_SDK_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/perfetto/sdk)
+if(EXISTS ${PERFETTO_SDK_DIR}/perfetto.cc)
+  target_sources(reactnativelibav PRIVATE ${PERFETTO_SDK_DIR}/perfetto.cc)
+  set_source_files_properties(${PERFETTO_SDK_DIR}/perfetto.cc PROPERTIES COMPILE_OPTIONS "-w")
+  target_include_directories(reactnativelibav PRIVATE ${PERFETTO_SDK_DIR})
+  target_compile_definitions(reactnativelibav PRIVATE LIBAV_PERFETTO)
+  message(STATUS "libav: Perfetto trace points on (${PERFETTO_SDK_DIR})")
+else()
+  message(STATUS "libav: no Perfetto SDK, trace points off (scripts/fetch-perfetto.sh)")
+endif()
 # 16 KB page sizes (Android 15+ devices)
 target_link_options(reactnativelibav PRIVATE -Wl,-z,max-page-size=16384)
