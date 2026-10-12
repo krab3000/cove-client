@@ -44,8 +44,14 @@ const RENEW_EARLY_MS = 60_000;
 const RENEW_RETRY_MS = 30_000;
 // Android: media requests (the player, preview downloads, images) carry the JWT as an Authorization header that
 // react-native-libav keeps current (platform/player.android.ts), so media URLs have no token. Elsewhere players and
-// images load bare URLs: the current JWT goes in them.
-const TOKEN_IN_MEDIA_URLS = Platform.OS !== 'android';
+// images load bare URLs: the current JWT goes in them. Android debug builds playing with libVLC (the A/B engine
+// switch, platform/player.android.ts) need it in URLs too: setMediaUrlTokens.
+let TOKEN_IN_MEDIA_URLS = Platform.OS !== 'android';
+
+/** Whether media URLs carry the JWT (players that can't send headers). Set before any URL is made. */
+export function setMediaUrlTokens(on: boolean): void {
+  TOKEN_IN_MEDIA_URLS = on;
+}
 
 /**
  * A session with a Cove server, like Cove's own CLI client (cli/src/client.ts): a 15-minute access JWT sent as a
@@ -479,7 +485,8 @@ export class CoveClient {
     if (this.renewTimer) clearTimeout(this.renewTimer);
     const expires = jwtExpiry(this.accessToken);
     if (delay === undefined && expires === null) return;
-    const wait = delay ?? Math.max(5_000, expires! - Date.now() - RENEW_EARLY_MS);
+    const wait =
+      delay ?? Math.max(5_000, expires! - Date.now() - RENEW_EARLY_MS);
     this.renewTimer = setTimeout(() => {
       this.renewTimer = null;
       this.refresh().catch((e) => {

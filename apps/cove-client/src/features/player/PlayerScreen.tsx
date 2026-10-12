@@ -34,7 +34,7 @@ import {
   type VideoViewHandle,
 } from '../../platform/player';
 import { useSafeInsets } from '../../platform/insets';
-import { firstFrameShown } from '../../state/player';
+import { firstFrameShown, resumeSeek, seekDone } from '../../state/player';
 import { isLarge } from '../../theme/layout';
 import { BackButton, IconButton } from '../../ui/IconButton';
 import { PersonChip, TagChip } from '../../ui/Chip';
@@ -345,9 +345,13 @@ export function PlayerScreen({
     if (resumed.current || !info || resumeAt.current == null) return;
     resumed.current = true;
     const at = resumeAt.current;
-    if (startAt != null) seekTo(at);
-    else if (at > RESUME_MIN_SEC && at < duration - RESUME_END_MARGIN_SEC)
+    if (
+      startAt != null ||
+      (at > RESUME_MIN_SEC && at < duration - RESUME_END_MARGIN_SEC)
+    ) {
+      resumeSeek(at);
       seekTo(at);
+    }
   };
   useEffect(tryResume);
 
@@ -711,6 +715,7 @@ export function PlayerScreen({
             }
           }}
           onSeek={(e) => {
+            seekDone();
             timeRef.current = e.nativeEvent.currentTime;
             setTime(e.nativeEvent.currentTime);
             setSeeking(false);

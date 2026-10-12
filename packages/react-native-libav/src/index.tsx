@@ -20,6 +20,15 @@ export type {
 } from './LibavVideoViewNativeComponent';
 
 /**
+ * The debug switch debug.libav.<name> (adb shell setprop debug.libav.<name> <value>), '' when unset or off Android.
+ * Synchronous: read once at startup, not per frame.
+ */
+export function getDebugProperty(name: string): string {
+  if (Platform.OS !== 'android') return '';
+  return NativeModules.LibavCache?.getDebugProperty(name) ?? '';
+}
+
+/**
  * Android: downloads media into the cache a LibavVideoView with `cache` plays from, ahead of time (preview clips of
  * the cards around the one previewing, say). Does nothing elsewhere.
  */

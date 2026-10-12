@@ -233,7 +233,11 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       if (!overlay) textureView.alpha = if (frameShown) opacity else 0f
     }
 
+    private val trace = VlcTrace(src)
+
     fun start() {
+      trace.begin("playing", "vout", "first time")
+      if (!overlay) trace.begin("first frame")
       if (overlay) {
         clip!!.addView(surfaceView, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
         addView(clip, 0, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
@@ -289,10 +293,13 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
           if (preview) it.addOption(":codec=avcodec,all")
         }
       } else {
-        val uri = if (src.contains("://")) Uri.parse(src) else null
+        // http(s): through the app's byte cache (StreamProxy, HttpChunkCache), which also sends the server's
+        // Authorization header.
+        val played = StreamProxy.url(reactContext, src, tlsVerify)
+        val uri = if (played.contains("://")) Uri.parse(played) else null
         if (!tlsVerify)
           uri?.host?.let { Vlc.allowUnverified(it) }
-        (if (uri != null) Media(vlc, uri) else Media(vlc, src)).also {
+        (if (uri != null) Media(vlc, uri) else Media(vlc, played)).also {
           // Start sooner than with the default 1 s buffers; Cove streams from the LAN.
           it.addOption(":network-caching=300")
           it.addOption(":file-caching=300")
@@ -422,6 +429,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       // libVLC sees its surface go and lets go of it.
       removeView(content)
       textureView.surfaceTextureListener = null
+      trace.endAll()
       val p = player
       val st = surfaceTexture
       val d = drain
@@ -511,6 +519,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       if (disposed) return
       when (event.type) {
         MediaPlayer.Event.Playing, MediaPlayer.Event.Paused -> {
+          if (event.type == MediaPlayer.Event.Playing) trace.end("playing")
           if (!started) {
             started = true
             applyVolume()
@@ -518,9 +527,13 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
           tryLoad()
         }
         MediaPlayer.Event.ESAdded, MediaPlayer.Event.ESSelected, MediaPlayer.Event.LengthChanged,
-        MediaPlayer.Event.Vout -> tryLoad()
+        MediaPlayer.Event.Vout -> {
+          if (event.type == MediaPlayer.Event.Vout) trace.end("vout")
+          tryLoad()
+        }
         MediaPlayer.Event.TimeChanged -> {
           val time = event.timeChanged
+          trace.end("first time")
           if (seekTargetMs >= 0 && abs(time - seekTargetMs) < 1500) {
             seekTargetMs = -1
             seekReached = true
@@ -590,6 +603,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       if (disposed) return
       if (!frameShown) {
         frameShown = true
+        trace.end("first frame")
         updateAlpha()
       }
       if (pauseOnFrame) stepDone()

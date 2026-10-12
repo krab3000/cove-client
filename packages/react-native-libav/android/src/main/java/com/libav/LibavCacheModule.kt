@@ -51,6 +51,20 @@ class LibavCacheModule(private val context: ReactApplicationContext) : ReactCont
     promise.resolve(String(HttpFetch.nativeStats(), Charsets.UTF_8))
   }
 
+  /**
+   * The system property debug.libav.<name> ('' when unset), the switches cpp/Platform.h DebugProperty reads, for JS
+   * (e.g. the app's engine switch: adb shell setprop debug.libav.player vlc).
+   */
+  @ReactMethod(isBlockingSynchronousMethod = true)
+  fun getDebugProperty(name: String): String =
+    try {
+      Class.forName("android.os.SystemProperties")
+        .getMethod("get", String::class.java, String::class.java)
+        .invoke(null, "debug.libav.$name", "") as String
+    } catch (e: Exception) {
+      ""
+    }
+
   companion object {
     const val NAME = "LibavCache"
   }

@@ -92,3 +92,6 @@ ffmpeg-android-build.log
 *.binlog
 msbuild_*.err
 msbuild_*.wrn
+
+# Benchmark traces and reports (tools/bench)
+tools/bench/out/

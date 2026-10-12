@@ -59,7 +59,9 @@ internal object MediaCache {
     val directory = dir(context)
     executor.execute {
       val started = System.currentTimeMillis()
-      val file = download(url, File(directory, name))
+      val file = VlcTrace.section("vlc download ${url.substringBefore('?').substringAfter("/api/")}") {
+        download(url, File(directory, name))
+      }
       if (file != null) {
         trim(directory)
         // Clip sizes, for storage estimates: adb logcat -s RNVlcCache
@@ -83,6 +85,7 @@ internal object MediaCache {
     val part = File(target.path + ".part")
     return try {
       val connection = URL(url).openConnection() as HttpURLConnection
+      VlcHttpAuth.header(url)?.let { connection.setRequestProperty("Authorization", it) }
       connection.connectTimeout = 10_000
       connection.readTimeout = 15_000
       try {

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Records a Perfetto system trace on an Android device and pulls it: rn-trace's events (categories "app" from
+# Records a Perfetto system trace on an Android device, streamed over adb straight into a file on this computer (no
+# file on the device): rn-trace's events (categories "app" from
 # JavaScript, "libav" from react-native-libav, "native" and others; librntrace built with its backend: a debug build
 # with the SDK from scripts/fetch-perfetto.sh), the app's android.os.Trace sections, thread scheduling and CPU
-# frequency, and the system's graphics, input, video (MediaCodec) and window manager trace points. Open the file at
+# frequency, SurfaceFlinger's frame timeline (Android 12+: each frame's expected and actual presentation, jank), and the
+# system's graphics, input, video (MediaCodec) and window manager trace points. Open the file at
 # https://ui.perfetto.dev (it is read in the browser, not uploaded).
 #
 #   scripts/perfetto-trace.sh [-s serial] [-t seconds] [-p package] [-o file] [--cpu]
@@ -31,7 +33,6 @@ done
 adb=(adb)
 [ -n "$serial" ] && adb+=(-s "$serial")
 [ -n "$out" ] || out="trace-$(date +%Y%m%d-%H%M%S).perfetto-trace"
-remote=/data/misc/perfetto-traces/rntrace.perfetto-trace
 
 perf_source=""
 if [ "$cpu" = 1 ]; then
@@ -77,6 +78,11 @@ data_sources {
 }
 data_sources {
   config {
+    name: \"android.surfaceflinger.frametimeline\"
+  }
+}
+data_sources {
+  config {
     name: \"linux.process_stats\"
     target_buffer: 1
     process_stats_config { scan_all_processes_on_start: true }
@@ -86,8 +92,9 @@ $perf_source
 duration_ms: $((seconds * 1000))
 "
 
-echo "Recording ${seconds}s on ${serial:-the device}..."
-echo "$config" | "${adb[@]}" shell perfetto --txt -c - -o "$remote" >/dev/null
-"${adb[@]}" pull "$remote" "$out" >/dev/null
-"${adb[@]}" shell rm -f "$remote"
-echo "Trace: $out (open it at https://ui.perfetto.dev)"
+echo "Recording ${seconds}s on ${serial:-the device}..." >&2
+# The config goes in on stdin, the trace comes back on stdout (-o -). adb shell, not exec-out: exec-out does not pass
+# stdin's end on, so perfetto would wait for the rest of its config forever. perfetto's own messages go to stderr.
+echo "$config" | "${adb[@]}" shell perfetto --txt -c - -o - >"$out"
+[ -s "$out" ] || { echo "No trace recorded (perfetto's messages above)" >&2; rm -f "$out"; exit 1; }
+echo "Trace: $out, $(($(wc -c <"$out") / 1024)) KB (open it at https://ui.perfetto.dev)"

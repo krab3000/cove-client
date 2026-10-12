@@ -61,3 +61,8 @@ there too, untested until someone builds on Windows.
   a `LastUsedAt` write (`TokenService.ResolveApiTokenAsync`, `src/Cove.Data/Auth/TokenService.cs:413-503`).
   The Cove client no longer uses API tokens, but other clients do: cache validated tokens briefly and throttle
   the `LastUsedAt` write, or hash API tokens with SHA-256 like refresh tokens.
+
+## Player A/B on Windows
+
+- Run tools/bench's A/B (libVLC vs libav) on Windows once libav plays there: a driver for the desktop UI in place of
+  adb, and a trace source (rn-trace in-process recording, or ETW) in place of Perfetto's system trace.

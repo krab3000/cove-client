@@ -1,4 +1,5 @@
-import { memo, useCallback, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
+import { asyncBegin, asyncEnd, instant } from 'rn-trace';
 import {
   Image,
   Pressable,
@@ -221,10 +222,30 @@ function usePreview(
   const show = hovered || held || autoplay;
   // The loading bar runs from the preview being chosen until it plays (or turns out to have nothing to play).
   const [state, setState] = useState<'loading' | 'playing' | 'none'>('loading');
+  // Trace (rn-trace): from the preview being chosen until it plays (or has nothing to play, or is left).
+  const span = useRef<number | null>(null);
+  const endSpan = useCallback(() => {
+    if (span.current !== null) asyncEnd(span.current);
+    span.current = null;
+  }, []);
   useEffect(() => {
-    if (show) setState('loading');
-  }, [show]);
-  return { show, loading: show && state === 'loading', setState };
+    if (!show) return;
+    setState('loading');
+    span.current = asyncBegin(`preview ${video.id} → playing`);
+    return endSpan;
+  }, [show, video.id, endSpan]);
+  const report = useCallback(
+    (next: 'loading' | 'playing' | 'none') => {
+      if (next !== 'loading') {
+        if (next === 'none' && span.current !== null)
+          instant(`preview ${video.id} none`);
+        endSpan();
+      }
+      setState(next);
+    },
+    [video.id, endSpan]
+  );
+  return { show, loading: show && state === 'loading', setState: report };
 }
 
 function badgeText(video: Video) {
