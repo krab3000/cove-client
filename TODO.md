@@ -73,3 +73,19 @@ there too, untested until someone builds on Windows.
   libvlc_media_new_callbacks over HttpChunkCache). Windows' libVLC loads URLs with the token in them. The same
   callbacks work there (the C API is the same); the cache would need a Windows implementation (C++ or C#), or the
   C++ one from react-native-libav.
+
+## mpv video output: vo=gpu (default) vs mediacodec_embed
+
+- The default is `vo=gpu` (OpenGL ES, `gpu-context=android`) with `hwdec=mediacodec`. mpv decodes in hardware where it
+  can (8-bit H.264, HEVC, VP8/9, AV1; frames reach GL through AImageReader, no copy) and in software otherwise, and
+  shows both. `vo=mediacodec_embed`, the earlier default, showed only MediaCodec's frames: WMV, MPEG-4 ASP
+  (Xvid/DivX), MPEG-1/2, H.263, FLV Sorenson, MJPEG, 10-bit and 4:4:4 H.264 played audio only. It stays available
+  for comparison: `adb shell setprop debug.libav.mpv_vo embed`.
+- The cost, measured on the S22 with 4K60 BBB (tools/bench, medians of 3): start-up unchanged (fresh cold 727 vs
+  840 ms; warm 582 vs 501 ms; resume cold 746 vs 911 ms), frames in the first 5 s unchanged (290-293 of 300), but app
+  CPU over 5 s up ~1.7 s (6.1 vs 4.4 s): mpv draws every frame with GL instead of handing it to the display as an
+  overlay. Software-decoded files tested (720p-1080p, tools/bench/codecs.sh on test-server/media/exotic) play in real
+  time, A/V in sync (debug.libav.mpv_stats=1).
+- To consider: `vo=mediacodec_embed` for files mpv decodes in hardware (the codec is known at file-loaded) and
+  `vo=gpu` for the rest, to get the overlay's lower CPU/power back for most files; measure power on a long 4K
+  playback first.
