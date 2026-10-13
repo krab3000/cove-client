@@ -712,7 +712,10 @@ export function PlayerScreen({
               closeSpan();
               span.current = { start: rel, end: rel };
             }
-            if (visible) setTime(t);
+            // Hidden, only the thin track under the video shows the time: a render when it moves about a pixel
+            // (1/500 of the duration), not on every progress event.
+            if (visible || Math.abs(t - time) >= Math.max(0.25, duration / 500))
+              setTime(t);
             if (clipEnd != null && t >= clipEnd) {
               setPaused(true);
               setEnded(true);
