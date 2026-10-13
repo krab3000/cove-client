@@ -1,5 +1,14 @@
-import type { ReactNode } from 'react';
 import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react';
+import {
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -32,6 +41,13 @@ export function Sheet({
   const window = useWindowDimensions();
   const sideways = window.width > window.height;
   const insets = useSafeInsets();
+  const inline = useContext(InlineSheets);
+  if (inline)
+    return (
+      <InlineSheet visible={visible} onClose={onClose}>
+        {children}
+      </InlineSheet>
+    );
   return (
     <Modal
       visible={visible}
@@ -68,6 +84,78 @@ export function Sheet({
         </View>
       </KeyboardAvoidingView>
     </Modal>
+  );
+}
+
+/**
+ * Sheets inside a panel instead of across the screen (design turn 9: the tablet's filter drawer). Under a provider
+ * set to true, a Sheet (and so a MenuSheet) rises from the bottom of the nearest positioned parent, its width, over
+ * that parent dimmed; the parent should fill its panel (and the panel clip its corners).
+ */
+export const InlineSheets = createContext(false);
+
+function InlineSheet({
+  visible,
+  onClose,
+  children,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  const shown = useRef(new Animated.Value(0)).current;
+  const [mounted, setMounted] = useState(visible);
+  useEffect(() => {
+    if (visible) setMounted(true);
+    const run = Animated.timing(shown, {
+      toValue: visible ? 1 : 0,
+      duration: visible ? 260 : 180,
+      easing: visible
+        ? Easing.bezier(0.2, 0.8, 0.2, 1)
+        : Easing.in(Easing.quad),
+      useNativeDriver: Platform.OS !== 'windows',
+    });
+    run.start(({ finished }) => {
+      if (finished && !visible) setMounted(false);
+    });
+    return () => run.stop();
+  }, [visible, shown]);
+  if (!mounted) return null;
+  return (
+    <View style={styles.inline} pointerEvents={visible ? 'auto' : 'none'}>
+      <Animated.View style={[styles.scrim, { opacity: shown }]}>
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onClose}
+          accessibilityLabel="Close"
+        />
+      </Animated.View>
+      <Animated.View
+        style={[
+          styles.sheet,
+          styles.sheetInline,
+          {
+            transform: [
+              {
+                translateY: shown.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [320, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <View style={styles.grabber} />
+        <ScrollView
+          style={styles.scroll}
+          keyboardShouldPersistTaps="handled"
+          bounces={false}
+        >
+          {children}
+        </ScrollView>
+      </Animated.View>
+    </View>
   );
 }
 
@@ -138,6 +226,13 @@ const styles = StyleSheet.create({
     maxHeight: '85%',
   },
   sheetSideways: { alignSelf: 'center' },
+  // In a panel (InlineSheets): over its content, from its bottom
+  inline: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 10,
+    justifyContent: 'flex-end',
+  },
+  sheetInline: { paddingBottom: 14 },
   scroll: { flexGrow: 0 },
   grabber: {
     width: 40,

@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  Animated,
+  Easing,
+  Platform,
   Modal,
   Pressable,
   ScrollView,
@@ -39,21 +42,35 @@ const QUICK_DATES = ['-7d', '-1m', '-1y', '0d'];
 /**
  * The editor of one condition, in a bottom sheet: pick a field (new conditions), then its operator and value. Cove's
  * single-condition editor isn't designed yet (the design's open decision 4); this keeps to Nocturne's sheet, chips and
- * outlined primary button.
+ * outlined primary button. As a page (the tablet's filter drawer, design 9c / 9d) it fills its parent instead and
+ * slides in from the right; every step then has a back button (the first one back to the tree).
  */
 export function ConditionSheet({
   client,
   condition: initial,
   onSave,
   onCancel,
+  page,
 }: {
   client: CoveClient;
   /** The condition to edit; none: a new one, starting with the field list */
   condition?: Condition;
   onSave: (condition: Condition) => void;
   onCancel: () => void;
+  // In a panel (the drawer), not a sheet over the screen
+  page?: boolean;
 }) {
   const insets = useSafeInsets();
+  const slide = useRef(new Animated.Value(page ? 1 : 0)).current;
+  useEffect(() => {
+    if (!page) return;
+    Animated.timing(slide, {
+      toValue: 0,
+      duration: 280,
+      easing: Easing.bezier(0.2, 0.8, 0.2, 1),
+      useNativeDriver: Platform.OS !== 'windows',
+    }).start();
+  }, [page, slide]);
   const [condition, setCondition] = useState<Condition | null>(initial ?? null);
   // Path conditions: the folder browser (3b) or the typed path (3d) in place of the editor.
   const [folders, setFolders] = useState<null | 'browse' | 'type' | 'noAccess'>(
@@ -90,6 +107,81 @@ export function ConditionSheet({
     );
   };
 
+  // A page's first step goes back to the tree; a sheet's has none (a tap on the dim closes it)
+  const backToTree = page ? onCancel : undefined;
+  const body = (
+    <>
+      {condition && folders === 'browse' ? (
+        <FolderBrowser
+          client={client}
+          start={condition.folder?.chain ?? []}
+          onPick={pickFolder}
+          onBack={() => setFolders(null)}
+          onType={onType}
+        />
+      ) : condition && folders ? (
+        <TypedPath
+          client={client}
+          noAccess={folders === 'noAccess'}
+          initial={String(condition.value ?? '')}
+          onPick={pickFolder}
+          onBack={() => setFolders(folders === 'noAccess' ? null : 'browse')}
+        />
+      ) : condition && fieldById(condition.field).type === 'path' ? (
+        <PathEditor
+          client={client}
+          condition={condition}
+          set={set}
+          onBrowse={() => setFolders('browse')}
+          onChangeField={initial ? backToTree : () => setCondition(null)}
+        />
+      ) : condition ? (
+        <Editor
+          client={client}
+          condition={condition}
+          set={set}
+          onChangeField={initial ? backToTree : () => setCondition(null)}
+        />
+      ) : (
+        <FieldList
+          onPick={(id) => setCondition(newCondition(id))}
+          onBack={backToTree}
+        />
+      )}
+      {condition && !folders ? (
+        <View style={[styles.footer, page && styles.footerPage]}>
+          {error ? <ErrorText>{error}</ErrorText> : null}
+          <Button
+            label={initial ? 'Save condition' : 'Add condition'}
+            size="lg"
+            onPress={save}
+            // Still pressable: pressing says what is missing
+            style={error ? styles.dimmed : undefined}
+          />
+        </View>
+      ) : null}
+    </>
+  );
+  if (page)
+    return (
+      <Animated.View
+        style={[
+          styles.page,
+          {
+            transform: [
+              {
+                translateX: slide.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 420],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        {body}
+      </Animated.View>
+    );
   return (
     <Modal
       visible
@@ -109,64 +201,35 @@ export function ConditionSheet({
           ]}
         >
           <View style={styles.grabber} />
-          {condition && folders === 'browse' ? (
-            <FolderBrowser
-              client={client}
-              start={condition.folder?.chain ?? []}
-              onPick={pickFolder}
-              onBack={() => setFolders(null)}
-              onType={onType}
-            />
-          ) : condition && folders ? (
-            <TypedPath
-              client={client}
-              noAccess={folders === 'noAccess'}
-              initial={String(condition.value ?? '')}
-              onPick={pickFolder}
-              onBack={() =>
-                setFolders(folders === 'noAccess' ? null : 'browse')
-              }
-            />
-          ) : condition && fieldById(condition.field).type === 'path' ? (
-            <PathEditor
-              client={client}
-              condition={condition}
-              set={set}
-              onBrowse={() => setFolders('browse')}
-              onChangeField={initial ? undefined : () => setCondition(null)}
-            />
-          ) : condition ? (
-            <Editor
-              client={client}
-              condition={condition}
-              set={set}
-              onChangeField={initial ? undefined : () => setCondition(null)}
-            />
-          ) : (
-            <FieldList onPick={(id) => setCondition(newCondition(id))} />
-          )}
-          {condition && !folders ? (
-            <View style={styles.footer}>
-              {error ? <ErrorText>{error}</ErrorText> : null}
-              <Button
-                label={initial ? 'Save condition' : 'Add condition'}
-                size="lg"
-                onPress={save}
-                // Still pressable: pressing says what is missing
-                style={error ? styles.dimmed : undefined}
-              />
-            </View>
-          ) : null}
+          {body}
         </View>
       </View>
     </Modal>
   );
 }
 
-function FieldList({ onPick }: { onPick: (fieldId: string) => void }) {
+function FieldList({
+  onPick,
+  onBack,
+}: {
+  onPick: (fieldId: string) => void;
+  onBack?: () => void;
+}) {
   return (
     <>
-      <Text style={styles.sheetTitle}>Add a condition</Text>
+      <View style={styles.editorHeader}>
+        {onBack ? (
+          <Pressable
+            onPress={onBack}
+            hitSlop={8}
+            accessibilityLabel="Back"
+            style={styles.backButton}
+          >
+            <Icon name="caret-left" size={18} color={n.text} />
+          </Pressable>
+        ) : null}
+        <Text style={styles.sheetTitle}>Add a condition</Text>
+      </View>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -793,6 +856,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: n.radiusSheet,
   },
   sheetTall: { height: '92%', maxHeight: '92%' },
+  // The tablet drawer's page: its whole area, the drawer's surface
+  page: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 20,
+    paddingTop: 8,
+    backgroundColor: n.surface,
+  },
   chipTall: { height: 34 },
   sectionGap: { marginTop: 18 },
   folderCard: {
@@ -977,6 +1047,8 @@ const styles = StyleSheet.create({
     color: n.textAlpha(55),
     lineHeight: 17,
   },
+  // A page's footer sits at its bottom, whatever the content's height
+  footerPage: { marginTop: 'auto' },
   footer: {
     paddingTop: 12,
     paddingHorizontal: 16,
