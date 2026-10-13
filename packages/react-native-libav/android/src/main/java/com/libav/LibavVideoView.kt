@@ -45,6 +45,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   var audioTrack = -1
   var cache = false
   var inputOptions = ""
+  var engine = "libav" // or "mpv" (MpvPlayer, where the build has libmpv)
 
   // What the player has
   private var openedSource: String? = null
@@ -52,6 +53,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   private var openedTlsVerify = true
   private var openedCache = false
   private var openedInputOptions = ""
+  private var openedEngine = "libav"
   private var openCount = 0 // a download that finishes for an older open() is dropped
 
   // Startup profile: the first frame on screen is logged with the time since open() (a download included) and
@@ -96,7 +98,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
   /** After a batch of prop changes. */
   fun applyProps() {
     if (source != openedSource || hardwareDecoding != openedHardwareDecoding || tlsVerify != openedTlsVerify ||
-      cache != openedCache || inputOptions != openedInputOptions) {
+      cache != openedCache || inputOptions != openedInputOptions || engine != openedEngine) {
       open(restoring = false)
     } else if (audioTrack != openedAudioTrack) {
       openedAudioTrack = audioTrack
@@ -128,6 +130,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
     openedTlsVerify = tlsVerify
     openedCache = cache
     openedInputOptions = inputOptions
+    openedEngine = engine
     openedAudioTrack = audioTrack
     val count = ++openCount
     endTraceSection()
@@ -184,7 +187,7 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
     startedAt = SystemClock.elapsedRealtime()
     firstFrameLogged = false
     player.setTlsVerify(tlsVerify)
-    player.open(path, hardwareDecoding, audioTrack, inputOptions)
+    player.open(path, hardwareDecoding, audioTrack, inputOptions, mpv = engine == "mpv")
     player.setPaused(paused)
   }
 

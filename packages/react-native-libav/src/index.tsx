@@ -19,6 +19,20 @@ export type {
   ErrorEvent,
 } from './LibavVideoViewNativeComponent';
 
+/** Android: the engine the build was made for: 'mpv' (built with -PlibavEngine=mpv) or 'libav'. */
+export function defaultEngine(): 'libav' | 'mpv' {
+  if (Platform.OS !== 'android') return 'libav';
+  return NativeModules.LibavCache?.getDefaultEngine() === 'mpv'
+    ? 'mpv'
+    : 'libav';
+}
+
+/** Android: whether LibavVideoView's engine 'mpv' is in this build (debug builds); false elsewhere. */
+export function mpvAvailable(): boolean {
+  if (Platform.OS !== 'android') return false;
+  return NativeModules.LibavCache?.isMpvAvailable() ?? false;
+}
+
 /**
  * The debug switch debug.libav.<name> (adb shell setprop debug.libav.<name> <value>), '' when unset or off Android.
  * Synchronous: read once at startup, not per frame.
@@ -33,7 +47,8 @@ export function getDebugProperty(name: string): string {
  * the cards around the one previewing, say). Does nothing elsewhere.
  */
 export function prefetchMedia(urls: string[]): void {
-  if (Platform.OS === 'android' && urls.length) NativeModules.LibavCache?.prefetch(urls);
+  if (Platform.OS === 'android' && urls.length)
+    NativeModules.LibavCache?.prefetch(urls);
 }
 
 /**
@@ -110,7 +125,10 @@ export async function getHttpCacheStats(): Promise<HttpCacheStats | null> {
  * downloads (prefetchMedia, `cache`), and images, when the app installs HttpAuth's OkHttp interceptor. Set it again
  * whenever the token renews; null removes it. Media URLs then need no token in them. Does nothing elsewhere.
  */
-export function setHttpAuthorization(server: string, value: string | null): void {
+export function setHttpAuthorization(
+  server: string,
+  value: string | null
+): void {
   if (Platform.OS === 'android')
     NativeModules.LibavCache?.setHttpAuthorization(server, value);
 }
@@ -147,7 +165,8 @@ export function LibavVideoView({ ref, ...props }: LibavVideoViewProps) {
     () => ({
       seek: (seconds: number) => {
         // The codegen command type wants React.ElementRef<HostComponent>, which TS resolves to never.
-        if (nativeRef.current) Commands.seek(nativeRef.current as never, seconds);
+        if (nativeRef.current)
+          Commands.seek(nativeRef.current as never, seconds);
       },
     }),
     []

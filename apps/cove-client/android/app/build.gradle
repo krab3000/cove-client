@@ -98,12 +98,17 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
+            // -PcoveCleartext=true (below): a test build that reaches a LAN server over plain http:// as debug builds
+            // do (their network security config); store builds keep the main one.
             // Caution! In production, you need to generate your own keystore file.
             // see https://reactnative.dev/docs/signed-apk-android.
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
+    }
+    if (findProperty("coveCleartext") == "true") {
+        sourceSets.release.res.srcDirs += ["src/debug/res"] // debug's network_security_config.xml
     }
 }
 

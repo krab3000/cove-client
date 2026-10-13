@@ -65,6 +65,14 @@ class LibavCacheModule(private val context: ReactApplicationContext) : ReactCont
       ""
     }
 
+  /** The engine this build was made to play with (-PlibavEngine=mpv: "mpv"; else "libav"). */
+  @ReactMethod(isBlockingSynchronousMethod = true)
+  fun getDefaultEngine(): String = BuildConfig.DEFAULT_ENGINE
+
+  /** Whether LibavVideoView's engine "mpv" is in this build (debug builds ship libmpv.so). */
+  @ReactMethod(isBlockingSynchronousMethod = true)
+  fun isMpvAvailable(): Boolean = LibavEngines.mpvAvailable
+
   companion object {
     const val NAME = "LibavCache"
   }

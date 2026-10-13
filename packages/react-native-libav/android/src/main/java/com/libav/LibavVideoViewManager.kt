@@ -54,6 +54,10 @@ class LibavVideoViewManager : SimpleViewManager<LibavVideoView>(), LibavVideoVie
     view.cache = value
   }
 
+  override fun setEngine(view: LibavVideoView, value: String?) {
+    view.engine = value ?: "libav"
+  }
+
   override fun setInputOptions(view: LibavVideoView, value: String?) {
     view.inputOptions = value ?: ""
   }

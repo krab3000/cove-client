@@ -6,7 +6,7 @@
 #   /out       third_party/ffmpeg (mounted)
 # LGPL v3 build: MediaCodec hardware decoders (through the NDK AMediaCodec API or JNI), FFmpeg's software decoders as
 # the fallback, dav1d (BSD) for software AV1, and mbedTLS (Apache-2.0, hence --enable-version3) for https sources;
-# both linked statically.
+# both linked statically. libavfilter is built for libmpv (scripts/mpv-android); react-native-libav doesn't use it.
 set -euo pipefail
 
 API=24
@@ -88,7 +88,7 @@ PKG_CONFIG_LIBDIR=$PREFIX/lib/pkgconfig ./configure \
   --ar="$TOOLCHAIN/bin/llvm-ar" --nm="$TOOLCHAIN/bin/llvm-nm" --ranlib="$TOOLCHAIN/bin/llvm-ranlib" \
   --strip="$TOOLCHAIN/bin/llvm-strip" --pkg-config=pkg-config --pkg-config-flags=--static \
   --enable-shared --disable-static --enable-pic \
-  --disable-programs --disable-doc --disable-avdevice --disable-avfilter --disable-vulkan \
+  --disable-programs --disable-doc --disable-avdevice --disable-vulkan \
   --enable-jni --enable-mediacodec --enable-libdav1d --enable-mbedtls --enable-version3 \
   --extra-cflags="-I$PREFIX/include" --extra-ldflags="-L$PREFIX/lib -Wl,-z,max-page-size=16384"
 make -j"$(nproc)"
@@ -98,7 +98,8 @@ rm -rf "$OUT"
 mkdir -p "$OUT/lib"
 cp -r "$PREFIX/include" "$OUT/include"
 rm -rf "$OUT/include/dav1d" "$OUT/include/mbedtls" "$OUT/include/psa" "$OUT/include/everest"
-for lib in avformat avcodec avutil swresample swscale; do
+# libavfilter: for libmpv (scripts/mpv-android), packaged in debug builds only (android/build.gradle).
+for lib in avformat avcodec avutil swresample swscale avfilter; do
   cp "$PREFIX/lib/lib$lib.so" "$OUT/lib/"
   "$TOOLCHAIN/bin/llvm-strip" --strip-unneeded "$OUT/lib/lib$lib.so"
 done

@@ -56,8 +56,10 @@ clear_caches() {
   adb shell run-as "$PACKAGE" rm -rf cache/libav-http cache/libav-media cache/rnvlc-http cache/rnvlc-media
 }
 
-# Starts Cove and waits for the library (signed in).
+# Starts Cove and waits for the library (signed in). A debug build loads its JavaScript from Metro on this computer:
+# the device's port 8081 is forwarded here first (adb drops the forward when the device reconnects).
 start_cove() {
+  adb reverse tcp:8081 tcp:8081 >/dev/null 2>&1
   adb shell monkey -p "$PACKAGE" -c android.intent.category.LAUNCHER 1 >/dev/null 2>&1
   log "  starting Cove"
   wait_ui "Search videos" 90 >/dev/null || fail "the library did not appear within 90 s" || return 1

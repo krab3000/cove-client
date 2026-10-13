@@ -1,5 +1,5 @@
-// JNI side of com.libav.LibavPlayer: one NativePlayer per view, owning the shared engine's Player and the
-// window of the view's Surface. Player callbacks arrive on engine threads and are forwarded to the Kotlin object,
+// JNI side of com.libav.LibavPlayer: one NativePlayer per view, owning the engine playing (the shared engine's Player,
+// or MpvPlayer for the view's engine "mpv") and the view's Surface (its window, and a global reference for mpv). Player callbacks arrive on engine threads and are forwarded to the Kotlin object,
 // which posts them to the main thread.
 
 #include <android/log.h>
@@ -24,6 +24,7 @@ extern "C" {
 
 #include "AndroidVideoSink.h"
 #include "HttpCache.h"
+#include "MpvPlayer.h"
 #include "Platform.h"
 #include "Player.h"
 #include "Trace.h"
@@ -119,7 +120,8 @@ constexpr auto kDisposeWait = std::chrono::seconds(1);
 // Destroys a player on a thread of its own and waits for it at most kDisposeWait. A decoder stuck inside MediaCodec
 // (the emulator's c2.goldfish decoders never answer some calls) would otherwise block the main thread for good: an
 // ANR as soon as a view is removed. Past the wait, the player finishes, or stays stuck, on that thread.
-void Dispose(std::unique_ptr<Player> player) {
+template <typename Engine>
+void Dispose(std::unique_ptr<Engine> player) {
   if (!player)
     return;
   LIBAV_TRACE("dispose player (wait)");
@@ -140,15 +142,25 @@ void Dispose(std::unique_ptr<Player> player) {
 struct NativePlayer {
   std::shared_ptr<JavaListener> listener;
   ANativeWindow *window = nullptr;
+  jobject surface = nullptr; // global ref to the Surface: mpv's "wid"
   std::unique_ptr<Player> player;
+  std::unique_ptr<MpvPlayer> mpv;
   bool paused = false, muted = false, loop = false, tlsVerify = true;
   float volume = 1.0f;
 
-  void SetWindow(ANativeWindow *newWindow) {
+  void Stop() {
     Dispose(std::move(player)); // the decoder renders into the window: stop it first
+    Dispose(std::move(mpv));
+  }
+
+  void SetWindow(JNIEnv *env, jobject newSurface) {
+    Stop();
     if (window)
       ANativeWindow_release(window); // the sink holds its own reference while a disposed player winds down
-    window = newWindow;
+    if (surface)
+      env->DeleteGlobalRef(surface); // no mpv left using it (Stop waited, or gave up on a stuck one: see Dispose)
+    window = newSurface ? ANativeWindow_fromSurface(env, newSurface) : nullptr;
+    surface = newSurface ? env->NewGlobalRef(newSurface) : nullptr;
   }
 };
 
@@ -344,21 +356,21 @@ extern "C" JNIEXPORT jlong JNICALL Java_com_libav_LibavPlayer_nativeCreate(JNIEn
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeRelease(JNIEnv *, jobject, jlong handle) {
   NativePlayer *np = From(handle);
-  np->SetWindow(nullptr);
+  np->SetWindow(Env(), nullptr);
   delete np;
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetSurface(JNIEnv *env, jobject, jlong handle,
                                                                              jobject surface) {
-  From(handle)->SetWindow(surface ? ANativeWindow_fromSurface(env, surface) : nullptr);
+  From(handle)->SetWindow(env, surface);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeOpen(JNIEnv *env, jobject, jlong handle,
                                                                        jint generation, jbyteArray source,
                                                                        jboolean hardwareDecoding, jint audioTrack,
-                                                                       jbyteArray inputOptions) {
+                                                                       jbyteArray inputOptions, jboolean useMpv) {
   NativePlayer *np = From(handle);
-  Dispose(std::move(np->player));
+  np->Stop();
   if (!np->window)
     return;
 
@@ -384,20 +396,39 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeOpen(JNIEnv *
     e->DeleteLocalRef(text);
   };
 
+  std::string url = FromUtf8(env, source);
+  if (useMpv && MpvPlayer::Available()) {
+    np->mpv = std::make_unique<MpvPlayer>(int64_t(reinterpret_cast<intptr_t>(np->surface)),
+                                          ANativeWindow_getWidth(np->window), ANativeWindow_getHeight(np->window),
+                                          std::move(callbacks));
+    np->mpv->SetTlsVerify(np->tlsVerify);
+    np->mpv->SetLoop(np->loop);
+    np->mpv->SetByteSourceFactory(HttpSourceFactory(np->tlsVerify));
+    np->mpv->Open(std::move(url), hardwareDecoding, audioTrack);
+    np->mpv->SetPaused(np->paused);
+    np->mpv->SetMuted(np->muted);
+    np->mpv->SetVolume(np->volume);
+    return;
+  }
+  if (useMpv)
+    Log("mpv is not in this build: playing with libav");
   np->player = std::make_unique<Player>(std::make_shared<AndroidVideoSink>(np->window), std::move(callbacks));
   np->player->SetPaused(np->paused);
   np->player->SetMuted(np->muted);
   np->player->SetVolume(np->volume);
   np->player->SetLoop(np->loop);
   np->player->SetTlsVerify(np->tlsVerify);
-  std::string url = FromUtf8(env, source);
   np->player->SetInputOptions(InputOptions(FromUtf8(env, inputOptions), url));
   np->player->SetByteSourceFactory(HttpSourceFactory(np->tlsVerify));
   np->player->Open(std::move(url), hardwareDecoding, audioTrack);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeClose(JNIEnv *, jobject, jlong handle) {
-  Dispose(std::move(From(handle)->player));
+  From(handle)->Stop();
+}
+
+extern "C" JNIEXPORT jboolean JNICALL Java_com_libav_LibavEngines_nativeMpvAvailable(JNIEnv *, jclass) {
+  return MpvPlayer::Available();
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetPaused(JNIEnv *, jobject, jlong handle,
@@ -406,6 +437,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetPaused(JNI
   np->paused = paused;
   if (np->player)
     np->player->SetPaused(paused);
+  if (np->mpv)
+    np->mpv->SetPaused(paused);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetMuted(JNIEnv *, jobject, jlong handle,
@@ -414,6 +447,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetMuted(JNIE
   np->muted = muted;
   if (np->player)
     np->player->SetMuted(muted);
+  if (np->mpv)
+    np->mpv->SetMuted(muted);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetVolume(JNIEnv *, jobject, jlong handle,
@@ -422,6 +457,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetVolume(JNI
   np->volume = volume;
   if (np->player)
     np->player->SetVolume(volume);
+  if (np->mpv)
+    np->mpv->SetVolume(volume);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetLoop(JNIEnv *, jobject, jlong handle,
@@ -430,6 +467,8 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetLoop(JNIEn
   np->loop = loop;
   if (np->player)
     np->player->SetLoop(loop);
+  if (np->mpv)
+    np->mpv->SetLoop(loop);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetTlsVerify(JNIEnv *, jobject, jlong handle,
@@ -439,14 +478,20 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetTlsVerify(
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetAudioTrack(JNIEnv *, jobject, jlong handle,
                                                                                 jint index) {
-  if (NativePlayer *np = From(handle); np->player)
+  NativePlayer *np = From(handle);
+  if (np->player)
     np->player->SetAudioTrack(index);
+  if (np->mpv)
+    np->mpv->SetAudioTrack(index);
 }
 
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSeek(JNIEnv *, jobject, jlong handle,
                                                                        jdouble seconds) {
-  if (NativePlayer *np = From(handle); np->player)
+  NativePlayer *np = From(handle);
+  if (np->player)
     np->player->Seek(seconds);
+  if (np->mpv)
+    np->mpv->Seek(seconds);
 }
 
 // com.libav.HttpFetch's natives: the C++ HTTP cache's platform facts, settings and state.

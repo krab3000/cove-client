@@ -2,7 +2,7 @@
 # The A/B matrix: each engine × video × start (fresh/resume) × cache state, N runs each, one trace per run into
 # out/<session>/<engine>-<video>-<start>-<cache>-<n>.perfetto-trace. One log line per step (follow it with tail -f).
 #
-#   run-matrix.sh [-e "libav vlc"] [-v "75 60"] [-s "fresh resume"] [-c "cold warm"] [-n 5] [-o out/<session>]
+#   run-matrix.sh [-e "libav vlc mpv"] [-v "75 60"] [-s "fresh resume"] [-c "cold warm"] [-n 5] [-o out/<session>]
 #
 # Warm: a first, unrecorded run fills the engine's disk cache, the runs after it restart Cove and keep it (libVLC's:
 # react-native-vlc's byte cache; with debug.libav.vlc_cache=off it has none, and warm is like cold). The engine is switched with debug.libav.player (debug builds) and cleared at the
@@ -24,7 +24,7 @@ trap 'adb shell setprop debug.libav.player "\"\""' EXIT
 
 failed=0
 for engine in $engines; do
-  adb shell setprop debug.libav.player "$([ "$engine" = vlc ] && echo vlc || echo '""')"
+  adb shell setprop debug.libav.player "$([ "$engine" = libav ] && echo '""' || echo "$engine")"
   log "=== engine $engine"
   for video in $videos; do
     for start in $starts; do

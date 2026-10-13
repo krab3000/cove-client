@@ -42,9 +42,10 @@ cpu as (
   where s.ts between (select ts from tap) and (select ts from tap) + 5e9
 ),
 lib as (select name, min(ts) ts, sum(dur) dur, count(*) n from slice where category = 'libav' group by name),
-vlc as (select name, ts, dur from slice where name like 'vlc open → %')
+vlc as (select name, ts, dur from slice where name like 'vlc open → %'),
+mpv as (select name, ts, dur from slice where name like 'mpv open → %')
 select
-  case when exists (select 1 from vlc) then 'vlc' else 'libav' end engine,
+  case when exists (select 1 from vlc) then 'vlc' when exists (select 1 from mpv) then 'mpv' else 'libav' end engine,
   -- More than one: something else pressed too (the run is left out of the report).
   (select count(*) from slice where name like 'tap %') taps,
   round(((select ts from first_frame) - (select ts from tap)) / 1e6, 1) on_screen_ms,
@@ -63,4 +64,7 @@ select
   round((select dur from lib where name = 'avcodec_open2') / 1e6, 1) libav_codec_open_ms,
   round((select dur from vlc where name like '%→ playing%') / 1e6, 1) vlc_open_playing_ms,
   round((select dur from vlc where name like '%→ vout%') / 1e6, 1) vlc_open_vout_ms,
-  round((select dur from vlc where name like '%→ first time%') / 1e6, 1) vlc_open_first_time_ms;
+  round((select dur from vlc where name like '%→ first time%') / 1e6, 1) vlc_open_first_time_ms,
+  round((select dur from mpv where name like '%→ file-loaded%') / 1e6, 1) mpv_open_loaded_ms,
+  round((select dur from mpv where name like '%→ video-reconfig%') / 1e6, 1) mpv_open_vconfig_ms,
+  round((select dur from mpv where name like '%→ playback-restart%') / 1e6, 1) mpv_open_restart_ms;

@@ -54,8 +54,17 @@ buffers { size_kb: 4096 fill_policy: RING_BUFFER }
 data_sources {
   config {
     name: \"track_event\"
-    track_event_config { enabled_categories: \"*\" }
+    track_event_config {
+      enabled_categories: \"*\"
+      enabled_categories: \"app\"
+      enabled_categories: \"libav\"
+      enabled_categories: \"native\"
+    }
   }
+  # The app's own events only: other apps' (Chromium-based ones register track_event too) bloat the trace, and one
+  # slow to answer the final flush makes the service give up waiting, losing what sits uncommitted in the app's
+  # thread buffers (JavaScript's events among them).
+  producer_name_filter: \"$package\"
 }
 data_sources {
   config {

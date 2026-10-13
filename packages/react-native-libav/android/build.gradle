@@ -43,6 +43,12 @@ def rnTrace = rootProject.findProject(":rn-trace")
 def ffmpegAbis = ["arm64-v8a"]
 def ffmpegDir = file("../third_party/ffmpeg")
 def ffmpegJniLibs = new File(buildDir, "ffmpeg-jniLibs")
+// libmpv (scripts/mpv-android: third_party/mpv) and the libavfilter it needs: debug builds only (the engine "mpv",
+// loaded at run time; release builds have libav alone). Skipped when third_party/mpv has no build.
+def mpvDir = file("../third_party/mpv")
+// -PlibavEngine=mpv: mpv in release builds too, as the default engine (LibavCacheModule.getDefaultEngine).
+def defaultEngine = (rootProject.findProperty("libavEngine") ?: "libav").toString()
+def mpvJniLibs = new File(buildDir, "mpv-jniLibs")
 
 android {
   namespace "com.libav"
@@ -55,6 +61,7 @@ android {
     ndk {
       abiFilters(*ffmpegAbis)
     }
+    buildConfigField "String", "DEFAULT_ENGINE", "\"${defaultEngine}\""
     externalNativeBuild {
       cmake {
         arguments "-DANDROID_STL=c++_shared", "-DLIBAV_RNTRACE=${rnTrace != null ? 'ON' : 'OFF'}"
@@ -64,6 +71,7 @@ android {
 
   buildFeatures {
     prefab rnTrace != null
+    buildConfig true
   }
 
   externalNativeBuild {
@@ -77,6 +85,14 @@ android {
     main {
       jniLibs.srcDirs += [ffmpegJniLibs]
     }
+    debug {
+      jniLibs.srcDirs += [mpvJniLibs]
+    }
+    if (defaultEngine == "mpv") {
+      release {
+        jniLibs.srcDirs += [mpvJniLibs]
+      }
+    }
   }
 
   compileOptions {
@@ -89,6 +105,7 @@ tasks.register("copyFFmpegLibs", Copy) {
   ffmpegAbis.each { abi ->
     from(new File(ffmpegDir, "android-${abi}/lib")) {
       include "*.so"
+      exclude "libavfilter.so" // libmpv's (copyMpvLibs)
       into abi
     }
   }
@@ -102,6 +119,23 @@ tasks.register("copyFFmpegLibs", Copy) {
   }
 }
 preBuild.dependsOn "copyFFmpegLibs"
+
+tasks.register("copyMpvLibs", Copy) {
+  ffmpegAbis.each { abi ->
+    if (new File(mpvDir, "android-${abi}/lib/libmpv.so").exists()) {
+      from(new File(mpvDir, "android-${abi}/lib")) {
+        include "libmpv.so"
+        into abi
+      }
+      from(new File(ffmpegDir, "android-${abi}/lib")) {
+        include "libavfilter.so"
+        into abi
+      }
+    }
+  }
+  into mpvJniLibs
+}
+preBuild.dependsOn "copyMpvLibs"
 
 dependencies {
   implementation "com.facebook.react:react-android"

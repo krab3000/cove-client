@@ -17,7 +17,14 @@ stop_cove
 [ "$cache" = cold ] && clear_caches
 clear_crashes
 start_cove || exit 1
-wait_ui "View: Feed" 10 >/dev/null || { fail "$label: not the feed view"; exit 1; }
+# The feed view (the view menu: Grid, Dense grid, Feed), whichever Cove remembered.
+if ! wait_ui "View: Feed" 5 >/dev/null; then
+  xy=$(wait_ui "View: " 10) || { fail "$label: no view menu"; exit 1; }
+  adb shell input tap $xy
+  xy=$(wait_ui ", Feed" 5) || { fail "$label: no Feed in the view menu"; exit 1; }
+  adb shell input tap $xy
+  wait_ui "View: Feed" 5 >/dev/null || { fail "$label: not the feed view"; exit 1; }
+fi
 sleep 3
 seconds=$(python3 -c "print(int($cards * ($rest + 0.6) + 6))")
 "$REPO_DIR/packages/rn-trace/scripts/perfetto-trace.sh" -t "$seconds" -o "$out" >/dev/null 2>"$out.log" &

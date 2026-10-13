@@ -29,11 +29,12 @@ internal class LibavPlayer(private val listener: Listener) {
     nativeSetSurface(handle, surface)
   }
 
-  fun open(source: String, hardwareDecoding: Boolean, audioTrack: Int, inputOptions: String) {
+  /** mpv: play with libmpv (MpvPlayer) instead of the shared engine, where this build has it (LibavEngines). */
+  fun open(source: String, hardwareDecoding: Boolean, audioTrack: Int, inputOptions: String, mpv: Boolean = false) {
     generation++
     nativeOpen(
       handle, generation, source.toByteArray(Charsets.UTF_8), hardwareDecoding, audioTrack,
-      inputOptions.toByteArray(Charsets.UTF_8),
+      inputOptions.toByteArray(Charsets.UTF_8), mpv,
     )
   }
 
@@ -95,6 +96,7 @@ internal class LibavPlayer(private val listener: Listener) {
     hardwareDecoding: Boolean,
     audioTrack: Int,
     inputOptions: ByteArray,
+    mpv: Boolean,
   )
   private external fun nativeClose(handle: Long)
   private external fun nativeSetPaused(handle: Long, paused: Boolean)
@@ -110,4 +112,15 @@ internal class LibavPlayer(private val listener: Listener) {
       System.loadLibrary("reactnativelibav")
     }
   }
+}
+
+/** The engines a LibavVideoView can play with: libav always; mpv where this build ships libmpv.so (debug builds). */
+object LibavEngines {
+  init {
+    System.loadLibrary("reactnativelibav")
+  }
+
+  val mpvAvailable: Boolean by lazy { nativeMpvAvailable() }
+
+  @JvmStatic private external fun nativeMpvAvailable(): Boolean
 }

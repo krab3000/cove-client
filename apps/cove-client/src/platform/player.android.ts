@@ -1,9 +1,11 @@
-import type { ComponentType } from 'react';
+import { createElement, type ComponentType } from 'react';
 import {
   clearHttpCache,
   configureHttpCache,
+  defaultEngine,
   getDebugProperty,
   LibavVideoView,
+  mpvAvailable,
   prefetchMedia as libavPrefetchMedia,
   onHttpAuthorizationNeeded,
   setHttpAuthorization,
@@ -19,11 +21,21 @@ import {
 import { setMediaUrlTokens, type CoveClient } from '../api/cove';
 
 /**
- * The A/B engine switch, debug builds only (react-native.config.js links libVLC into debug APKs):
- * adb shell setprop debug.libav.player vlc, then restart Cove. libVLC streams through react-native-vlc's byte cache,
- * which sends the header; with that cache off (debug.libav.vlc_cache off) libVLC loads bare URLs: they carry the JWT.
+ * The A/B engine switch, debug builds only: adb shell setprop debug.libav.player vlc|mpv, then restart Cove.
+ *   vlc  react-native-vlc (react-native.config.js links libVLC into debug APKs)
+ *   mpv  react-native-libav's view with its engine "mpv" (debug builds ship libmpv), on the same cache as libav
+ * libVLC streams through react-native-vlc's byte cache, which sends the header; with that cache off
+ * (debug.libav.vlc_cache off) libVLC loads bare URLs: they carry the JWT.
  */
 const USE_VLC = __DEV__ && getDebugProperty('player') === 'vlc';
+// A build made with mpv as its engine (-PlibavEngine=mpv: release builds too) plays with it unless the switch says
+// otherwise.
+const USE_MPV =
+  !USE_VLC &&
+  mpvAvailable() &&
+  (__DEV__ && getDebugProperty('player')
+    ? getDebugProperty('player') === 'mpv'
+    : defaultEngine() === 'mpv');
 if (USE_VLC && getDebugProperty('vlc_cache') === 'off') setMediaUrlTokens(true);
 
 /**
@@ -79,9 +91,14 @@ type VlcOnlyProps = {
   demux?: string;
 };
 
+/** LibavVideoView playing with libmpv. */
+function MpvVideoView(props: LibavVideoViewProps) {
+  return createElement(LibavVideoView, { ...props, engine: 'mpv' });
+}
+
 /** The video player on Android: libav (FFmpeg, MediaCodec). Windows keeps libVLC (player.ts). */
 export const VideoView = (
-  USE_VLC ? VlcVideoView : LibavVideoView
+  USE_VLC ? VlcVideoView : USE_MPV ? MpvVideoView : LibavVideoView
 ) as ComponentType<LibavVideoViewProps & VlcOnlyProps>;
 
-export const playerEngine = USE_VLC ? 'VLC' : 'libav';
+export const playerEngine = USE_VLC ? 'VLC' : USE_MPV ? 'mpv' : 'libav';

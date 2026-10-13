@@ -81,6 +81,11 @@ export interface NativeProps extends ViewProps {
    * added for http(s) sources and wins (for trying options without a rebuild). Ignored on Windows.
    */
   inputOptions?: string;
+  /**
+   * The engine: 'libav' (the default: this package's FFmpeg player) or 'mpv' (libmpv, where the build has it: debug
+   * builds; elsewhere libav plays). Both read http(s) sources through the same RAM/disk cache. Reopens the source.
+   */
+  engine?: string;
   onLoad?: CodegenTypes.DirectEventHandler<LoadEvent>;
   onProgress?: CodegenTypes.DirectEventHandler<ProgressEvent>;
   /** A seek finished: the frame at currentTime is on screen. */

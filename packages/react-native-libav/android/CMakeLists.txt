@@ -29,6 +29,16 @@ endforeach()
 
 target_link_libraries(reactnativelibav aaudio android log mediandk nativewindow)
 
+# The mpv engine (cpp/MpvPlayer.cpp) when libmpv's headers are there (scripts/mpv-android: third_party/mpv). libmpv.so
+# itself is loaded at run time (dlopen): debug builds package it, release builds don't (see build.gradle).
+set(MPV_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/mpv/android-${ANDROID_ABI})
+if(EXISTS ${MPV_DIR}/include/mpv/client.h)
+  target_include_directories(reactnativelibav PRIVATE ${MPV_DIR}/include)
+  target_compile_definitions(reactnativelibav PRIVATE LIBAV_MPV)
+  target_link_libraries(reactnativelibav dl)
+  message(STATUS "libav: mpv engine (libmpv loaded at run time)")
+endif()
+
 # Trace points (cpp/Trace.h) through rn-trace, the process's one tracer, when the app has it (android/build.gradle
 # passes LIBAV_RNTRACE and brings its Prefab package).
 if(LIBAV_RNTRACE)
