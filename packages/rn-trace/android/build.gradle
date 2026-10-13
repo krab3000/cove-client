@@ -73,7 +73,7 @@ android {
     }
   }
 
-  // librntrace and its headers for other native libraries (react-native-libav, the app's TurboModule):
+  // librntrace and its headers for other native libraries (react-native-mpv, the app's TurboModule):
   // buildFeatures.prefab and find_package(rn-trace CONFIG) / rn-trace::rntrace on their side.
   buildFeatures {
     prefabPublishing true

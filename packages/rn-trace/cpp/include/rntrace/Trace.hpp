@@ -3,7 +3,7 @@
 // C++ conveniences over rntrace.h: a category handle, an RAII span, and macros that compile to nothing with
 // RNTRACE_DISABLED defined.
 //
-//   static const rntrace::Category kCategory("libav");
+//   static const rntrace::Category kCategory("mpv");
 //   RNTRACE_SCOPE(kCategory, "decode packet");                 // until the end of the scope
 //   RNTRACE_SCOPE(kCategory, "decode packet", "size", 4096);   // with an argument
 //   RNTRACE_COUNTER(kCategory, "frames queued", 3, track);

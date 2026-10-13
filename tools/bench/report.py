@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""metrics.csv (metrics.sh) to report.md: per cell (engine, video, start, cache) the median, min and max of each
-number over its runs, and libav against VLC per cold cell.
+"""metrics.csv (metrics.sh) to report.md: per cell (video, start, cache) the median, min and max of each number
+over its runs.
 
   report.py <out/session>
 """
@@ -23,7 +23,7 @@ def num(v):
 
 cells = defaultdict(list)
 for r in rows:
-    cells[(r["engine"], r["video"], r["start"], r["cache"])].append(r)
+    cells[(r["video"], r["start"], r["cache"])].append(r)
 
 def stat(rs, key):
     v = sorted(x for x in (num(r[key]) for r in rs) if x is not None)
@@ -37,7 +37,7 @@ def fmt(s, unit=""):
     med, lo, hi, n = s
     return f"**{med:.0f}**{unit} ({lo:.0f}–{hi:.0f})"
 
-out = [f"# A/B: libav vs libVLC, Cove on Android ({d.name})", "",
+out = [f"# Player benchmark: mpv, Cove on Android ({d.name})", "",
        "Median per cell, (min–max) over its runs. Times in ms from the tap (JS handled it). *On screen*: the player's "
        "first buffer reaching SurfaceFlinger. *Resume*: Cove starts at 0 and seeks to 5:00; *seek done* is the "
        "player's onSeek, *on screen after seek* the first frame after it. *Steady playback*: the first frame after the "
@@ -49,7 +49,7 @@ if excluded:
 
 for video in ["75", "60"]:
     for start in ["fresh", "resume"]:
-        keys = [k for k in cells if k[1] == video and k[2] == start]
+        keys = sorted(k for k in cells if k[0] == video and k[1] == start)
         if not keys:
             continue
         out += [f"## {VIDEOS.get(video, video)}, {start}", ""]
@@ -62,24 +62,16 @@ for video in ["75", "60"]:
                  "seek_done_ms": "seek done", "on_screen_after_seek_ms": "on screen after seek", "steady_ms": "steady playback",
                  "frames_5s": "frames/5 s", "max_frame_gap_ms": "max gap", "app_cpu_ms_5s": "app CPU",
                  "codec_cpu_ms_5s": "codec CPU"}
-        out.append("| engine, cache | runs | " + " | ".join(names[c] for c in cols) + " |")
+        out.append("| cache | runs | " + " | ".join(names[c] for c in cols) + " |")
         out.append("|---|---|" + "---|" * len(cols))
-        for k in sorted(keys, key=lambda k: (k[0], k[3])):
+        for k in keys:
             rs = cells[k]
-            out.append(f"| {k[0]}, {k[3]} | {len(rs)} | " + " | ".join(fmt(stat(rs, c)) for c in cols) + " |")
-        a, b = cells.get(("libav", video, start, "cold")), cells.get(("vlc", video, start, "cold"))
-        key = "steady_ms" if start == "resume" else "on_screen_ms"
-        if a and b and stat(a, key) and stat(b, key):
-            la, lb = stat(a, key)[0], stat(b, key)[0]
-            out += ["", f"Cold, {names[key]}: libav {la:.0f} ms vs VLC {lb:.0f} ms: "
-                    f"libav {'faster' if la < lb else 'slower'} by {abs(lb - la):.0f} ms ({abs(lb - la) / lb * 100:.0f}%)."]
-        lib = [k for k in keys if k[0] == "libav"]
-        detail = ["libav_startup_ms", "libav_http_ms", "libav_http_n", "libav_disk_n", "libav_codec_open_ms"]
-        vdetail = ["vlc_open_vout_ms", "vlc_open_playing_ms", "vlc_open_first_time_ms"]
-        out += ["", "| breakdown | " + " | ".join(f"{k[0]}, {k[3]}" for k in sorted(keys, key=lambda k: (k[0], k[3]))) + " |",
-                "|---|" + "---|" * len(keys)]
-        for c in detail + vdetail:
-            out.append(f"| {c} | " + " | ".join(fmt(stat(cells[k], c)) for k in sorted(keys, key=lambda k: (k[0], k[3]))) + " |")
+            out.append(f"| {k[2]} | {len(rs)} | " + " | ".join(fmt(stat(rs, c)) for c in cols) + " |")
+        detail = ["mpv_open_loaded_ms", "mpv_open_vconfig_ms", "mpv_open_restart_ms", "http_fetch_ms", "http_fetch_n",
+                  "disk_read_n"]
+        out += ["", "| breakdown | " + " | ".join(k[2] for k in keys) + " |", "|---|" + "---|" * len(keys)]
+        for c in detail:
+            out.append(f"| {c} | " + " | ".join(fmt(stat(cells[k], c)) for k in keys) + " |")
         out.append("")
 
 (d / "report.md").write_text("\n".join(out) + "\n")

@@ -5,9 +5,9 @@
 #   run.sh <video id> <fresh|resume> <cold|warm> <trace file> [seconds]
 #
 # Before the tap: the server's resume position is set (fresh: 0, the player starts at the beginning; resume: 5:00,
-# the player starts and seeks there); cold clears Cove's caches (warm keeps libav's disk cache from the run before);
-# Cove is restarted and the video searched. The trace (default 15 s) starts 2 s before the tap. The engine is
-# whatever Cove runs with (run-matrix.sh switches it). Exit 0 on success; one log line per step.
+# the player starts and seeks there); cold clears Cove's caches (warm keeps the player's disk cache from the run
+# before); Cove is restarted and the video searched. The trace (default 15 s) starts 2 s before the tap. Exit 0 on
+# success; one log line per step.
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 

@@ -1,5 +1,5 @@
 {
-  "name": "react-native-libav-monorepo",
+  "name": "react-native-mpv-monorepo",
   "private": true,
   "workspaces": [
     "packages/*",
@@ -7,21 +7,18 @@
   ],
   "packageManager": "yarn@4.11.0",
   "scripts": {
-    "windows": "yarn workspace react-native-libav-example-windows windows",
-    "android": "yarn workspace react-native-libav-example-android android",
-    "start:windows": "yarn workspace react-native-libav-example-windows start",
-    "start:android": "yarn workspace react-native-libav-example-android start",
-    "fetch-ffmpeg": "yarn workspace react-native-libav fetch-ffmpeg",
-    "fetch-libvlc": "yarn workspace react-native-vlc fetch-libvlc",
-    "build-ffmpeg-android": "yarn workspace react-native-libav build-ffmpeg-android",
+    "android": "yarn workspace mpv-test android",
+    "start:test": "yarn workspace mpv-test start",
+    "build-mpv-android": "yarn workspace react-native-mpv build-mpv-android",
+    "test-cache": "yarn workspace react-native-mpv test-cache",
     "setup-android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-android-toolchain.ps1",
     "make-test-media": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-test-media.ps1",
-    "typecheck": "yarn workspace react-native-libav typecheck && yarn workspace react-native-vlc typecheck && yarn workspace react-native-libav-example-ui typecheck && yarn workspace react-native-libav-cove-client typecheck",
+    "typecheck": "yarn workspace react-native-mpv typecheck && yarn workspace rn-trace typecheck && yarn workspace react-native-mpv-cove-client typecheck && yarn workspace mpv-test typecheck",
     "lint": "eslint \"**/*.{js,ts,tsx}\"",
-    "cove:windows": "yarn workspace react-native-libav-cove-client windows",
-    "start:cove": "yarn workspace react-native-libav-cove-client start",
-    "cove:android": "yarn workspace react-native-libav-cove-client android",
-    "cove:server": "yarn workspace react-native-libav-cove-client test-server"
+    "cove:windows": "yarn workspace react-native-mpv-cove-client windows",
+    "start:cove": "yarn workspace react-native-mpv-cove-client start",
+    "cove:android": "yarn workspace react-native-mpv-cove-client android",
+    "cove:server": "yarn workspace react-native-mpv-cove-client test-server"
   },
   "devDependencies": {
     "@eslint/compat": "^2.1.0",

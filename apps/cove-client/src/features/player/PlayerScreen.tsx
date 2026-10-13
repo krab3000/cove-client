@@ -681,7 +681,6 @@ export function PlayerScreen({
           ref={player}
           style={StyleSheet.absoluteFill}
           source={client.streamUrl(video)}
-          demux={client.streamDemux(video)}
           paused={paused}
           muted={muted}
           volume={volume}
@@ -690,8 +689,6 @@ export function PlayerScreen({
           // Behind TLS-inspecting antivirus (Windows) or with a CA the user installed (Android), the player's own
           // TLS check fails; the app's fetch already checked this server at login.
           tlsVerify={false}
-          // Android: a hardware overlay, no GPU copy of every (4K) frame.
-          overlay
           onLoad={(e) => {
             setInfo(e.nativeEvent);
             if (clipStart > 0) player.current?.seek(clipStart);

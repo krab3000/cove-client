@@ -13,7 +13,7 @@ export interface Playing {
 /** What the player shows over the Library, if anything. The videos stay plain objects (ref), not proxies. */
 export const player = proxy({ playing: null as Playing | null });
 
-// Trace (rn-trace, category "app"): from play() to the first frame on screen, next to libav's own spans.
+// Trace (rn-trace, category "app"): from play() to the first frame on screen, next to the player's own spans.
 let startSpan: number | null = null;
 
 function endStartSpan() {

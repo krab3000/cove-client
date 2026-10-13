@@ -3,16 +3,11 @@
 #include "pch.h"
 #include "AutolinkedNativeModules.g.h"
 
-// Includes from react-native-vlc
-#include <winrt/ReactNativeVlc.h>
-
 namespace winrt::Microsoft::ReactNative
 {
 
 void RegisterAutolinkedNativeModulePackages(winrt::Windows::Foundation::Collections::IVector<winrt::Microsoft::ReactNative::IReactPackageProvider> const& packageProviders)
 { 
-    // IReactPackageProviders from react-native-vlc
-    packageProviders.Append(winrt::ReactNativeVlc::ReactPackageProvider());
 }
 
 }

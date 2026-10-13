@@ -24,6 +24,6 @@ export default defineConfig([
     },
   },
   {
-    ignores: ['**/node_modules/', '**/lib/', '**/windows/', '**/android/', '**/third_party/', '**/codegen/'],
+    ignores: ['**/node_modules/', '**/lib/', '**/windows/', '**/android/', '**/third_party/', '**/codegen/', '**/test-server/media/'],
   },
 ]);

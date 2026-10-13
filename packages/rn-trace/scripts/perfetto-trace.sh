@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Records a Perfetto system trace on an Android device, streamed over adb straight into a file on this computer (no
 # file on the device): rn-trace's events (categories "app" from
-# JavaScript, "libav" from react-native-libav, "native" and others; librntrace built with its backend: a debug build
+# JavaScript, "mpv" from react-native-mpv, "native" and others; librntrace built with its backend: a debug build
 # with the SDK from scripts/fetch-perfetto.sh), the app's android.os.Trace sections, thread scheduling and CPU
 # frequency, SurfaceFlinger's frame timeline (Android 12+: each frame's expected and actual presentation, jank), and the
 # system's graphics, input, video (MediaCodec) and window manager trace points. Open the file at
@@ -57,7 +57,7 @@ data_sources {
     track_event_config {
       enabled_categories: \"*\"
       enabled_categories: \"app\"
-      enabled_categories: \"libav\"
+      enabled_categories: \"mpv\"
       enabled_categories: \"native\"
     }
   }

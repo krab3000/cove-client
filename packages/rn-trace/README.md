@@ -7,7 +7,7 @@ stream, MediaCodec, SurfaceFlinger.
 - **`librntrace`**: a shared library with a plain C API (`cpp/include/rntrace/rntrace.h`, plus C++ helpers in
   `rntrace/Trace.hpp`). Native libraries link it: on Android through Prefab (`buildFeatures.prefab true`,
   `implementation project(':rn-trace')`, then `find_package(rn-trace CONFIG)` / `rn-trace::rntrace` in CMake).
-  react-native-libav does this when the app has rn-trace.
+  react-native-mpv does this when the app has rn-trace.
 - **The `RnTrace` TurboModule** (C++, autolinked) for JavaScript: category `app`.
 
 ```ts

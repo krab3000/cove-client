@@ -1,23 +1,43 @@
-import { VlcVideoView } from 'react-native-vlc';
+import { createElement } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import type { MpvVideoViewProps } from 'react-native-mpv';
 import type { CoveClient } from '../api/cove';
 
 /**
- * Windows: nothing to bind. libVLC and images load bare URLs, so media URLs carry the current JWT (CoveClient's
- * mediaAuth). A URL made before a renewal stops working once that token expires (15 minutes): seeking late in a long
- * video can be refused.
+ * Platforms without a player yet (Windows: mpv comes there later, see TODO.md). Same exports as player.android.ts,
+ * so the screens compile and run unchanged; VideoView shows a notice instead of the video.
  */
+
+export type {
+  MpvVideoViewHandle as VideoViewHandle,
+  LoadEvent,
+} from 'react-native-mpv';
+
 export function bindMediaAuth(_client: CoveClient): () => void {
   return () => {};
 }
 
-export { prefetchMedia } from 'react-native-vlc';
+export function prefetchMedia(_urls: string[]): void {}
 
-export type {
-  VlcVideoViewHandle as VideoViewHandle,
-  LoadEvent,
-} from 'react-native-vlc';
+export function VideoView({ style }: MpvVideoViewProps) {
+  return createElement(
+    View,
+    { style: [styles.box, style] },
+    createElement(
+      Text,
+      { style: styles.text },
+      "Playback isn't available on this platform yet"
+    )
+  );
+}
 
-/** The video player: libVLC, on Windows and Android. */
-export const VideoView = VlcVideoView;
+export const playerEngine = 'none';
 
-export const playerEngine = 'VLC';
+const styles = StyleSheet.create({
+  box: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000',
+  },
+  text: { color: '#aaa', fontSize: 14 },
+});

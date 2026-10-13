@@ -9,10 +9,10 @@ csv="$dir/metrics.csv"
 header=""
 rows=""
 for trace in "$dir"/*.perfetto-trace; do
-  name=$(basename "$trace" .perfetto-trace) # engine-video-start-cache-n
+  name=$(basename "$trace" .perfetto-trace) # video-start-cache-n
   out=$("$tp" -q "$here/metrics.sql" "$trace" 2>/dev/null) || { echo "metrics failed: $name" >&2; continue; }
   [ -n "$header" ] || header="run,video,start,cache,$(echo "$out" | head -1 | tr -d '"')"
-  IFS=- read -r _ video start cache _ <<<"$name"
+  IFS=- read -r video start cache _ <<<"$name"
   rows+="$name,$video,$start,$cache,$(echo "$out" | sed -n 2p | tr -d '"' | sed 's/\[NULL\]//g')"$'\n'
 done
 { echo "$header"; printf '%s' "$rows"; } >"$csv"

@@ -4,8 +4,7 @@ const { getDefaultConfig } = require('@react-native/metro-config');
 const { withMetroConfig } = require('react-native-monorepo-config');
 
 const root = path.resolve(__dirname, '../..');
-const library = path.join(root, 'packages', 'react-native-libav');
-const vlc = path.join(root, 'packages', 'react-native-vlc');
+const library = path.join(root, 'packages', 'react-native-mpv');
 const rnwPath = fs.realpathSync(
   path.dirname(require.resolve('react-native-windows/package.json'))
 );
@@ -27,7 +26,7 @@ const under = (dir) =>
 const config = withMetroConfig(getDefaultConfig(__dirname), {
   root,
   dirname: __dirname,
-  conditions: ['react-native-libav-source', 'react-native-vlc-source'],
+  conditions: ['react-native-mpv-source'],
 });
 
 // Keep Metro out of the native build trees: run-windows would otherwise crash a running Metro, or hit EBUSY on
@@ -37,13 +36,9 @@ config.resolver.blockList = [
   ...(Array.isArray(existing) ? existing : existing ? [existing] : []),
   under(path.resolve(__dirname, 'windows')),
   under(path.resolve(__dirname, 'android')),
-  under(path.join(library, 'windows')),
   under(path.join(library, 'android')),
   under(path.join(library, 'third_party')),
-  under(path.join(vlc, 'windows')),
-  under(path.join(vlc, 'third_party')),
-  under(path.join(root, 'apps', 'example-android')),
-  under(path.join(root, 'apps', 'example-windows')),
+  under(path.join(root, 'apps', 'mpv-test', 'android')),
   under(path.join(rnwPath, 'build')),
   under(path.join(rnwPath, 'target')),
   /.*\.ProjectImports\.zip/,

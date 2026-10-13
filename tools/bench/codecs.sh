@@ -11,8 +11,8 @@ prefix=${1:-Exotic}
 seconds=${2:-8}
 out="$BENCH_DIR/out/codecs-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$out"
-adb shell setprop debug.libav.mpv_log v
-trap 'adb shell setprop debug.libav.mpv_log "\"\""' EXIT
+adb shell setprop debug.mpv.log v
+trap 'adb shell setprop debug.mpv.log "\"\""' EXIT
 
 # The list on fd 3: adb and others read standard input and would swallow it.
 while IFS=$'\t' read -r id name <&3; do
@@ -29,7 +29,7 @@ while IFS=$'\t' read -r id name <&3; do
   adb shell input tap $xy
   sleep "$seconds"
   adb exec-out screencap -p > "$out/$slug.png"
-  adb logcat -d -s 'libav:*' 'mpv:*' 'LibavHttp:*' 'LibavStartup:*' 'ReactNativeJS:*' > "$out/$slug.log"
+  adb logcat -d -s 'MpvPlayer:*' 'mpv:*' 'MpvHttp:*' 'MpvStartup:*' 'ReactNativeJS:*' > "$out/$slug.log"
   ui | grep -iE "error|cannot|can't|unsupported|failed" | head -3 > "$out/$slug.ui"
   adb shell input keyevent 4
   # Summary: started (mpv's first frame), decoder, hardware/software, VO, errors.

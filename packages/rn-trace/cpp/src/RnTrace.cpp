@@ -18,12 +18,12 @@
 #endif
 
 PERFETTO_DEFINE_CATEGORIES(perfetto::Category("app").SetDescription("the app's JavaScript (RnTrace module)"),
-                           perfetto::Category("libav").SetDescription("react-native-libav: player engine, HTTP cache"),
+                           perfetto::Category("mpv").SetDescription("react-native-mpv: the player, HTTP cache"),
                            perfetto::Category("native").SetDescription("other native code"));
 PERFETTO_TRACK_EVENT_STATIC_STORAGE();
 
 struct rntrace_category {
-  int kind; // 0 app, 1 libav, 2 native (Perfetto's macros need categories known at compile time: other names go there)
+  int kind; // 0 app, 1 mpv, 2 native (Perfetto's macros need categories known at compile time: other names go there)
   std::string name;
 };
 
@@ -47,7 +47,7 @@ void Ensure() {
 #define RNTRACE_WITH(category, MACRO, ...)                                                                          \
   switch ((category)->kind) {                                                                                       \
     case 0: MACRO("app", __VA_ARGS__); break;                                                                       \
-    case 1: MACRO("libav", __VA_ARGS__); break;                                                                     \
+    case 1: MACRO("mpv", __VA_ARGS__); break;                                                                       \
     default: MACRO("native", __VA_ARGS__); break;                                                                   \
   }
 
@@ -72,14 +72,14 @@ const rntrace_category *rntrace_category_get(const char *name) {
   std::lock_guard lock(mutex);
   auto &slot = (*categories)[key];
   if (!slot)
-    slot = new rntrace_category{key == "app" ? 0 : key == "libav" ? 1 : 2, key};
+    slot = new rntrace_category{key == "app" ? 0 : key == "mpv" ? 1 : 2, key};
   return slot;
 }
 
 int rntrace_enabled(const rntrace_category *c) {
   switch (c->kind) {
     case 0: return TRACE_EVENT_CATEGORY_ENABLED("app");
-    case 1: return TRACE_EVENT_CATEGORY_ENABLED("libav");
+    case 1: return TRACE_EVENT_CATEGORY_ENABLED("mpv");
     default: return TRACE_EVENT_CATEGORY_ENABLED("native");
   }
 }
@@ -109,7 +109,7 @@ void rntrace_begin_str(const rntrace_category *c, const char *name, const char *
 void rntrace_end(const rntrace_category *c) {
   switch (c->kind) {
     case 0: TRACE_EVENT_END("app"); break;
-    case 1: TRACE_EVENT_END("libav"); break;
+    case 1: TRACE_EVENT_END("mpv"); break;
     default: TRACE_EVENT_END("native"); break;
   }
 }

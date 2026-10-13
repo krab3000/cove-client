@@ -1,7 +1,7 @@
 /*
  * rn-trace: one tracer per process for native code and JavaScript (through the RnTrace TurboModule).
  *
- * A plain C API over Perfetto (https://perfetto.dev) in librntrace: every library that links it (react-native-libav,
+ * A plain C API over Perfetto (https://perfetto.dev) in librntrace: every library that links it (react-native-mpv,
  * the app's own native code, the JS module) records into the same tracer, so one trace shows them all on one
  * timeline next to the system's. Built without the backend (release builds by default) every call is a no-op.
  *
@@ -28,7 +28,7 @@ extern "C" {
 #define RNTRACE_API __attribute__((visibility("default")))
 #endif
 
-/* A category: "app" (JavaScript), "libav", or "native" (any other name records there). Get it once and keep it. */
+/* A category: "app" (JavaScript), "mpv", or "native" (any other name records there). Get it once and keep it. */
 typedef struct rntrace_category rntrace_category;
 RNTRACE_API const rntrace_category *rntrace_category_get(const char *name);
 
@@ -60,7 +60,7 @@ RNTRACE_API void rntrace_name_track(uint64_t track, const char *name);
 RNTRACE_API void rntrace_set_directory(const char *dir);
 
 /* In-process recording into a file (NULL or "": <directory>/rntrace-<time>.perfetto-trace): categories as
- * "app,libav" (NULL or "": all), buffer in KB (0: 32 MB). Returns 0 on success; fails while one runs or when the
+ * "app,mpv" (NULL or "": all), buffer in KB (0: 32 MB). Returns 0 on success; fails while one runs or when the
  * backend is not built in. rntrace_last_path() then tells the file. */
 RNTRACE_API int rntrace_start(const char *path, const char *categories, int buffer_kb);
 RNTRACE_API const char *rntrace_last_path(void);

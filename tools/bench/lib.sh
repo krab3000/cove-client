@@ -51,9 +51,9 @@ stop_cove() {
   adb shell am force-stop "$PACKAGE"
 }
 
-# Cove's caches: both engines' streaming caches (disk tiers) and preview clips.
+# Cove's caches: the player's streaming cache (its disk tier) and preview clips.
 clear_caches() {
-  adb shell run-as "$PACKAGE" rm -rf cache/libav-http cache/libav-media cache/rnvlc-http cache/rnvlc-media
+  adb shell run-as "$PACKAGE" rm -rf cache/mpv-http cache/mpv-media
 }
 
 # Starts Cove and waits for the library (signed in). A debug build loads its JavaScript from Metro on this computer:

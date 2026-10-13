@@ -1,8 +1,8 @@
 # Cove client
 
-A React Native client for a Cove media server (Android phones and tablets, Windows), built from the design in
-[design_handoff_cove_mobile](design_handoff_cove_mobile/README.md). Playback goes through `react-native-vlc`
-(this repository's packages).
+A React Native client for a Cove media server (Android phones and tablets; Windows, without playback for now), built
+from the design in [design_handoff_cove_mobile](design_handoff_cove_mobile/README.md). Playback goes through
+`react-native-mpv` (this repository's packages).
 
 ## Running
 

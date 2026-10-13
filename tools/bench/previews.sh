@@ -5,7 +5,7 @@
 #   previews.sh <cold|warm> <trace file>
 #
 # cold clears Cove's caches first (the preview clips are downloaded as they come); warm keeps them (run it after a
-# cold pass: the same cards, now from the cache). The engine is whatever Cove runs with.
+# cold pass: the same cards, now from the cache).
 set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 

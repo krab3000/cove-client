@@ -43,15 +43,9 @@ const RENEW_EARLY_MS = 60_000;
 // A renewal that failed (offline, the server restarting) is tried again after this long.
 const RENEW_RETRY_MS = 30_000;
 // Android: media requests (the player, preview downloads, images) carry the JWT as an Authorization header that
-// react-native-libav keeps current (platform/player.android.ts), so media URLs have no token. Elsewhere players and
-// images load bare URLs: the current JWT goes in them. Android debug builds playing with libVLC (the A/B engine
-// switch, platform/player.android.ts) need it in URLs too: setMediaUrlTokens.
-let TOKEN_IN_MEDIA_URLS = Platform.OS !== 'android';
-
-/** Whether media URLs carry the JWT (players that can't send headers). Set before any URL is made. */
-export function setMediaUrlTokens(on: boolean): void {
-  TOKEN_IN_MEDIA_URLS = on;
-}
+// react-native-mpv keeps current (platform/player.android.ts), so media URLs have no token. Elsewhere images load
+// bare URLs: the current JWT goes in them.
+const TOKEN_IN_MEDIA_URLS = Platform.OS !== 'android';
 
 /**
  * A session with a Cove server, like Cove's own CLI client (cli/src/client.ts): a 15-minute access JWT sent as a
@@ -406,16 +400,6 @@ export class CoveClient {
     );
   }
 
-  /**
-   * The demuxer to play streamUrl with (react-native-vlc's demux prop): FFmpeg's for MP4 and MOV, as libVLC 3's own
-   * stops reporting progress on these when streamed (a clip under 15 s, the last 15 s of a longer one); VLC's
-   * choice for the rest.
-   */
-  streamDemux(video: Video): string | undefined {
-    const format = primaryFile(video)?.format?.toLowerCase();
-    return format && MP4_FORMATS.has(format) ? 'avformat' : undefined;
-  }
-
   /** The short preview clip Cove's generate task makes (low resolution, a few seconds); see previewAvailable. */
   previewUrl(video: Video): string {
     return `${this.server}/api/stream/video/${video.id}/preview${this.mediaAuth('?')}`;
@@ -682,5 +666,3 @@ export function primaryFile(video: Video): VideoFile | undefined {
   );
 }
 
-/** Cove's file formats that libVLC 3 opens with its MP4 demuxer (see streamDemux). */
-const MP4_FORMATS = new Set(['mp4', 'm4v', 'mov']);

@@ -3,7 +3,7 @@ import NativeRnTrace from './NativeRnTrace';
 
 /**
  * Trace events from JavaScript into the process's one tracer (librntrace, Perfetto), next to the native libraries'
- * (react-native-libav) and, in a system trace, the OS's. All events go in the "app" category, on the JS thread's
+ * (react-native-mpv) and, in a system trace, the OS's. All events go in the "app" category, on the JS thread's
  * track (async spans on tracks of their own).
  *
  * Each call is one synchronous JSI call (about a microsecond): fine around user actions, screens and loads, not per
@@ -83,7 +83,7 @@ export function useTraceMount(name: string): void {
 }
 
 /**
- * Records in-process (no adb needed): categories like 'app,libav' (default: all), into path (default: a file in
+ * Records in-process (no adb needed): categories like 'app,mpv' (default: all), into path (default: a file in
  * the app's cache directory). Returns the file, or null if it could not start (no backend, one already running).
  */
 export function startRecording(options?: { path?: string; categories?: string; bufferKb?: number }): string | null {

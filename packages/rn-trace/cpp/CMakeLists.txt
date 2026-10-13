@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.22)
 project(rntrace CXX)
 
 # librntrace: the process's one tracer (include/rntrace/rntrace.h). Shared, so every library linking it (the app's
-# RnTrace TurboModule, react-native-libav, ...) records into the same instance.
+# RnTrace TurboModule, react-native-mpv, ...) records into the same instance.
 #   RNTRACE_ENABLED=ON  the Perfetto backend, when its SDK is there (scripts/fetch-perfetto.sh)
 #   RNTRACE_ENABLED=OFF a no-op library with the same API (release builds by default)
 
