@@ -272,14 +272,19 @@ void MpvPlayer::Open(std::string source, bool hardwareDecoding, int audioTrack) 
   SetOption("sub-auto", "no");
   SetOption("hr-seek", "yes"); // seeks land on the frame asked for, as Player's
   SetOption("ao", "audiotrack,opensles");
-  if (hardwareDecoding) {
-    SetOption("vo", "mediacodec_embed"); // MediaCodec renders into the Surface: no copy
+  // Video: mpv's OpenGL ES output on the Surface. Hardware decoding (MediaCodec, through AImageReader: no copy) where
+  // mpv has it for the codec (H.264, HEVC, VP8/9, AV1, ...); everything else is decoded in software and drawn by the
+  // same output. debug.libav.mpv_vo=embed: vo=mediacodec_embed instead (MediaCodec straight to the Surface, but it
+  // shows nothing decoded in software: WMV, MPEG-4 ASP, MPEG-2, 10-bit H.264, ... play without video).
+  m_embedded = hardwareDecoding && DebugProperty("mpv_vo") == "embed";
+  if (m_embedded) {
+    SetOption("vo", "mediacodec_embed");
     SetOption("hwdec", "mediacodec");
   } else {
     SetOption("vo", "gpu");
     SetOption("gpu-context", "android");
     SetOption("opengl-es", "yes");
-    SetOption("hwdec", "no");
+    SetOption("hwdec", hardwareDecoding ? "mediacodec" : "no");
     if (m_width > 0 && m_height > 0)
       SetOption("android-surface-size", std::to_string(m_width) + "x" + std::to_string(m_height));
   }
@@ -333,6 +338,13 @@ void MpvPlayer::Open(std::string source, bool hardwareDecoding, int audioTrack) 
   LIBAV_TRACE_BEGIN("mpv open → playback-restart", m_track + 2);
   m_events = std::thread([this] { Events(); });
   Command({"loadfile", target.c_str()});
+}
+
+void MpvPlayer::SetSurfaceSize(int width, int height) {
+  m_width = width;
+  m_height = height;
+  if (!m_embedded && width > 0 && height > 0)
+    SetProperty("android-surface-size", std::to_string(width) + "x" + std::to_string(height));
 }
 
 void MpvPlayer::SetPaused(bool paused) {
@@ -442,7 +454,7 @@ void MpvPlayer::LogStartup(const char *stage) {
   }
   char line[512];
   snprintf(line, sizeof(line), "mpv startup %.0f ms to %s: file-loaded %.0f, video-reconfig %.0f (%s)%s%s %s",
-           SinceOpen(), stage, m_loadedMs, m_reconfigMs, m_hardwareDecoding ? "mediacodec_embed" : "gpu, sw",
+           SinceOpen(), stage, m_loadedMs, m_reconfigMs, m_embedded ? "mediacodec_embed" : "gpu",
            summary.empty() ? "" : " | ", summary.c_str(), m_label.c_str());
   Log(line);
 }
@@ -450,8 +462,23 @@ void MpvPlayer::LogStartup(const char *stage) {
 void MpvPlayer::Events() {
   SetThreadName("mpv events");
   const MpvApi &api = Api();
+  // debug.libav.mpv_stats=1: once a second, where playback is against the wall clock (logcat tag libav).
+  const bool stats = DebugProperty("mpv_stats") == "1";
+  auto lastStats = std::chrono::steady_clock::now();
   while (!m_quit) {
-    mpv_event *e = api.wait_event(m_mpv, -1);
+    mpv_event *e = api.wait_event(m_mpv, stats ? 0.25 : -1);
+    if (stats && std::chrono::steady_clock::now() - lastStats >= std::chrono::seconds(1)) {
+      lastStats = std::chrono::steady_clock::now();
+      int64_t vo = 0, dec = 0;
+      api.get_property(m_mpv, "frame-drop-count", MPV_FORMAT_INT64, &vo);
+      api.get_property(m_mpv, "decoder-frame-drop-count", MPV_FORMAT_INT64, &dec);
+      char line[256];
+      snprintf(line, sizeof(line), "mpv stats: wall %.1f s, time-pos %.2f, audio-pts %.2f, avsync %.3f, fps %.1f, "
+               "dropped vo %lld dec %lld, speed %.2f", SinceOpen() / 1000, PropertyDouble("time-pos", -1),
+               PropertyDouble("audio-pts", -1), PropertyDouble("avsync"), PropertyDouble("estimated-vf-fps"),
+               (long long)vo, (long long)dec, PropertyDouble("speed", -1));
+      Log(line);
+    }
     if (m_quit || e->event_id == MPV_EVENT_SHUTDOWN)
       break;
     switch (e->event_id) {
@@ -558,6 +585,7 @@ void MpvPlayer::Open(std::string, bool, int) {
     m_callbacks.onError("mpv is not in this build");
 }
 void MpvPlayer::SetPaused(bool) {}
+void MpvPlayer::SetSurfaceSize(int, int) {}
 void MpvPlayer::SetMuted(bool) {}
 void MpvPlayer::SetVolume(float) {}
 void MpvPlayer::SetLoop(bool) {}

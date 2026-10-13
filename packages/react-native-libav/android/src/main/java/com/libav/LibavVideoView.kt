@@ -223,7 +223,9 @@ class LibavVideoView(private val reactContext: ThemedReactContext) :
     }
   }
 
-  override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {}
+  override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+    player.setSurfaceSize(width, height)
+  }
 
   override fun surfaceDestroyed(holder: SurfaceHolder) {
     surfaceReady = false

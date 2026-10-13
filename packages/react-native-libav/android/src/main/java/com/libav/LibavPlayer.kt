@@ -38,6 +38,9 @@ internal class LibavPlayer(private val listener: Listener) {
     )
   }
 
+  /** The Surface's new size (mpv draws at it). */
+  fun setSurfaceSize(width: Int, height: Int) = nativeSetSurfaceSize(handle, width, height)
+
   fun close() {
     generation++
     nativeClose(handle)
@@ -99,6 +102,7 @@ internal class LibavPlayer(private val listener: Listener) {
     mpv: Boolean,
   )
   private external fun nativeClose(handle: Long)
+  private external fun nativeSetSurfaceSize(handle: Long, width: Int, height: Int)
   private external fun nativeSetPaused(handle: Long, paused: Boolean)
   private external fun nativeSetMuted(handle: Long, muted: Boolean)
   private external fun nativeSetVolume(handle: Long, volume: Float)

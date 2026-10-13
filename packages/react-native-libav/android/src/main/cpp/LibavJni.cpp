@@ -423,6 +423,12 @@ extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeOpen(JNIEnv *
   np->player->Open(std::move(url), hardwareDecoding, audioTrack);
 }
 
+extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeSetSurfaceSize(JNIEnv *, jobject, jlong handle,
+                                                                                  jint width, jint height) {
+  if (NativePlayer *np = From(handle); np->mpv)
+    np->mpv->SetSurfaceSize(width, height);
+}
+
 extern "C" JNIEXPORT void JNICALL Java_com_libav_LibavPlayer_nativeClose(JNIEnv *, jobject, jlong handle) {
   From(handle)->Stop();
 }

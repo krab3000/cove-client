@@ -5,6 +5,8 @@
 #   cove-api.sh position <video id>              prints the resume position (seconds)
 #   cove-api.sh set-position <video id> <secs>   sets it (0: the player starts from the beginning)
 #   cove-api.sh title <video id>                 prints the file's name
+#   cove-api.sh find <name prefix>               the videos whose file name starts with it (id, name)
+#   cove-api.sh scan                             starts a library scan (new files: covers, previews, sprites)
 #
 # COVE_SERVER (default http://127.0.0.1:5073), COVE_USER, COVE_PASSWORD.
 set -euo pipefail
@@ -35,5 +37,15 @@ case "${1:-}" in
     position "$2"
     ;;
   title) call "$api/videos/$2" | json 'd["files"][0]["basename"]' ;;
+  # Videos whose file name starts with a prefix: "id<TAB>name" per line.
+  find)
+    call -X POST -d "{\"findFilter\":{\"q\":\"$2\",\"page\":1,\"perPage\":200}}" "$api/videos/find" |
+      python3 -c 'import json, sys
+for v in json.load(sys.stdin)["items"]:
+    name = v["files"][0]["basename"]
+    if name.startswith(sys.argv[1]): print(v["id"], name, sep="\t")' "$2" ;;
+  scan)
+    call -X POST -o /dev/null -d '{"scanGenerateCovers":true,"scanGeneratePreviews":true,"scanGenerateSprites":true}' \
+      "$api/metadata/scan" && echo "scan started" ;;
   *) sed -n '2,10p' "$0" >&2; exit 2 ;;
 esac

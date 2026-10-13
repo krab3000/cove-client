@@ -24,10 +24,10 @@ namespace ReactNativeLibav {
 // callbacks (mpv_stream_cb_add_ro, protocol covecache://) over a ByteSource, so mpv's demuxer reads from the cache
 // with no HTTP in between. debug.libav.mpv_input=url lets mpv open the URL itself (its own HTTP).
 //
-// Video: vo=mediacodec_embed with hwdec=mediacodec renders MediaCodec's output straight into the window (wid: the
-// Surface); without hardware decoding, vo=gpu (OpenGL ES) with software decoding. Debug switches (adb shell setprop
-// debug.libav.<name>): mpv_input (url), mpv_readahead (demuxer-readahead-secs, default 5), mpv_max_bytes (MiB,
-// default 32), mpv_log (mpv's log level to logcat, tag "mpv", default warn).
+// Video: vo=gpu (OpenGL ES on the window, wid: the Surface) with hwdec=mediacodec where mpv decodes the codec in
+// hardware, software decoding otherwise. Debug switches (adb shell setprop debug.libav.<name>): mpv_vo (embed:
+// vo=mediacodec_embed, hardware-decoded video only), mpv_input (url), mpv_readahead (demuxer-readahead-secs, default
+// 5), mpv_max_bytes (MiB, default 32), mpv_log (mpv's log level to logcat, tag "mpv", default warn).
 class MpvPlayer {
  public:
   // Whether libmpv.so is there (loaded on first call).
@@ -39,6 +39,8 @@ class MpvPlayer {
   ~MpvPlayer();
 
   void Open(std::string source, bool hardwareDecoding, int audioTrack);
+  // The Surface's size changed (vo=gpu draws at it).
+  void SetSurfaceSize(int width, int height);
   void SetPaused(bool paused);
   void SetMuted(bool muted);
   void SetVolume(float volume);
@@ -66,6 +68,7 @@ class MpvPlayer {
   ByteSourceFactory m_sourceFactory;
   bool m_tlsVerify = true;
   bool m_hardwareDecoding = true;
+  bool m_embedded = false; // vo=mediacodec_embed (debug.libav.mpv_vo=embed), else vo=gpu
   int m_width = 0, m_height = 0;
   int64_t m_wid = 0;
   std::thread m_events;
