@@ -13,6 +13,7 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+#include <cstdio>
 #elif defined(__ANDROID__)
 #include <android/log.h>
 #include <pthread.h>
@@ -25,7 +26,7 @@
 namespace ReactNativeMpv {
 
 inline void LogTo(const char *tag, const std::string &message) {
-#if defined(_WIN32)
+#if defined(_WIN32) && !defined(MPV_LOG_TO_STDERR) // the define: console tools (the Windows test harness)
   OutputDebugStringA((std::string(tag) + ": " + message + "\n").c_str());
 #elif defined(__ANDROID__)
   __android_log_write(ANDROID_LOG_INFO, tag, message.c_str());

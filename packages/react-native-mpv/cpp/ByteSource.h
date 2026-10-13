@@ -6,6 +6,10 @@
 #include <memory>
 #include <string>
 
+#ifndef ESTALE
+#define ESTALE 116 // not in the MSVC runtime's errno.h; Linux's value
+#endif
+
 namespace ReactNativeMpv {
 
 // What Read and Seek return on failure (negative errno values), and Seek's whence for the total size.

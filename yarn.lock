@@ -8066,6 +8066,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "react-native-mpv@workspace:packages/react-native-mpv"
   dependencies:
+    "@react-native-windows/codegen": "npm:0.84.0"
     "@react-native/babel-preset": "npm:0.84.1"
     "@types/react": "npm:^19.2.0"
     del-cli: "npm:^7.0.0"

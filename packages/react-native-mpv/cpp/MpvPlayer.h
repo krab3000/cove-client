@@ -59,20 +59,21 @@ struct PlayerCallbacks {
   std::function<void(const std::string &)> onError;
 };
 
-// The player behind an MpvVideoView: libmpv, built by scripts/mpv-android against this package's FFmpeg and loaded
-// at run time (dlopen).
+// The player behind an MpvVideoView: libmpv, built by scripts/mpv-android (scripts/mpv-windows) with its FFmpeg and
+// loaded at run time (dlopen, LoadLibrary).
 //
 // http(s) sources are read through the C++ RAM/disk cache: libmpv's stream callbacks (mpv_stream_cb_add_ro, protocol
 // covecache://) over a ByteSource (CachedHttpSource), so mpv's demuxer reads from the cache with no HTTP in between.
 // debug input=url lets mpv open the URL itself (its own HTTP).
 //
-// Video: vo=gpu (OpenGL ES on the window, wid: the Surface) with hwdec=mediacodec where mpv decodes the codec in
-// hardware, software decoding otherwise.
+// Video: vo=gpu, decoding in hardware where mpv can for the codec and in software otherwise. Android: OpenGL ES on
+// the window (wid: the Surface), hwdec=mediacodec. Windows: D3D11 in composition mode on the view's device, each
+// frame handed to the view (SetD3D11Output), hwdec=d3d11va.
 //
-// Debug switches (adb shell setprop debug.mpv.<name> <value>), read at each open: vo (embed: vo=mediacodec_embed,
-// hardware-decoded video only), input (url), readahead (demuxer-readahead-secs, default 5), max_bytes (MiB, default
-// 32), log (mpv's log level to logcat, tag "mpv", default warn), stats (1: playback time, A/V sync and dropped frames
-// once a second).
+// Debug switches (adb shell setprop debug.mpv.<name> <value>; Windows: the environment variable MPV_<NAME>), read at
+// each open: vo (embed: vo=mediacodec_embed, hardware-decoded video only; Android), input (url), readahead
+// (demuxer-readahead-secs, default 5), max_bytes (MiB, default 32), log (mpv's log level to logcat, tag "mpv"; Windows:
+// OutputDebugString; default warn), stats (1: playback time, A/V sync and dropped frames once a second).
 class MpvPlayer {
  public:
   // Whether libmpv.so is there (loaded on first call).
@@ -82,12 +83,20 @@ class MpvPlayer {
   static void SetSubtitleFonts(std::string dir, std::string family);
 
   // wid: the window, as mpv's "wid" option takes it (Android: a JNI global reference to the Surface, kept alive by
-  // the caller until this player is gone). width/height: the surface's size (for vo=gpu).
+  // the caller until this player is gone; Windows: unused, see SetD3D11Output). width/height: the surface's size in
+  // pixels (for vo=gpu).
   MpvPlayer(int64_t wid, int width, int height, PlayerCallbacks callbacks);
   ~MpvPlayer();
 
+  // Windows, before Open: the ID3D11Device mpv renders with and the mpv_d3d11_composition_hook it hands each frame
+  // to (<mpv/d3d11_composition.h>); both must outlive this player.
+  void SetD3D11Output(void *device, const void *hook) {
+    m_d3d11Device = device;
+    m_compositionHook = hook;
+  }
+
   void Open(std::string source, bool hardwareDecoding, int audioTrack);
-  // The Surface's size changed (vo=gpu draws at it).
+  // The Surface's (Windows: the view's) size in pixels changed (vo=gpu draws at it).
   void SetSurfaceSize(int width, int height);
   void SetPaused(bool paused);
   void SetMuted(bool muted);
@@ -124,6 +133,8 @@ class MpvPlayer {
   bool m_embedded = false; // vo=mediacodec_embed (debug.mpv.vo=embed), else vo=gpu
   int m_width = 0, m_height = 0;
   int64_t m_wid = 0;
+  void *m_d3d11Device = nullptr;
+  const void *m_compositionHook = nullptr;
   std::thread m_events;
   std::atomic<bool> m_quit{false};
 

@@ -10,6 +10,7 @@
     "android": "yarn workspace mpv-test android",
     "start:test": "yarn workspace mpv-test start",
     "build-mpv-android": "yarn workspace react-native-mpv build-mpv-android",
+    "build-mpv-windows": "yarn workspace react-native-mpv build-mpv-windows",
     "test-cache": "yarn workspace react-native-mpv test-cache",
     "setup-android": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup-android-toolchain.ps1",
     "make-test-media": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/make-test-media.ps1",

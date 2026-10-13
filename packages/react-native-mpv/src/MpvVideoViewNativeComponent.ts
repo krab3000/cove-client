@@ -83,8 +83,9 @@ export interface NativeProps extends ViewProps {
   volume?: CodegenTypes.WithDefault<CodegenTypes.Float, 1.0>;
   loop?: CodegenTypes.WithDefault<boolean, false>;
   /**
-   * Set to false to force software decoding. With it (the default), mpv decodes with MediaCodec where it can for the
-   * codec and in software otherwise; frames are drawn with OpenGL ES either way.
+   * Set to false to force software decoding. With it (the default), mpv decodes in hardware where it can for the codec
+   * (Android: MediaCodec; Windows: D3D11VA) and in software otherwise; frames are drawn by mpv's GPU renderer either way
+   * (OpenGL ES; Direct3D 11).
    */
   hardwareDecoding?: CodegenTypes.WithDefault<boolean, true>;
   /**
@@ -103,7 +104,7 @@ export interface NativeProps extends ViewProps {
    * Download the whole http(s) source into the app's cache first and play the local file (streams it if the
    * download fails). For small files such as preview clips, which then start much sooner (no streaming round trips,
    * no network buffer); see prefetchMedia. `adb logcat -s MpvCache` tells whether a source played from the cache,
-   * was downloaded first, or streamed.
+   * was downloaded first, or streamed. Windows: streamed through the HTTP cache, which prefetchMedia fills.
    */
   cache?: CodegenTypes.WithDefault<boolean, false>;
   /** Playback speed (1 = normal). */

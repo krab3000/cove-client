@@ -4,7 +4,9 @@
 #include "Platform.h"
 #include "Trace.h"
 
+#if !defined(_WIN32)
 #include <dlfcn.h>
+#endif
 #include <mpv/client.h>
 #include <mpv/stream_cb.h>
 
@@ -16,8 +18,34 @@ namespace ReactNativeMpv {
 
 namespace {
 
-// libmpv's C API from libmpv.so (dlopen; the pointers have the headers' types: scripts/mpv-android puts them in
-// third_party/mpv).
+#if defined(_WIN32)
+constexpr const char *kLibrary = "libmpv-2.dll";
+constexpr const char *kVideoOutput = "d3d11";
+void *OpenLibrary(std::string &error) {
+  HMODULE lib = LoadLibraryW(L"libmpv-2.dll");
+  if (!lib)
+    error = "LoadLibrary error " + std::to_string(GetLastError());
+  return lib;
+}
+void *Symbol(void *lib, const char *name) {
+  return reinterpret_cast<void *>(GetProcAddress(static_cast<HMODULE>(lib), name));
+}
+#else
+constexpr const char *kLibrary = "libmpv.so";
+constexpr const char *kVideoOutput = "gpu";
+void *OpenLibrary(std::string &error) {
+  void *lib = dlopen("libmpv.so", RTLD_NOW);
+  if (!lib)
+    error = dlerror();
+  return lib;
+}
+void *Symbol(void *lib, const char *name) {
+  return dlsym(lib, name);
+}
+#endif
+
+// libmpv's C API, loaded at run time (the pointers have the headers' types): libmpv.so on Android
+// (scripts/mpv-android), libmpv-2.dll next to the app on Windows (scripts/mpv-windows); both in third_party/mpv.
 struct MpvApi {
   decltype(&mpv_create) create = nullptr;
   decltype(&mpv_initialize) initialize = nullptr;
@@ -42,12 +70,13 @@ struct MpvApi {
 const MpvApi &Api() {
   static const MpvApi api = [] {
     MpvApi a;
-    void *lib = dlopen("libmpv.so", RTLD_NOW);
+    std::string error;
+    void *lib = OpenLibrary(error);
     if (!lib) {
-      LogTo("mpv", std::string("libmpv.so not available: ") + dlerror());
+      LogTo("mpv", std::string(kLibrary) + " not available: " + error);
       return a;
     }
-#define LOAD(field, name) a.field = reinterpret_cast<decltype(a.field)>(dlsym(lib, name))
+#define LOAD(field, name) a.field = reinterpret_cast<decltype(a.field)>(Symbol(lib, name))
     LOAD(create, "mpv_create");
     LOAD(initialize, "mpv_initialize");
     LOAD(terminate_destroy, "mpv_terminate_destroy");
@@ -71,7 +100,7 @@ const MpvApi &Api() {
         a.wait_event && a.wakeup && a.request_log_messages && a.stream_cb_add_ro && a.free && a.free_node_contents &&
         a.error_string;
     if (!a.ok)
-      LogTo("mpv", "libmpv.so lacks functions this engine uses");
+      LogTo("mpv", std::string(kLibrary) + " lacks functions this engine uses");
     return a;
   }();
   return api;
@@ -262,7 +291,9 @@ void MpvPlayer::Open(std::string source, bool hardwareDecoding, int audioTrack) 
     return;
   }
   // Before mpv_initialize: the window and video output, then playback behaviour.
+#if !defined(_WIN32)
   api.set_option(m_mpv, "wid", MPV_FORMAT_INT64, &m_wid);
+#endif
   SetOption("config", "no");
   SetOption("terminal", "no");
   SetOption("idle", "yes");
@@ -278,6 +309,24 @@ void MpvPlayer::Open(std::string source, bool hardwareDecoding, int audioTrack) 
     SetOption("sub-font", g_fontFamily); // also the fallback for ASS styles whose font is missing
   }
   SetOption("hr-seek", "yes"); // seeks land on the frame asked for, as Player's
+#if defined(_WIN32)
+  // Video: mpv's D3D11 renderer on the view's device, with no window and no swapchain anyone shows: each frame goes to
+  // the view's composition hook (scripts/mpv-windows/patches, <mpv/d3d11_composition.h>), which copies it into the
+  // view's composition surface. D3D11VA decoding where the GPU has the codec, software decoding otherwise; subtitle
+  // fonts from DirectWrite.
+  SetOption("ao", "wasapi");
+  SetOption("vo", "gpu");
+  SetOption("gpu-context", "d3d11");
+  SetOption("d3d11-output-mode", "composition");
+  SetOption("d3d11-output-format", "bgra8"); // the composition surface's format: frames are copied as they are
+  SetOption("d3d11-composition-size",
+            std::to_string(std::max(m_width, 16)) + "x" + std::to_string(std::max(m_height, 16)));
+  int64_t device = int64_t(reinterpret_cast<intptr_t>(m_d3d11Device));
+  int64_t hook = int64_t(reinterpret_cast<intptr_t>(m_compositionHook));
+  api.set_option(m_mpv, "d3d11-composition-device", MPV_FORMAT_INT64, &device);
+  api.set_option(m_mpv, "d3d11-composition-hook", MPV_FORMAT_INT64, &hook);
+  SetOption("hwdec", hardwareDecoding ? "d3d11va" : "no");
+#else
   SetOption("ao", "audiotrack,opensles");
   // Video: mpv's OpenGL ES output on the Surface. Hardware decoding (MediaCodec, through AImageReader: no copy) where
   // mpv has it for the codec (H.264, HEVC, VP8/9, AV1, ...); everything else is decoded in software and drawn by the
@@ -295,6 +344,7 @@ void MpvPlayer::Open(std::string source, bool hardwareDecoding, int audioTrack) 
     if (m_width > 0 && m_height > 0)
       SetOption("android-surface-size", std::to_string(m_width) + "x" + std::to_string(m_height));
   }
+#endif
   // mpv's own buffer (the demuxer cache) on top of ours: what it reads ahead of playback.
   const std::string readahead = DebugProperty("readahead");
   const std::string maxBytes = DebugProperty("max_bytes");
@@ -350,8 +400,13 @@ void MpvPlayer::Open(std::string source, bool hardwareDecoding, int audioTrack) 
 void MpvPlayer::SetSurfaceSize(int width, int height) {
   m_width = width;
   m_height = height;
-  if (!m_embedded && width > 0 && height > 0)
-    SetProperty("android-surface-size", std::to_string(width) + "x" + std::to_string(height));
+  if (m_embedded || width <= 0 || height <= 0)
+    return;
+#if defined(_WIN32)
+  SetProperty("d3d11-composition-size", std::to_string(width) + "x" + std::to_string(height)); // mpv redraws at it
+#else
+  SetProperty("android-surface-size", std::to_string(width) + "x" + std::to_string(height));
+#endif
 }
 
 void MpvPlayer::SetPaused(bool paused) {
@@ -428,9 +483,13 @@ void MpvPlayer::Loaded() {
   MediaInfo info;
   info.duration = PropertyDouble("duration");
   m_duration = info.duration;
+  // The display size (aspect applied) as the filters output it: set by the time of the reconfig event, where dwidth
+  // (video-out-params) may still be unset until the VO thread has taken the new format.
   int64_t w = 0, h = 0;
-  api.get_property(m_mpv, "dwidth", MPV_FORMAT_INT64, &w);
-  api.get_property(m_mpv, "dheight", MPV_FORMAT_INT64, &h);
+  if (api.get_property(m_mpv, "video-params/dw", MPV_FORMAT_INT64, &w) < 0 || w <= 0)
+    api.get_property(m_mpv, "dwidth", MPV_FORMAT_INT64, &w);
+  if (api.get_property(m_mpv, "video-params/dh", MPV_FORMAT_INT64, &h) < 0 || h <= 0)
+    api.get_property(m_mpv, "dheight", MPV_FORMAT_INT64, &h);
   info.width = int(w);
   info.height = int(h);
   info.aspect = h > 0 ? double(w) / double(h) : 0;
@@ -489,7 +548,7 @@ void MpvPlayer::LogStartup(const char *stage) {
   }
   char line[512];
   snprintf(line, sizeof(line), "mpv startup %.0f ms to %s: file-loaded %.0f, video-reconfig %.0f (%s)%s%s %s",
-           SinceOpen(), stage, m_loadedMs, m_reconfigMs, m_embedded ? "mediacodec_embed" : "gpu",
+           SinceOpen(), stage, m_loadedMs, m_reconfigMs, m_embedded ? "mediacodec_embed" : kVideoOutput,
            summary.empty() ? "" : " | ", summary.c_str(), m_label.c_str());
   Log(line);
 }

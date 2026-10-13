@@ -1,0 +1,259 @@
+From 4980f75ac096cebe713dcc6dc3809aeea3077b83 Mon Sep 17 00:00:00 2001
+From: krab3000 <echekanskiy@gmail.com>
+Date: Tue, 13 Oct 2026 12:18:06 +0300
+Subject: [PATCH] vo_gpu: d3d11: composition output on the host's device with a
+ present hook
+
+For hosts whose composition tree cannot take a swapchain (WinAppSDK's
+Microsoft.UI.Composition): --d3d11-composition-device renders on the host's
+ID3D11Device, --d3d11-composition-hook hands each rendered frame to the host
+instead of presenting the swapchain. <mpv/d3d11_composition.h> declares the
+hook. A composition swapchain is on no output, so its colour depth comes from
+its format alone (no failed output query per file).
+---
+ DOCS/man/options.rst            |  8 +++++
+ include/mpv/d3d11_composition.h | 62 +++++++++++++++++++++++++++++++++
+ meson.build                     |  3 +-
+ video/out/d3d11/context.c       | 49 ++++++++++++++++++++++++--
+ video/out/gpu/d3d11_helpers.c   | 12 ++++---
+ 5 files changed, 127 insertions(+), 7 deletions(-)
+ create mode 100644 include/mpv/d3d11_composition.h
+
+diff --git a/DOCS/man/options.rst b/DOCS/man/options.rst
+index f0b9f7f83..6ff0ba8ad 100644
+--- a/DOCS/man/options.rst
++++ b/DOCS/man/options.rst
+@@ -7217,6 +7217,14 @@ them.
+ 
+     Windows with ``--gpu-context=d3d11`` and  ``--d3d11-output-mode=composition`` only.
+ 
++``--d3d11-composition-device=<int64>``, ``--d3d11-composition-hook=<int64>``
++    For embedding in a host's composition tree without a swapchain: the host's
++    ``ID3D11Device*`` for mpv to render with, and a pointer to an
++    ``mpv_d3d11_composition_hook`` that receives each rendered frame instead of
++    the swapchain being presented. See ``<mpv/d3d11_composition.h>``.
++
++    Windows with ``--gpu-context=d3d11`` and  ``--d3d11-output-mode=composition`` only.
++
+ ``--gpu-sw``
+     Continue even if a software renderer is detected. This only works with
+     OpenGL/Vulkan backends. For d3d11, see ``--d3d11-warp``.
+diff --git a/include/mpv/d3d11_composition.h b/include/mpv/d3d11_composition.h
+new file mode 100644
+index 000000000..aafaee2d3
+--- /dev/null
++++ b/include/mpv/d3d11_composition.h
+@@ -0,0 +1,62 @@
++/* Copyright (C) 2026 the mpv developers
++ *
++ * Permission to use, copy, modify, and/or distribute this software for any
++ * purpose with or without fee is hereby granted, provided that the above
++ * copyright notice and this permission notice appear in all copies.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
++ * WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
++ * MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
++ * ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
++ * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
++ * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
++ * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
++ */
++
++#ifndef MPV_CLIENT_API_D3D11_COMPOSITION_H_
++#define MPV_CLIENT_API_D3D11_COMPOSITION_H_
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++/**
++ * Embedding the D3D11 output (--vo=gpu --gpu-context=d3d11) in a host's own
++ * composition tree, for hosts that cannot take a swapchain (e.g. WinAppSDK's
++ * Microsoft.UI.Composition, which has no swapchain interop).
++ *
++ * Options, all with --d3d11-output-mode=composition:
++ *
++ *  --d3d11-composition-size=<WxH>
++ *      The output size (required; set it again when the host resizes).
++ *
++ *  --d3d11-composition-device=<int64>
++ *      An ID3D11Device* (cast to int64) mpv renders with instead of creating
++ *      its own: the device the host's composition surfaces live on. mpv holds
++ *      a reference while the VO exists and turns on the device's multithread
++ *      protection. Create it with D3D11_CREATE_DEVICE_VIDEO_SUPPORT for
++ *      d3d11va hardware decoding (and BGRA_SUPPORT for composition).
++ *
++ *  --d3d11-composition-hook=<int64>
++ *      A pointer (cast to int64) to an mpv_d3d11_composition_hook, which must
++ *      stay valid until the VO is gone (mpv_terminate_destroy returned, or the
++ *      option was cleared). mpv then does not present the swapchain: each
++ *      rendered frame goes to hook->present instead, at the time mpv would have
++ *      presented it.
++ */
++typedef struct mpv_d3d11_composition_hook {
++    /**
++     * Called on mpv's VO thread with the frame just rendered: an
++     * ID3D11Texture2D* on mpv's device, valid only during the call, sized to
++     * --d3d11-composition-size and in --d3d11-output-format. Copy it out (e.g.
++     * CopySubresourceRegion into the host's surface) and return promptly.
++     */
++    void (*present)(void *opaque, void *texture);
++    void *opaque;
++} mpv_d3d11_composition_hook;
++
++#ifdef __cplusplus
++}
++#endif
++
++#endif
+diff --git a/meson.build b/meson.build
+index 6cda52ef6..652a68163 100644
+--- a/meson.build
++++ b/meson.build
+@@ -1846,7 +1846,8 @@ if get_option('libmpv')
+                  description: 'mpv media player client library')
+ 
+     headers = ['include/mpv/client.h', 'include/mpv/render.h',
+-               'include/mpv/render_gl.h', 'include/mpv/stream_cb.h']
++               'include/mpv/render_gl.h', 'include/mpv/stream_cb.h',
++               'include/mpv/d3d11_composition.h']
+     install_headers(headers, subdir: 'mpv')
+ 
+     # Allow projects to build with libmpv by cloning into ./subprojects/mpv
+diff --git a/video/out/d3d11/context.c b/video/out/d3d11/context.c
+index fc8802e60..7f8811763 100644
+--- a/video/out/d3d11/context.c
++++ b/video/out/d3d11/context.c
+@@ -27,6 +27,8 @@
+ #include "context.h"
+ #include "ra_d3d11.h"
+ 
++#include "mpv/d3d11_composition.h"
++
+ #ifdef PL_HAVE_D3D11
+ #include <libplacebo/d3d11.h>
+ #endif
+@@ -41,6 +43,8 @@ struct d3d11_opts {
+     int color_space;
+     bool exclusive_fs;
+     int output_mode;
++    int64_t composition_device;
++    int64_t composition_hook;
+ };
+ 
+ #define OPT_BASE_STRUCT struct d3d11_opts
+@@ -93,6 +97,12 @@ const struct m_sub_options d3d11_conf = {
+             {"composition", 1}),
+             .flags = UPDATE_VO,
+         },
++        {"d3d11-composition-device", OPT_INT64(composition_device),
++            .flags = UPDATE_VO,
++        },
++        {"d3d11-composition-hook", OPT_INT64(composition_hook),
++            .flags = UPDATE_VO,
++        },
+         {0}
+     },
+     .defaults = &(const struct d3d11_opts) {
+@@ -183,8 +193,10 @@ static int d3d11_color_depth(struct ra_swapchain *sw)
+ {
+     struct priv *p = sw->priv;
+ 
++    // A composition swapchain is on no output (and with a host hook, never shown): only its format tells.
+     DXGI_OUTPUT_DESC1 desc1;
+-    if (!mp_dxgi_output_desc_from_swapchain(&p->dxgi_ctx, p->swapchain, &desc1))
++    if (sw->ctx->opts.composition ||
++        !mp_dxgi_output_desc_from_swapchain(&p->dxgi_ctx, p->swapchain, &desc1))
+         desc1.BitsPerColor = 0;
+ 
+     DXGI_SWAP_CHAIN_DESC desc;
+@@ -289,6 +301,23 @@ static void d3d11_swap_buffers(struct ra_swapchain *sw)
+     QueryPerformanceCounter(&perf_count);
+     p->last_submit_qpc = perf_count.QuadPart;
+ 
++    // Composition mode with a host hook: the host shows the frame (it copies the back buffer into its own
++    // surface), so nothing is presented; the swapchain is only mpv's render target.
++    const struct mpv_d3d11_composition_hook *hook =
++        sw->ctx->opts.composition ? (void *)(intptr_t)p->opts->composition_hook : NULL;
++    if (hook && hook->present) {
++        ID3D11Texture2D *frame = NULL;
++        HRESULT hr = IDXGISwapChain_GetBuffer(p->swapchain, 0, &IID_ID3D11Texture2D, (void **)&frame);
++        if (SUCCEEDED(hr)) {
++            hook->present(hook->opaque, frame);
++            SAFE_RELEASE(frame);
++        } else {
++            MP_ERR(sw->ctx, "Couldn't get the back buffer for the composition hook: %s\n",
++                   mp_HRESULT_to_str(hr));
++        }
++        return;
++    }
++
+     IDXGISwapChain_Present(p->swapchain, p->opts->sync_interval, 0);
+ }
+ 
+@@ -528,8 +557,24 @@ static bool d3d11_init(struct ra_ctx *ctx)
+         .max_frame_latency = ctx->vo->opts->swapchain_depth,
+         .adapter_name = p->opts->adapter_name,
+     };
+-    if (!mp_d3d11_create_present_device(ctx->log, &dopts, &p->device))
++    // Composition mode may render on the host's device (d3d11-composition-device), which the host also uses for
++    // its own composition surfaces; otherwise mpv creates one.
++    ID3D11Device *host_device = p->opts->output_mode == 1 ?
++        (ID3D11Device *)(intptr_t)p->opts->composition_device : NULL;
++    if (host_device) {
++        ID3D11Device_AddRef(host_device);
++        p->device = host_device;
++        // The host uses the immediate context from its threads too.
++        ID3D10Multithread *multithread = NULL;
++        if (SUCCEEDED(ID3D11Device_QueryInterface(host_device, &IID_ID3D10Multithread,
++                                                  (void **)&multithread))) {
++            ID3D10Multithread_SetMultithreadProtected(multithread, TRUE);
++            SAFE_RELEASE(multithread);
++        }
++        MP_VERBOSE(ctx, "Using the host's D3D11 device\n");
++    } else if (!mp_d3d11_create_present_device(ctx->log, &dopts, &p->device)) {
+         goto error;
++    }
+ 
+     if (!spirv_compiler_init(ctx))
+         goto error;
+diff --git a/video/out/gpu/d3d11_helpers.c b/video/out/gpu/d3d11_helpers.c
+index 93510d705..5e0177f56 100644
+--- a/video/out/gpu/d3d11_helpers.c
++++ b/video/out/gpu/d3d11_helpers.c
+@@ -812,6 +812,7 @@ done:
+ 
+ static bool configure_created_swapchain(struct mp_log *log,
+                                         IDXGISwapChain *swapchain,
++                                        bool on_output,
+                                         DXGI_FORMAT requested_format,
+                                         DXGI_COLOR_SPACE_TYPE requested_csp,
+                                         struct pl_color_space *configured_csp)
+@@ -825,9 +826,12 @@ static bool configure_created_swapchain(struct mp_log *log,
+     struct pl_color_space pl_color_system = { 0 };
+     bool mp_csp_mapped = false;
+ 
+-    query_output_format_and_colorspace(log, swapchain,
+-                                       &probed_format,
+-                                       &probed_colorspace);
++    // A composition swapchain (no window) is on no output until the host shows it: nothing to probe.
++    if (on_output) {
++        query_output_format_and_colorspace(log, swapchain,
++                                           &probed_format,
++                                           &probed_colorspace);
++    }
+ 
+ 
+     selected_format = requested_format != DXGI_FORMAT_UNKNOWN ?
+@@ -959,7 +963,7 @@ bool mp_d3d11_create_swapchain(ID3D11Device *dev, struct mp_log *log,
+         mp_verbose(log, "Using DXGI 1.1\n");
+     }
+ 
+-    configure_created_swapchain(log, swapchain, opts->format,
++    configure_created_swapchain(log, swapchain, opts->window != NULL, opts->format,
+                                 opts->color_space,
+                                 opts->configured_csp);
+ 
+-- 
+2.42.0.windows.1
+

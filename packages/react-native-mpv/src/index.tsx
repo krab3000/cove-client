@@ -20,34 +20,38 @@ export type {
   ErrorEvent,
 } from './MpvVideoViewNativeComponent';
 
+/** Where the native side exists: Android and Windows. */
+const NATIVE = Platform.OS === 'android' || Platform.OS === 'windows';
+
 /**
- * The debug switch debug.mpv.<name> (adb shell setprop debug.mpv.<name> <value>), '' when unset or off Android.
- * Synchronous: read once at startup, not per frame.
+ * The debug switch <name>, '' when unset: Android: debug.mpv.<name> (adb shell setprop debug.mpv.<name> <value>);
+ * Windows: the environment variable MPV_<NAME>. Synchronous: read once at startup, not per frame.
  */
 export function getDebugProperty(name: string): string {
-  if (Platform.OS !== 'android') return '';
+  if (!NATIVE) return '';
   return NativeModules.MpvCache?.getDebugProperty(name) ?? '';
 }
 
 /**
- * Android: downloads media into the cache a MpvVideoView with `cache` plays from, ahead of time (preview clips of
- * the cards around the one previewing, say). Does nothing elsewhere.
+ * Loads media ahead of time (preview clips of the cards around the one previewing, say). Android: downloads it into
+ * the cache a MpvVideoView with `cache` plays from; Windows: reads its start into the HTTP cache. Does nothing
+ * elsewhere.
  */
 export function prefetchMedia(urls: string[]): void {
-  if (Platform.OS === 'android' && urls.length)
-    NativeModules.MpvCache?.prefetch(urls);
+  if (NATIVE && urls.length) NativeModules.MpvCache?.prefetch(urls);
 }
 
 /**
- * Android: the HTTP cache http(s) sources play through (C++, cpp/HttpCache). Each read is served from a chunk of
+ * Android and Windows: the HTTP cache http(s) sources play through (C++, cpp/HttpCache). Each read is served from a chunk of
  * chunkSize bytes (default 1 MB), from RAM, else from the disk tier, else downloaded with one Range request and kept
  * in both. The disk tier persists across launches, so a video reopened later starts from disk.
  * - chunkSize: bytes per range request and cache entry
  * - memorySize: the RAM tier (default: from device RAM, 8-64 MB: a 4 GB device gets 16 MB)
  * - diskSize: the disk tier (default 512 MB, never more than half the free space), 0 for none
- * - diskDir: the disk tier's directory (default: the app's cache directory/mpv-http)
+ * - diskDir: the disk tier's directory (default: the app's cache directory/mpv-http; Windows: the package's
+ *   LocalCache\mpv-http, %TEMP%\mpv-http unpackaged)
  * - maxSize: deprecated, taken as memorySize
- * Unset options are derived from the device. Does nothing elsewhere yet.
+ * Unset options are derived from the device. Does nothing elsewhere.
  */
 export function configureHttpCache({
   chunkSize,
@@ -62,7 +66,7 @@ export function configureHttpCache({
   diskDir?: string;
   maxSize?: number;
 }): void {
-  if (Platform.OS !== 'android') return;
+  if (!NATIVE) return;
   const memory = memorySize ?? maxSize;
   NativeModules.MpvCache?.configureHttp(
     chunkSize ?? -1,
@@ -72,9 +76,9 @@ export function configureHttpCache({
   );
 }
 
-/** Android: empties the HTTP cache's RAM and disk tiers (e.g. on sign-out). Does nothing elsewhere yet. */
+/** Empties the HTTP cache's RAM and disk tiers (e.g. on sign-out). Does nothing off Android and Windows. */
 export function clearHttpCache(): void {
-  if (Platform.OS === 'android') NativeModules.MpvCache?.clearHttpCache();
+  if (NATIVE) NativeModules.MpvCache?.clearHttpCache();
 }
 
 export type HttpCacheStats = {
@@ -101,34 +105,34 @@ export type HttpCacheStats = {
   };
 };
 
-/** Android: what the HTTP cache holds and has done; null elsewhere. */
+/** What the HTTP cache holds and has done; null off Android and Windows. */
 export async function getHttpCacheStats(): Promise<HttpCacheStats | null> {
-  if (Platform.OS !== 'android' || !NativeModules.MpvCache) return null;
+  if (!NATIVE || !NativeModules.MpvCache) return null;
   return JSON.parse(await NativeModules.MpvCache.getHttpCacheStats());
 }
 
 /**
- * Android: the Authorization header (e.g. `Bearer <jwt>`) for a server's media requests: the player's, preview
- * downloads (prefetchMedia, `cache`), and images, when the app installs HttpAuth's OkHttp interceptor. Set it again
- * whenever the token renews; null removes it. Media URLs then need no token in them. Does nothing elsewhere.
+ * The Authorization header (e.g. `Bearer <jwt>`) for a server's media requests: the player's, preview downloads
+ * (prefetchMedia, `cache`), and on Android images, when the app installs HttpAuth's OkHttp interceptor. Set it again
+ * whenever the token renews; null removes it. Media URLs then need no token in them. Does nothing off Android and
+ * Windows.
  */
 export function setHttpAuthorization(
   server: string,
   value: string | null
 ): void {
-  if (Platform.OS === 'android')
-    NativeModules.MpvCache?.setHttpAuthorization(server, value);
+  if (NATIVE) NativeModules.MpvCache?.setHttpAuthorization(server, value);
 }
 
 /**
- * Android: called with a server (scheme://host:port) when it refused the header (401): renew the token and set it
+ * Android and Windows: called with a server (scheme://host:port) when it refused the header (401): renew the token and set it
  * again with setHttpAuthorization; the refused requests wait a moment for it and are retried. Returns the
  * unsubscribe function.
  */
 export function onHttpAuthorizationNeeded(
   listener: (server: string) => void
 ): () => void {
-  if (Platform.OS !== 'android') return () => {};
+  if (!NATIVE) return () => {};
   const subscription = DeviceEventEmitter.addListener(
     'MpvAuthRequired',
     listener
