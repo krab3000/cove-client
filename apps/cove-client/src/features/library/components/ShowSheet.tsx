@@ -15,8 +15,9 @@ const videos = (num: number | undefined) =>
   num == null ? '…' : `${formatCount(num)} videos`;
 
 /**
- * The title's Show sheet (design 6d): all videos, the saved filters with their counts and the view they open in,
- * the quick filters, and Save as new filter while there is a filter or a search.
+ * The filter pill's Show sheet (design 8d): all videos, the saved filters with their counts and the view they open
+ * in, the quick filters, Edit conditions… (the filter editor), and Save as new filter while there is a filter or a
+ * search. Everything about what is shown, in one place.
  */
 export const ShowSheet = memo(function ShowSheet({
   visible,
@@ -30,6 +31,8 @@ export const ShowSheet = memo(function ShowSheet({
   quick,
   canSaveNew,
   onSaveNew,
+  filterCount,
+  onEditConditions,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -50,6 +53,9 @@ export const ShowSheet = memo(function ShowSheet({
   }[];
   canSaveNew: boolean;
   onSaveNew: () => void;
+  // The filter's conditions, and its editor
+  filterCount: number;
+  onEditConditions: () => void;
 }) {
   return (
     <Sheet visible={visible} onClose={onClose}>
@@ -93,9 +99,19 @@ export const ShowSheet = memo(function ShowSheet({
           onPress={q.onPress}
         />
       ))}
+      <SheetRule />
+      <SheetRow
+        icon="funnel-simple"
+        label="Edit conditions…"
+        meta={
+          filterCount
+            ? `${filterCount} condition${filterCount === 1 ? '' : 's'} · the rule tree`
+            : 'Build a filter: the rule tree'
+        }
+        onPress={onEditConditions}
+      />
       {canSaveNew ? (
         <>
-          <SheetRule />
           <SheetRow
             icon="plus"
             label="Save as new filter…"

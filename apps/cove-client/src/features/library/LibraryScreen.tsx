@@ -765,7 +765,7 @@ export function LibraryScreen({
     scheduleLoad();
   }, [retryList, scheduleLoad]);
 
-  // --- The header (design turn 6) ------------------------------------------------------------------------------
+  // --- The header (design turn 8, the filter pill) ------------------------------------------------------------------------------
   const conditions = appliedTree.children.length;
   // Parts of a saved filter the app can't show still apply (and count) until the filter changes.
   const hidden =
@@ -976,6 +976,11 @@ export function LibraryScreen({
   );
   const openAccount = useCallback(() => setSheet('account'), []);
   const openShow = useCallback(() => setSheet('show'), []);
+  // The Show sheet's Edit conditions…: the filter editor (the rule tree)
+  const editFromSheet = useCallback(() => {
+    setSheet(null);
+    openFilter();
+  }, [openFilter]);
   const closeSheet = useCallback(() => setSheet(null), []);
   const onNewName = useCallback((t: string) => {
     setNewName(t);
@@ -1035,7 +1040,10 @@ export function LibraryScreen({
           edited={edited}
           onOpenShow={openShow}
           filterCount={conditions + hidden}
-          onOpenFilter={filterOpen ? closeFilter : openFilter}
+          onEditConditions={filterOpen ? closeFilter : openFilter}
+          canSaveNew={!!(conditions || searched)}
+          onSaveNew={openSaveAs}
+          onShowAll={showAll}
           shuffled={seed != null}
           onShuffle={shuffle}
           onPlayAll={playAll}
@@ -1149,6 +1157,8 @@ export function LibraryScreen({
         quick={quickItems}
         canSaveNew={!!(conditions || searched)}
         onSaveNew={openSaveAs}
+        filterCount={conditions + hidden}
+        onEditConditions={editFromSheet}
       />
       <AccountSheet
         visible={sheet === 'account'}

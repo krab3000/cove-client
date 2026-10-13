@@ -4,7 +4,7 @@ import { fonts, nocturne as n, roundRadius } from '../../../theme/tokens';
 import { Icon, type IconName } from '../../../ui/Icon';
 import { Avatar } from '../../../ui/Avatar';
 import { EditedTag } from '../../../ui/Chip';
-import { Popover } from '../../../ui/Menu';
+import { Popover, type MenuEntry } from '../../../ui/Menu';
 
 export type LibraryView = 'grid2' | 'grid3' | 'list';
 
@@ -13,6 +13,9 @@ const VIEWS: { view: LibraryView; icon: IconName; label: string }[] = [
   { view: 'grid3', icon: 'dots-nine', label: 'Dense grid' },
   { view: 'list', icon: 'rows', label: 'Feed' },
 ];
+
+// The tablet's pill menu (design 8g)
+const MENU_WIDTH = 320;
 
 /**
  * The view switch as one button (a phone, where three of them did not fit the toolbar): the view in effect, opening a
@@ -59,30 +62,41 @@ function ViewMenu({
   );
 }
 
+/** The number of conditions in the pill: accent-800, at its right end. */
+function Badge({ count }: { count: number }) {
+  return (
+    <View style={styles.badge}>
+      <Text style={styles.badgeText}>{count}</Text>
+    </View>
+  );
+}
+
 /**
- * The Library's header (design turn 6), the same over all three views. Each control has one place: the search field
- * (Cove's search) and the avatar (the account) on top; the title, which says what is shown and opens the Show sheet,
- * with the count line under it (on a large screen it shares its row with the search); then the toolbar: Filter with its
- * count, the sort, Shuffle, Play all and the view switch (on a phone one button with a menu, see ViewMenu). No screen lists the filter's conditions (only the editor
- * does). A phone held sideways (compact, design 6f–6h) gets all of it in one row; on a large screen (large, 1h) the
- * sidebar holds the account and the saved filters, so there is no avatar and the title picks nothing.
- * Saving is the filter editor's, not the header's.
+ * The Library's header (design turn 8, the filter pill), the same over all three views. One control says what is
+ * shown and opens everything about it: the filter pill — a bookmark for a saved filter, else a funnel; the name (the
+ * saved filter's, "Videos" for an unnamed filter or a search, "All videos"); at its right end the number of
+ * conditions and a caret. On a phone it opens the Show sheet (all videos, saved filters, quick filters, Edit
+ * conditions…, Save as new); on a large screen, whose sidebar picks what is shown, a menu under it (Edit conditions…,
+ * Save as new filter…, Show all videos). Under the toolbar a caption: Edited, the count, the sort. No title row and no
+ * Filter button. Also the search, the avatar (a phone), Shuffle, Play all and the view switch. A phone held sideways
+ * (compact) gets all of it in one row, the pill two lines high. Saving is the filter editor's or Save as new.
  */
 export const LibraryHeader = memo(function LibraryHeader({
   query,
   onQuery,
   onSubmitQuery,
   account,
-
   onOpenAccount,
   title,
   savedFilter,
   countLine,
   edited,
-
   onOpenShow,
   filterCount,
-  onOpenFilter,
+  onEditConditions,
+  canSaveNew,
+  onSaveNew,
+  onShowAll,
   shuffled,
   onShuffle,
   onPlayAll,
@@ -98,15 +112,21 @@ export const LibraryHeader = memo(function LibraryHeader({
   // The account's name: its avatar shows the initial
   account: string;
   onOpenAccount: () => void;
+  // What is shown: a saved filter's name, "Videos" or "All videos"
   title: string;
   // The title is a saved filter's name
   savedFilter: boolean;
   countLine: string;
   edited: boolean;
-
+  // A phone: the pill opens the Show sheet
   onOpenShow: () => void;
+  // The filter's conditions (0: none)
   filterCount: number;
-  onOpenFilter: () => void;
+  // The filter editor: the large screen's menu (and the pill itself while the editor's drawer is open)
+  onEditConditions: () => void;
+  canSaveNew: boolean;
+  onSaveNew: () => void;
+  onShowAll: () => void;
   shuffled: boolean;
   onShuffle: () => void;
   onPlayAll: () => void;
@@ -116,10 +136,71 @@ export const LibraryHeader = memo(function LibraryHeader({
   compact: boolean;
   // A large screen (tablet, desktop): the sidebar has the account and the saved filters
   large: boolean;
-  // The filter editor is open (the tablet's drawer): Filter shows pressed, and closes it
+  // The filter editor is open (the tablet's drawer): the pill shows pressed, and closes it
   filterOpen?: boolean;
 }) {
   const active = filterCount > 0;
+  // Accent while a filter (saved or not) or a search applies; outlined for all videos
+  const on = savedFilter || active || title !== 'All videos';
+  const pill = useRef<ComponentRef<typeof View>>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const openPill = () => {
+    if (!large) return onOpenShow();
+    if (filterOpen) return onEditConditions(); // the drawer is open: the pressed pill closes it
+    pill.current?.measureInWindow((x, y, _w, h) => setMenu({ x, y: y + h }));
+  };
+  const menuItems: MenuEntry[] = [
+    {
+      icon: 'funnel-simple',
+      label: 'Edit conditions…',
+      detail: active
+        ? `${filterCount} condition${filterCount === 1 ? '' : 's'} · the filter drawer`
+        : 'Build a filter: the filter drawer',
+      onPress: onEditConditions,
+    },
+    ...(canSaveNew
+      ? [
+          {
+            icon: 'plus' as const,
+            label: 'Save as new filter…',
+            detail: 'The filter, search, sort and view',
+            onPress: onSaveNew,
+          },
+        ]
+      : []),
+    ...(on
+      ? [
+          'rule' as const,
+          {
+            icon: 'x-circle' as const,
+            label: 'Show all videos',
+            onPress: onShowAll,
+          },
+        ]
+      : []),
+  ];
+  const sortLabel = shuffled ? 'Random' : 'Newest';
+  const pillIcon = (
+    <Icon
+      name={savedFilter ? 'bookmarks-simple' : 'funnel-simple'}
+      fill={savedFilter || filterOpen}
+      size={compact ? 14 : 16}
+      color={on || filterOpen ? n.accent200 : n.text}
+    />
+  );
+  const pillEnd = (
+    <>
+      <View style={styles.spacer} />
+      {active ? <Badge count={filterCount} /> : null}
+      <Icon
+        name="caret-down"
+        size={12}
+        color={on ? n.accent200 : n.textAlpha(55)}
+      />
+    </>
+  );
+  const pillLabel = `Show: ${title}${active ? `, ${filterCount} conditions` : ''}`;
+
   if (compact)
     return (
       <View style={styles.compact}>
@@ -154,28 +235,31 @@ export const LibraryHeader = memo(function LibraryHeader({
             </Pressable>
           ) : null}
         </View>
+        {/* The pill, two lines: what is shown and its conditions; Edited and the count (8e) */}
         <Pressable
-          onPress={onOpenShow}
+          onPress={openPill}
           accessibilityRole="button"
-          accessibilityLabel={`Show: ${title}`}
+          accessibilityLabel={pillLabel}
           style={({ pressed }) => [
-            styles.titleCompact,
-            pressed && styles.pressedBg,
+            styles.pill,
+            styles.pillCompact,
+            on && styles.pillOn,
+            pressed && styles.pillPressed,
           ]}
         >
-          <View style={styles.titleLine}>
-            {savedFilter ? (
-              <Icon
-                name="bookmarks-simple"
-                fill
-                size={14}
-                color={n.accent300}
-              />
-            ) : null}
-            <Text style={styles.titleTextCompact} numberOfLines={1}>
+          <View style={styles.pillLine}>
+            {pillIcon}
+            <Text
+              style={[
+                styles.pillText,
+                styles.pillTextCompact,
+                on && styles.pillTextOn,
+              ]}
+              numberOfLines={1}
+            >
               {title}
             </Text>
-            <Icon name="caret-down" size={12} color={n.textAlpha(55)} />
+            {pillEnd}
           </View>
           <View style={styles.countLine}>
             {edited ? <EditedTag small /> : null}
@@ -184,34 +268,7 @@ export const LibraryHeader = memo(function LibraryHeader({
             </Text>
           </View>
         </Pressable>
-        <Pressable
-          onPress={onOpenFilter}
-          accessibilityRole="button"
-          accessibilityLabel={
-            active ? `Filter, ${filterCount} conditions` : 'Filter'
-          }
-          style={[styles.filterButton, active && styles.filterButtonActive]}
-        >
-          <Icon
-            name="funnel-simple"
-            size={16}
-            color={active ? n.accent200 : n.text}
-          />
-          <Text style={[styles.filterText, active && styles.filterTextActive]}>
-            Filter
-          </Text>
-          {active ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{filterCount}</Text>
-            </View>
-          ) : null}
-        </Pressable>
-        <View
-          accessibilityLabel={
-            shuffled ? 'Sort: random' : 'Sort: added, newest first'
-          }
-          style={styles.icon36}
-        >
+        <View accessibilityLabel={`Sort: ${sortLabel}`} style={styles.icon36}>
           <Icon name="sort-descending" size={17} color={n.textAlpha(75)} />
         </View>
         <Pressable
@@ -226,6 +283,7 @@ export const LibraryHeader = memo(function LibraryHeader({
             color={shuffled ? n.accent : n.textAlpha(75)}
           />
         </Pressable>
+        <View style={styles.spacer} />
         <Pressable
           onPress={onPlayAll}
           accessibilityLabel="Play all"
@@ -263,6 +321,7 @@ export const LibraryHeader = memo(function LibraryHeader({
         </Pressable>
       </View>
     );
+
   const searchField = (
     <View
       style={[
@@ -315,47 +374,78 @@ export const LibraryHeader = memo(function LibraryHeader({
       ))}
     </View>
   );
-  const titleBlock = (
+  const pillButton = (
     <Pressable
-      onPress={large ? undefined : onOpenShow}
-      disabled={large}
-      accessibilityRole={large ? 'header' : 'button'}
-      accessibilityLabel={large ? title : `Show: ${title}`}
+      ref={pill}
+      onPress={openPill}
+      accessibilityRole="button"
+      accessibilityLabel={pillLabel}
+      accessibilityState={{ expanded: !!menu || !!filterOpen }}
       style={({ pressed }) => [
-        styles.titleButton,
-        large && styles.titleButtonLarge,
-        pressed && styles.pressedBg,
+        styles.pill,
+        large ? styles.pillLarge : styles.pillPhone,
+        on && styles.pillOn,
+        filterOpen && styles.pillOpen,
+        (pressed || !!menu) && styles.pillPressed,
       ]}
     >
-      <View style={styles.titleLine}>
-        {savedFilter ? (
-          <Icon name="bookmarks-simple" fill size={17} color={n.accent300} />
-        ) : null}
-        <Text
-          style={[styles.title, large && styles.titleLarge]}
-          numberOfLines={1}
-        >
-          {title}
-        </Text>
-        {large ? null : (
-          <Icon name="caret-down" size={14} color={n.textAlpha(55)} />
-        )}
-      </View>
-      <View style={styles.countLine}>
-        {edited ? <EditedTag /> : null}
-        <Text style={styles.count} numberOfLines={1}>
-          {countLine}
-        </Text>
-      </View>
+      {pillIcon}
+      <Text
+        style={[styles.pillText, on && styles.pillTextOn]}
+        numberOfLines={1}
+      >
+        {title}
+      </Text>
+      {pillEnd}
     </Pressable>
+  );
+  const shuffleButton = (
+    <Pressable
+      onPress={onShuffle}
+      accessibilityLabel="Shuffle"
+      accessibilityState={{ selected: shuffled }}
+      style={[styles.icon36, shuffled && styles.shuffleOn]}
+    >
+      <Icon
+        name="shuffle"
+        size={17}
+        color={shuffled ? n.accent : n.textAlpha(75)}
+      />
+    </Pressable>
+  );
+  const playButton = (
+    <Pressable
+      onPress={onPlayAll}
+      accessibilityLabel="Play all"
+      style={({ pressed }) => [styles.play, pressed && styles.accentBg]}
+    >
+      <Icon name="play" fill size={14} color={n.accent200} />
+    </Pressable>
+  );
+  // Edited, the count, and the sort at its end (Cove's newest added first, or a seeded random order while shuffled)
+  const caption = (
+    <View style={[styles.caption, large && styles.captionLarge]}>
+      {edited ? <EditedTag small /> : null}
+      <Text style={styles.count} numberOfLines={1}>
+        {countLine}
+      </Text>
+      <View style={styles.spacer} />
+      <View style={styles.sort} accessibilityLabel={`Sort: ${sortLabel}`}>
+        <Icon name="sort-descending" size={14} color={n.textAlpha(75)} />
+        <Text style={styles.sortText}>{sortLabel}</Text>
+      </View>
+    </View>
   );
   return (
     <View>
       {large ? (
-        // A large screen (1h): the title and the search share one row; no Save here (saving is the editor's)
+        // A large screen (8f): the pill where the title was, beside the search, the toolbar's buttons in the same row
         <View style={styles.largeTop}>
-          {titleBlock}
+          {pillButton}
           {searchField}
+          {shuffleButton}
+          {playButton}
+          {viewSwitch}
         </View>
       ) : (
         <>
@@ -369,65 +459,25 @@ export const LibraryHeader = memo(function LibraryHeader({
               <Avatar name={account} size={36} letters="one" />
             </Pressable>
           </View>
-          <View style={styles.titleRow}>{titleBlock}</View>
+          <View style={styles.toolbar}>
+            {pillButton}
+            {shuffleButton}
+            {playButton}
+            <ViewMenu view={view} onView={onView} />
+          </View>
         </>
       )}
-
-      <View style={styles.toolbar}>
-        <Pressable
-          onPress={onOpenFilter}
-          accessibilityRole="button"
-          accessibilityLabel={
-            active ? `Filter, ${filterCount} conditions` : 'Filter'
-          }
-          style={[
-            styles.filterButton,
-            active && styles.filterButtonActive,
-            filterOpen && styles.filterButtonOpen,
-          ]}
-        >
-          <Icon
-            name="funnel-simple"
-            fill={filterOpen}
-            size={17}
-            color={active || filterOpen ? n.accent200 : n.text}
-          />
-          <Text style={[styles.filterText, active && styles.filterTextActive]}>
-            Filter
-          </Text>
-          {active ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{filterCount}</Text>
-            </View>
-          ) : null}
-        </Pressable>
-        {/* Newest added first, or Cove's seeded random sort while shuffled */}
-        <View style={styles.sort}>
-          <Icon name="sort-descending" size={16} color={n.textAlpha(75)} />
-          <Text style={styles.sortText}>{shuffled ? 'Random' : 'Added'}</Text>
-        </View>
-        <Pressable
-          onPress={onShuffle}
-          accessibilityLabel="Shuffle"
-          accessibilityState={{ selected: shuffled }}
-          style={[styles.icon36, shuffled && styles.shuffleOn]}
-        >
-          <Icon
-            name="shuffle"
-            size={17}
-            color={shuffled ? n.accent : n.textAlpha(75)}
-          />
-        </Pressable>
-        <View style={styles.spacer} />
-        <Pressable
-          onPress={onPlayAll}
-          accessibilityLabel="Play all"
-          style={({ pressed }) => [styles.play, pressed && styles.accentBg]}
-        >
-          <Icon name="play" fill size={14} color={n.accent200} />
-        </Pressable>
-        {large ? viewSwitch : <ViewMenu view={view} onView={onView} />}
-      </View>
+      {caption}
+      {large ? (
+        <Popover
+          visible={menu != null}
+          anchor={menu}
+          onClose={() => setMenu(null)}
+          items={menuItems}
+          align="left"
+          width={MENU_WIDTH}
+        />
+      ) : null}
     </View>
   );
 });
@@ -459,25 +509,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  titleCompact: {
-    flexShrink: 1,
-    maxWidth: 220,
-    minWidth: 0,
-    height: 44,
-    paddingHorizontal: 8,
-    justifyContent: 'center',
-    borderRadius: n.radiusMd,
-    gap: 1,
-  },
-  titleTextCompact: {
-    flexShrink: 1,
-    color: n.text,
-    fontSize: 15,
-    lineHeight: 19,
-    fontFamily: fonts.medium,
-  },
   countCompact: { fontSize: 11.5 },
-
   viewButtonCompact: { width: 30, height: 30 },
   avatarButtonCompact: {
     width: 40,
@@ -528,81 +560,87 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  titleRow: {
-    minHeight: 52,
+  pressedBg: { backgroundColor: n.textAlpha(6) },
+  accentBg: { backgroundColor: n.accentAlpha(12) },
+  largeTop: {
     paddingTop: 8,
-    paddingLeft: 8,
+    paddingLeft: 16,
     paddingRight: 16,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  titleButton: {
-    flex: 1,
+  searchLarge: { flex: 1, minWidth: 200, height: 40, borderRadius: 20 },
+  // The filter pill
+  pill: {
     minWidth: 0,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: n.radiusMd,
-    gap: 1,
-  },
-  pressedBg: { backgroundColor: n.textAlpha(6) },
-  accentBg: { backgroundColor: n.accentAlpha(12) },
-  titleLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  titleLarge: { fontSize: 26, lineHeight: 32 },
-  largeTop: {
-    paddingTop: 8,
-    paddingLeft: 8,
-    paddingRight: 16,
+    paddingLeft: 11,
+    paddingRight: 9,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 20,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: n.divider,
   },
-  titleButtonLarge: { flex: 0, flexShrink: 1, maxWidth: '55%' },
-  searchLarge: { flex: 1, minWidth: 200, height: 40, borderRadius: 20 },
-  title: {
+  pillPhone: { flex: 1, height: 36, borderRadius: roundRadius(36) },
+  pillLarge: {
+    flexGrow: 0,
     flexShrink: 1,
+    flexBasis: 300,
+    minWidth: 220,
+    height: 40,
+    borderRadius: roundRadius(40),
+  },
+  pillCompact: {
+    flexGrow: 0,
+    flexShrink: 1,
+    maxWidth: 250,
+    height: 44,
+    paddingLeft: 12,
+    paddingRight: 10,
+    flexDirection: 'column',
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    gap: 1,
+    borderRadius: roundRadius(44),
+  },
+  pillOn: { borderColor: n.accent, backgroundColor: n.accentAlpha(12) },
+  pillOpen: { borderColor: n.accent, backgroundColor: n.accentAlpha(22) },
+  pillPressed: { backgroundColor: n.accentAlpha(18) },
+  pillLine: { flexDirection: 'row', alignItems: 'center', gap: 5, minWidth: 0 },
+  pillText: {
+    flexShrink: 1,
+    minWidth: 0,
     color: n.text,
-    fontSize: 22,
-    lineHeight: 28,
-    letterSpacing: -0.3,
+    fontSize: 13.5,
     fontFamily: fonts.medium,
   },
+  pillTextCompact: { fontSize: 14 },
+  pillTextOn: { color: n.accent200 },
   countLine: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   count: {
     flexShrink: 1,
     color: n.textAlpha(55),
-    fontSize: 12.5,
+    fontSize: 12,
     fontFamily: fonts.regular,
     fontVariant: ['tabular-nums'],
   },
+  caption: {
+    paddingLeft: 18,
+    paddingRight: 16,
+    paddingBottom: 6,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  captionLarge: { paddingTop: 8, paddingLeft: 28, paddingRight: 20 },
   toolbar: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-  },
-  filterButton: {
-    height: 36,
-    paddingLeft: 11,
-    paddingRight: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 6,
-    borderRadius: roundRadius(36),
-    borderWidth: 1,
-    borderColor: n.divider,
   },
-  filterButtonActive: {
-    borderColor: n.accent,
-    backgroundColor: n.accentAlpha(12),
-  },
-  filterButtonOpen: {
-    borderColor: n.accent,
-    backgroundColor: n.accentAlpha(22),
-  },
-  filterText: { color: n.text, fontSize: 13.5, fontFamily: fonts.medium },
-  filterTextActive: { color: n.accent200 },
   badge: {
     minWidth: 20,
     height: 20,
@@ -619,13 +657,13 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   sort: {
-    height: 36,
-    paddingHorizontal: 8,
+    height: 28,
+    paddingHorizontal: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
   },
-  sortText: { color: n.textAlpha(75), fontSize: 13, fontFamily: fonts.regular },
+  sortText: { color: n.textAlpha(75), fontSize: 12, fontFamily: fonts.regular },
   icon36: {
     width: 36,
     height: 36,
@@ -638,7 +676,6 @@ const styles = StyleSheet.create({
   play: {
     width: 36,
     height: 36,
-    marginRight: 4,
     borderRadius: roundRadius(36),
     alignItems: 'center',
     justifyContent: 'center',

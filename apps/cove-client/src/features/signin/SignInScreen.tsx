@@ -252,6 +252,7 @@ export function SignInScreen() {
           anchor={menu?.anchor ?? null}
           onClose={() => setMenu(null)}
           items={menuItems}
+          width={280}
         />
       ) : (
         <MenuSheet

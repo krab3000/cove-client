@@ -29,6 +29,7 @@ A phone + tablet client for **Cove** (https://yourcove.net), a self-hosted, open
   - The filter's content (conditions, its sentence) appears only in the filter editor (2a / 2b; the tablet's drawer, 2d) — never on the Library, on any screen size. The Library shows the name, Filter the number of conditions.
   - Phone sideways (6f–6h): one header row (search · title with count · Save · Filter · sort · Shuffle · Play all · views · avatar), an icon rail instead of the tab bar, two list cards per row.
 - List view (1g): tapping a person or tag on a card adds it to the filter. Cards show Cove's rating, studio, date, play count, Save for later, Favorite and group.
+- One place for the filter (turn 8, replaces turn 6's title and Filter): a **filter pill** first in the toolbar names what is shown (saved filter's name / "Videos" for an unnamed filter / "All videos") with the number of conditions and a caret at its right end; no title row, no Filter button; a caption under the toolbar has Edited, the count and the sort. Phone: the pill opens one sheet (all videos, saved filters, quick, Edit conditions… → 2b, Save as new). Tablet: the sidebar picks what is shown, so the pill opens a small menu (Edit conditions… → the drawer 2d, Save as new, Show all videos).
 - Moments (Cove markers) appear as ticks on every timeline and as a tappable list that seeks.
 - Settings (turn 7, 7a–7d): the app's own settings, kept on the device for every account on it (never sent to the server; the server's settings stay in Cove's web UI). They expose what the app hard-codes today, in plain words, defaults unchanged: Playback (autoplay, resume, skip step, controls timeout, subtitles, hardware decoding), Library & previews (view, preview mode, preload rows, preview hardware decoding), Streaming & cache (usage + Clear cache, memory / disk cache, chunk size, read-ahead, Wi-Fi lock, certificate checks), Appearance (theme), Diagnostics (stats, player log, network log), About (Reset to defaults).
   - Phone: one scrolling page; values open a bottom sheet of choices. Tablet: its own screen, sections on the left, one section on the right; values open a small dialog.
@@ -48,4 +49,4 @@ Home layout (1c/1d/1e) · phone nav (tab bar vs floating pill) · library defaul
 ## Working agreement
 - The HTML in `design/` is a **reference**, not code to ship. Recreate in this codebase's stack.
 - When `design/` is updated, diff it and update only affected screens.
-- Screen ids (1a…7d) are stable — use them in commits/PRs.
+- Screen ids (1a…8g) are stable — use them in commits/PRs.

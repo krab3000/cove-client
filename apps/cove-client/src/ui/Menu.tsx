@@ -84,12 +84,17 @@ export function Popover({
   anchor,
   onClose,
   items,
+  align = 'right',
+  width = POPOVER_WIDTH,
 }: {
   visible: boolean;
-  // The opener's bottom-right corner, in window coordinates
+  // The opener's bottom corner (right, or left with align="left"), in window coordinates
   anchor: { x: number; y: number } | null;
   onClose: () => void;
   items: MenuEntry[];
+  // Which edge of the opener the popover lines up with
+  align?: 'left' | 'right';
+  width?: number;
 }) {
   return (
     <Modal
@@ -110,7 +115,11 @@ export function Popover({
         <View
           style={[
             styles.popover,
-            { top: WINDOW_TOP + anchor.y + 4, left: anchor.x - POPOVER_WIDTH },
+            {
+              top: WINDOW_TOP + anchor.y + 4,
+              left: align === 'left' ? anchor.x : anchor.x - width,
+              width,
+            },
           ]}
         >
           {items.map((item, i) =>
@@ -134,15 +143,22 @@ export function Popover({
                 ]}
               >
                 <Icon name={item.icon} size={18} color={n.accent300} />
-                <Text
-                  style={[
-                    styles.itemText,
-                    item.selected && styles.itemSelected,
-                  ]}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
+                <View style={styles.itemLabel}>
+                  <Text
+                    style={[
+                      styles.itemText,
+                      item.selected && styles.itemSelected,
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {item.label}
+                  </Text>
+                  {item.detail ? (
+                    <Text style={styles.itemDetail} numberOfLines={1}>
+                      {item.detail}
+                    </Text>
+                  ) : null}
+                </View>
                 {item.selected ? (
                   <Icon name="check" size={16} color={n.accent} />
                 ) : null}
@@ -173,7 +189,8 @@ const styles = StyleSheet.create({
     ...raisedEdge(n.textAlpha(10), shadows.lg),
   },
   item: {
-    height: 44,
+    minHeight: 44,
+    paddingVertical: 6,
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -181,8 +198,13 @@ const styles = StyleSheet.create({
     borderRadius: n.radiusMd,
   },
   pressed: { backgroundColor: n.textAlpha(6) },
+  itemLabel: { flex: 1, minWidth: 0, gap: 1 },
+  itemDetail: {
+    color: n.textAlpha(55),
+    fontSize: 12,
+    fontFamily: fonts.regular,
+  },
   itemText: {
-    flex: 1,
     color: n.text,
     fontSize: 15,
     fontFamily: fonts.regular,
