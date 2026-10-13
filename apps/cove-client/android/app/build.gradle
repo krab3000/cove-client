@@ -110,6 +110,14 @@ android {
     if (findProperty("coveCleartext") == "true") {
         sourceSets.release.res.srcDirs += ["src/debug/res"] // debug's network_security_config.xml
     }
+    // -PextractNativeLibs=true: the native libraries extracted at install. For x86_64 emulators, which run this
+    // arm64-only app through ARM translation: SoLoader looks inside the APK under the device's first ABI (x86_64) and
+    // finds nothing, but finds the extracted lib/arm64.
+    packaging {
+        jniLibs {
+            useLegacyPackaging = findProperty("extractNativeLibs") == "true"
+        }
+    }
 }
 
 dependencies {
