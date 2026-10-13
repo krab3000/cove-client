@@ -172,9 +172,17 @@ object HttpFetch {
   // low-latency mode on Android 10+, high-performance before; as video players do while they stream.
   @Volatile private var wifiLock: WifiManager.WifiLock? = null
 
+  // The app can turn it off (setDebugProperty wifi_lock 0); a lock held then is released.
+  @Volatile var wifiLockAllowed = true
+    set(value) {
+      field = value
+      if (!value) setStreaming(false)
+    }
+
   @JvmStatic
   fun setStreaming(on: Boolean) {
     val lock = wifiLock ?: return
+    if (on && !wifiLockAllowed) return
     synchronized(this) {
       try {
         if (on && !lock.isHeld) lock.acquire() else if (!on && lock.isHeld) lock.release()
@@ -228,5 +236,6 @@ object HttpFetch {
   @JvmStatic external fun nativeConfigure(chunkSize: Long, memorySize: Long, diskSize: Long, diskDir: String?)
   @JvmStatic external fun nativeTrimMemory()
   @JvmStatic external fun nativeClear()
+  @JvmStatic external fun nativeSetDebugProperty(name: String, value: String)
   @JvmStatic external fun nativeStats(): ByteArray
 }

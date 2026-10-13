@@ -484,6 +484,20 @@ extern "C" JNIEXPORT void JNICALL Java_com_rnmpv_HttpFetch_nativeClear(JNIEnv *,
   HttpCache::Instance()->Clear();
 }
 
+// A debug switch the app sets (Platform.h SetDebugOverride; '' unsets it). Read at the next open.
+extern "C" JNIEXPORT void JNICALL Java_com_rnmpv_HttpFetch_nativeSetDebugProperty(JNIEnv *env, jclass, jstring name,
+                                                                                 jstring value) {
+  auto text = [env](jstring s) {
+    if (!s)
+      return std::string();
+    const char *chars = env->GetStringUTFChars(s, nullptr);
+    std::string out = chars ? chars : "";
+    env->ReleaseStringUTFChars(s, chars);
+    return out;
+  };
+  SetDebugOverride(text(name), text(value));
+}
+
 extern "C" JNIEXPORT jbyteArray JNICALL Java_com_rnmpv_HttpFetch_nativeStats(JNIEnv *env, jclass) {
   const CacheStats s = HttpCache::Instance()->Stats();
   const CacheConfig c = HttpCache::Instance()->Config();

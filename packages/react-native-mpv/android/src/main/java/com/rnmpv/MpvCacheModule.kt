@@ -52,12 +52,25 @@ class MpvCacheModule(private val context: ReactApplicationContext) : ReactContex
   }
 
   /**
-   * The system property debug.mpv.<name> ('' when unset), the switches cpp/Platform.h DebugProperty reads, for JS
-   * (e.g. adb shell setprop debug.mpv.log v).
+   * Sets a debug switch for this process (the app's settings), over the system property; null or '' unsets it.
+   * The player reads them at each open; wifi_lock (0: no Wi-Fi lock while streaming) applies at once.
+   */
+  @ReactMethod
+  fun setDebugProperty(name: String, value: String?) {
+    val v = value ?: ""
+    if (v.isEmpty()) overrides.remove(name) else overrides[name] = v
+    if (name == "wifi_lock") HttpFetch.wifiLockAllowed = v != "0"
+    HttpFetch.attach(context)
+    HttpFetch.nativeSetDebugProperty(name, v)
+  }
+
+  /**
+   * The debug switch <name> as the player sees it ('' when unset): the app's (setDebugProperty), else the system
+   * property debug.mpv.<name> (e.g. adb shell setprop debug.mpv.log v).
    */
   @ReactMethod(isBlockingSynchronousMethod = true)
   fun getDebugProperty(name: String): String =
-    try {
+    overrides[name] ?: try {
       Class.forName("android.os.SystemProperties")
         .getMethod("get", String::class.java, String::class.java)
         .invoke(null, "debug.mpv.$name", "") as String
@@ -67,5 +80,7 @@ class MpvCacheModule(private val context: ReactApplicationContext) : ReactContex
 
   companion object {
     const val NAME = "MpvCache"
+
+    private val overrides = java.util.concurrent.ConcurrentHashMap<String, String>()
   }
 }

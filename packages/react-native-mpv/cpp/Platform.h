@@ -3,6 +3,8 @@
 // The few OS services the shared engine needs: logging, thread names, debug switches.
 
 #include <cstdlib>
+#include <map>
+#include <mutex>
 #include <string>
 
 #if defined(_WIN32)
@@ -52,9 +54,37 @@ inline void SetThreadName(const char *name) {
 #endif
 }
 
-// A debug switch, empty when unset. Android: the system property debug.mpv.<name> (adb shell setprop
-// debug.mpv.<name> <value>); elsewhere the environment variable MPV_<NAME> (upper case, '.' as '_').
+// The switches the app set (its settings: setDebugProperty in JS). They win over the system's; one set to ''
+// is unset again, so the system's applies.
+struct DebugOverrides {
+  std::mutex mutex;
+  std::map<std::string, std::string> values;
+};
+
+inline DebugOverrides &AppDebugOverrides() {
+  static DebugOverrides overrides;
+  return overrides;
+}
+
+inline void SetDebugOverride(const std::string &name, const std::string &value) {
+  DebugOverrides &o = AppDebugOverrides();
+  std::lock_guard lock(o.mutex);
+  if (value.empty())
+    o.values.erase(name);
+  else
+    o.values[name] = value;
+}
+
+// A debug switch, empty when unset: the app's (SetDebugOverride), else the system's. Android: the system property
+// debug.mpv.<name> (adb shell setprop debug.mpv.<name> <value>); elsewhere the environment variable MPV_<NAME>
+// (upper case, '.' as '_').
 inline std::string DebugProperty(const char *name) {
+  {
+    DebugOverrides &o = AppDebugOverrides();
+    std::lock_guard lock(o.mutex);
+    if (auto it = o.values.find(name); it != o.values.end())
+      return it->second;
+  }
 #if defined(__ANDROID__)
   char value[PROP_VALUE_MAX] = {};
   __system_property_get((std::string("debug.mpv.") + name).c_str(), value);

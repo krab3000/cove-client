@@ -33,6 +33,16 @@ export function getDebugProperty(name: string): string {
 }
 
 /**
+ * Sets the debug switch <name> for this process, over the system's (Android's property, Windows' environment
+ * variable): an app's own settings for what the switches control (log, stats, read_ahead, http_log; Android:
+ * wifi_lock, 0 for no Wi-Fi lock while streaming). null or '' unsets it, so the system's applies again. The player
+ * reads them when it opens a source. Does nothing off Android and Windows.
+ */
+export function setDebugProperty(name: string, value: string | null): void {
+  if (NATIVE) NativeModules.MpvCache?.setDebugProperty(name, value);
+}
+
+/**
  * Loads media ahead of time (preview clips of the cards around the one previewing, say). Android: downloads it into
  * the cache a MpvVideoView with `cache` plays from; Windows: reads its start into the HTTP cache. Does nothing
  * elsewhere.

@@ -55,6 +55,10 @@ void MpvCacheModule::GetHttpCacheStats(winrt::Microsoft::ReactNative::ReactPromi
                   n(s.disk.reads) + ",\"corrupt\":" + n(s.disk.corrupt) + ",\"evicted\":" + n(s.disk.evicted) + "}}");
 }
 
+void MpvCacheModule::SetDebugProperty(std::string name, std::optional<std::string> value) noexcept {
+  SetDebugOverride(name, value.value_or(""));
+}
+
 std::string MpvCacheModule::GetDebugProperty(std::string name) noexcept {
   return DebugProperty(name.c_str());
 }

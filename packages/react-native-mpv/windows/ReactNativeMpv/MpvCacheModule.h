@@ -36,7 +36,12 @@ struct MpvCacheModule {
   REACT_METHOD(GetHttpCacheStats, L"getHttpCacheStats")
   void GetHttpCacheStats(winrt::Microsoft::ReactNative::ReactPromise<std::string> &&promise) noexcept;
 
-  // The debug switch <name> (cpp/Platform.h DebugProperty: the environment variable MPV_<NAME>), '' when unset.
+  // Sets a debug switch for this process (the app's settings), over the environment; null or '' unsets it.
+  REACT_METHOD(SetDebugProperty, L"setDebugProperty")
+  void SetDebugProperty(std::string name, std::optional<std::string> value) noexcept;
+
+  // The debug switch <name> (cpp/Platform.h DebugProperty: the app's, else the environment variable MPV_<NAME>),
+  // '' when unset.
   REACT_SYNC_METHOD(GetDebugProperty, L"getDebugProperty")
   std::string GetDebugProperty(std::string name) noexcept;
 };
