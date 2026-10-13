@@ -30,6 +30,7 @@ import { AccountsPane } from './components/AccountsPane';
 import { useSnapshot } from 'valtio';
 import { accounts, changeAccounts } from '../../state/accounts';
 import { enter, session } from '../../state/session';
+import { openSettings } from '../../state/settings';
 
 // A large screen: the servers list beside the accounts (design 1n)
 const LIST_WIDTH = 380;
@@ -178,6 +179,7 @@ export function SignInScreen() {
       onPick={setServerId}
       onMenu={(s, anchor) => setMenu({ server: s, anchor })}
       onAdd={() => openEditor('add')}
+      onSettings={() => openSettings('signIn')}
     />
   );
 

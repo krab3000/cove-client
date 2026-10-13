@@ -1,7 +1,7 @@
 import { AppState } from 'react-native';
 import { proxy, ref } from 'valtio';
 import { CoveClient, authFailure } from '../api/cove';
-import { bindMediaAuth } from '../platform/player';
+import { bindMediaAuth, followPlayerPrefs } from '../platform/player';
 import { withAccount, withServer } from './signIn';
 import { accounts, changeAccounts, hydrateAccounts } from './accounts';
 import { player } from './player';
@@ -24,6 +24,7 @@ export const session = proxy({
 /** At launch: what was kept, then the session the app was in, if it is still good. */
 export async function startSession() {
   await Promise.all([hydrateAccounts(), hydratePrefs()]);
+  followPlayerPrefs();
   const { servers, last } = accounts;
   const server = servers.find((s) => s.id === last?.serverId);
   const account = server?.accounts.find((a) => a.username === last?.username);

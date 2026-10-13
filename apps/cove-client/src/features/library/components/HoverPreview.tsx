@@ -5,16 +5,17 @@ import type { Video } from '../../../api/types';
 import { VideoView } from '../../../platform/player';
 import { nocturne as n } from '../../../theme/tokens';
 import { SpriteCell } from './SpriteCell';
+import { useSnapshot } from 'valtio';
+import { prefs } from '../../../state/prefs';
 
 // Phones and tablets: no sprite-sheet fallback. A sheet is one 2880×1620 JPEG (19 MB decoded) for a 300 px frame;
 // a few of them fill the image cache and starve a weak device's memory and GPU.
 const SPRITE_FALLBACK = Platform.OS !== 'android';
 
-// Android: preview clips decode on the CPU. They are small (~640×360), so that is cheap, and it skips opening a
-// MediaCodec for every card: hardware decoders are few, slow to open, and some never deliver a frame (the
-// emulator's). Galaxy S22, cached clips: first frame on screen in ~45 ms in software, ~140 ms with MediaCodec
-// (opening the codec alone takes ~90 ms).
-const HARDWARE_PREVIEWS = Platform.OS !== 'android';
+// Hardware decoding for previews is a setting (prefs.previewHardware). Off by default on Android: preview clips decode
+// on the CPU. They are small (~640×360), so that is cheap, and it skips opening a MediaCodec for every card: hardware
+// decoders are few, slow to open, and some never deliver a frame (the emulator's). Galaxy S22, cached clips: first
+// frame on screen in ~45 ms in software, ~140 ms with MediaCodec (opening the codec alone takes ~90 ms).
 
 // Frames shown, spread evenly over the video, and how long each stays.
 const FRAMES = 12;
@@ -43,6 +44,7 @@ export function HoverPreview({
   onState?: (state: 'playing' | 'none') => void;
 }) {
   const [clip, setClip] = useState<boolean | null>(null);
+  const { previewHardware, tlsVerify } = useSnapshot(prefs);
   useEffect(() => {
     let alive = true;
     client.previewAvailable(video).then((has) => {
@@ -76,9 +78,9 @@ export function HoverPreview({
       // Android: plays the clip from a local copy (downloaded once, or prefetched by the grid): a sub-megabyte
       // clip downloads in one request, while streaming it costs several HTTPS round trips and a buffer.
       cache
-      hardwareDecoding={HARDWARE_PREVIEWS}
-      // See PlayerScreen: the player's own TLS check fails here, the app's fetch already checked the server.
-      tlsVerify={false}
+      hardwareDecoding={previewHardware}
+      // As the player's (Settings → Check server certificates)
+      tlsVerify={tlsVerify}
       // The first progress report: frames are on screen.
       onProgress={() => onState?.('playing')}
       onError={() => onState?.('none')}

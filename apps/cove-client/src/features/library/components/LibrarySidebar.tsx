@@ -4,6 +4,8 @@ import type { SavedFilter } from '../../../api/types';
 import { fonts, nocturne as n } from '../../../theme/tokens';
 import { Icon, type IconName } from '../../../ui/Icon';
 import { Avatar } from '../../../ui/Avatar';
+import { CoveMark } from '../../../ui/CoveMark';
+import { IconButton } from '../../../ui/IconButton';
 import { formatCount } from '../../../utils/format';
 
 /** What the Library shows, as the sidebar marks it. */
@@ -21,7 +23,8 @@ export interface SidebarQuick {
 
 /**
  * The tablet's sidebar (design 1h): the Show sheet's job, always open — the Library (all videos, with the count), the
- * quick filters (Watch), the saved filters with their counts, Save as new filter — and the account as its bottom row.
+ * quick filters (Watch), the saved filters with their counts, Save as new filter — and the account as its bottom row,
+ * with a gear beside it for this device's Settings.
  */
 export const LibrarySidebar = memo(function LibrarySidebar({
   server,
@@ -37,6 +40,7 @@ export const LibrarySidebar = memo(function LibrarySidebar({
   onSaved,
   onSaveNew,
   onAccount,
+  onSettings,
 }: {
   server: string;
   username: string;
@@ -51,6 +55,7 @@ export const LibrarySidebar = memo(function LibrarySidebar({
   onSaved: (filter: SavedFilter) => void;
   onSaveNew: () => void;
   onAccount: () => void;
+  onSettings: () => void;
 }) {
   const count = (c: number | undefined | null) =>
     c == null ? '' : formatCount(c);
@@ -58,7 +63,7 @@ export const LibrarySidebar = memo(function LibrarySidebar({
     <View style={styles.sidebar}>
       <ScrollView contentContainerStyle={styles.scroll}>
         <View style={styles.brand}>
-          <View style={styles.brandMark} />
+          <CoveMark size={22} />
           <Text style={styles.brandText}>Cove</Text>
         </View>
         <View style={styles.server}>
@@ -110,17 +115,27 @@ export const LibrarySidebar = memo(function LibrarySidebar({
           </Pressable>
         ) : null}
       </ScrollView>
-      <Pressable
-        onPress={onAccount}
-        accessibilityLabel="Account"
-        style={({ pressed }) => [styles.account, pressed && styles.pressed]}
-      >
-        <Avatar name={username} size={32} letters="one" />
-        <Text style={styles.accountName} numberOfLines={1}>
-          {username}
-        </Text>
-        <Icon name="caret-up-down" size={16} color={n.textAlpha(55)} />
-      </Pressable>
+      <View style={styles.accountRow}>
+        <Pressable
+          onPress={onAccount}
+          accessibilityLabel="Account"
+          style={({ pressed }) => [styles.account, pressed && styles.pressed]}
+        >
+          <Avatar name={username} size={32} letters="one" />
+          <Text style={styles.accountName} numberOfLines={1}>
+            {username}
+          </Text>
+          <Icon name="caret-up-down" size={16} color={n.textAlpha(55)} />
+        </Pressable>
+        <IconButton
+          icon="gear-six"
+          onPress={onSettings}
+          accessibilityLabel="Settings"
+          size="md"
+          iconSize={19}
+          color={n.textAlpha(70)}
+        />
+      </View>
     </View>
   );
 });
@@ -185,13 +200,6 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 14,
   },
-  brandMark: {
-    width: 20,
-    height: 20,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: n.accent,
-  },
   brandText: { color: n.text, fontSize: 17, fontFamily: fonts.medium },
   server: {
     flexDirection: 'row',
@@ -252,9 +260,16 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   saveNew: { color: n.accent200 },
-  account: {
+  accountRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
     margin: 12,
     marginTop: 4,
+  },
+  account: {
+    flex: 1,
+    minWidth: 0,
     paddingHorizontal: 10,
     paddingVertical: 8,
     flexDirection: 'row',

@@ -2,12 +2,25 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { Segment } from '../../../api/types';
 import { formatDuration } from '../../../utils/format';
 import { fonts, nocturne as n } from '../../../theme/tokens';
-import { Sheet, SheetHeading, SheetRow, SheetSection } from '../../../ui/Sheet';
+import { useSnapshot } from 'valtio';
+import {
+  Sheet,
+  SheetHeading,
+  SheetRow,
+  SheetRule,
+  SheetSection,
+} from '../../../ui/Sheet';
+import { prefs } from '../../../state/prefs';
+import { SwitchRow } from '../../settings/components/SettingsRows';
 import { segmentLabel } from '../moments';
 
 const RATES = [0.5, 0.75, 1, 1.25, 1.5, 2];
 
-/** The player's settings: the speed, and the audio track when there is more than one. */
+/**
+ * The player's Playback sheet (design 7c): this video's speed, audio track (when there is more than one) and subtitles
+ * (when it has any); two of the device's switches people reach for mid-video (hardware decoding, statistics); and
+ * All settings.
+ */
 export function SettingsSheet({
   visible,
   onClose,
@@ -16,6 +29,10 @@ export function SettingsSheet({
   tracks,
   currentTrack,
   onTrack,
+  subtitles,
+  currentSubtitle,
+  onSubtitle,
+  onAllSettings,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -24,7 +41,14 @@ export function SettingsSheet({
   tracks: { index: number; label: string }[];
   currentTrack: number;
   onTrack: (index: number) => void;
+  subtitles: { index: number; label: string }[];
+  // -1: none shown
+  currentSubtitle: number;
+  // A track's index, or -2 for none
+  onSubtitle: (index: number) => void;
+  onAllSettings: () => void;
 }) {
+  const { hardwareDecoding, stats } = useSnapshot(prefs);
   return (
     <Sheet visible={visible} onClose={onClose}>
       <SheetHeading>Playback</SheetHeading>
@@ -62,6 +86,51 @@ export function SettingsSheet({
           ))}
         </>
       ) : null}
+      {subtitles.length ? (
+        <>
+          <SheetSection>Subtitles</SheetSection>
+          {[{ index: -2, label: 'Off' }, ...subtitles].map((t) => (
+            <SheetRow
+              key={t.index}
+              icon="closed-captioning"
+              label={t.label}
+              checked={
+                t.index === -2
+                  ? currentSubtitle < 0
+                  : t.index === currentSubtitle
+              }
+              onPress={() => {
+                onSubtitle(t.index);
+                onClose();
+              }}
+            />
+          ))}
+        </>
+      ) : null}
+      <SheetSection>This device</SheetSection>
+      <SwitchRow
+        label="Hardware decoding"
+        detail="Turn off if this video plays black, green or blocky. For every video on this device."
+        on={hardwareDecoding}
+        onPress={() => {
+          prefs.hardwareDecoding = !hardwareDecoding;
+        }}
+      />
+      <SwitchRow
+        label="Playback statistics"
+        detail="Decoder, cache and network, over the video."
+        on={stats}
+        onPress={() => {
+          prefs.stats = !stats;
+        }}
+      />
+      <SheetRule />
+      <SheetRow
+        icon="gear-six"
+        label="All settings"
+        meta="Cache, previews, diagnostics — on this device"
+        onPress={onAllSettings}
+      />
     </Sheet>
   );
 }

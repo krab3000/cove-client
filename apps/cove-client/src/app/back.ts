@@ -11,6 +11,8 @@ export const Layer = {
   drawer: 10,
   editor: 20,
   player: 100,
+  // Settings open over everything, the player included (its Playback sheet's All settings)
+  settings: 150,
 } as const;
 
 type Handler = () => boolean | void;

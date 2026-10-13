@@ -7,6 +7,8 @@ import { useSafeInsets } from './platform/insets';
 import { LibraryScreen } from './features/library/LibraryScreen';
 import { PlayerScreen } from './features/player/PlayerScreen';
 import { SignInScreen } from './features/signin/SignInScreen';
+import { SettingsScreen } from './features/settings/SettingsScreen';
+import { settingsScreen } from './state/settings';
 import { closePlayer, play, player } from './state/player';
 import { prefs } from './state/prefs';
 import { logout, session, startSession } from './state/session';
@@ -27,7 +29,8 @@ export default function App() {
   const { status } = sessionSnap;
   const client = sessionSnap.client ? session.client : null;
   const playing = useSnapshot(player).playing ? player.playing : null;
-  const { autoplay } = useSnapshot(prefs);
+  const { autoplay, previews } = useSnapshot(prefs);
+  const settingsOpen = useSnapshot(settingsScreen).open;
 
   useEffect(() => {
     startSession();
@@ -69,7 +72,7 @@ export default function App() {
                 onPlay={play}
                 onLogout={logout}
                 // No previews under the player: the hardware decoder is shared, and a 4K stream needs all of it.
-                previews={!playing}
+                previews={!playing && previews !== 'off'}
               />
             ) : (
               <SignInScreen />
@@ -92,6 +95,22 @@ export default function App() {
               startAt={playing.startAt}
             />
           ) : null}
+          {/* The device's Settings, over everything (the player's All settings opens them too) */}
+          {settingsOpen ? (
+            <View
+              style={[
+                styles.settings,
+                {
+                  paddingTop: insets.top,
+                  paddingRight: insets.right,
+                  paddingBottom: insets.bottom,
+                  paddingLeft: insets.left,
+                },
+              ]}
+            >
+              <SettingsScreen />
+            </View>
+          ) : null}
         </View>
       </ClientContext.Provider>
     </QueryClientProvider>
@@ -101,5 +120,6 @@ export default function App() {
 const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: nocturne.bg },
   content: { flex: 1 },
+  settings: { ...StyleSheet.absoluteFillObject, backgroundColor: nocturne.bg },
   waiting: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });

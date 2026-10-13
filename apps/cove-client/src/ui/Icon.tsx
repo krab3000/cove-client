@@ -74,6 +74,11 @@ const GLYPHS = {
   'speaker-high': 0xe44a,
   'speaker-slash': 0xe45a,
   'waveform': 0xe802,
+  // Settings (turn 7)
+  'cloud-arrow-down': 0xe1ac,
+  'pulse': 0xe000,
+  'info': 0xe2ce,
+  'closed-captioning': 0xe1a4,
 } as const;
 
 export type IconName = keyof typeof GLYPHS;

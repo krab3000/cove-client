@@ -59,12 +59,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Shade } from './components/Shade';
 import { PlayButton } from './components/PlayButton';
 import { MomentsSheet, SettingsSheet } from './components/PlayerSheets';
+import { PlaybackStats } from './components/PlaybackStats';
+import { useSnapshot } from 'valtio';
+import { prefs } from '../../state/prefs';
+import { openSettings } from '../../state/settings';
 import { segmentLabel } from './moments';
 
 const touch = Platform.OS === 'android';
-
-// Controls hide after this long without input while playing.
-const HIDE_AFTER_MS = 3000;
 
 // Two taps within this are a double tap (touch: seek on the left or right third).
 const DOUBLE_TAP_MS = 300;
@@ -72,12 +73,11 @@ const DOUBLE_TAP_MS = 300;
 // After a double-tap seek, single taps on the same side keep seeking for this long (tap, tap, tap: -30 s).
 const SEEK_STREAK_MS = 700;
 
-const SEEK_STEP = 10;
-
 // The speed pill steps through these.
 const RATES = [1, 1.25, 1.5, 2, 0.5, 0.75];
 
-// Resume where the user left off, unless that is near the start or the end.
+// Resume where the user left off (Settings → Resume), unless that is near the start or the end. How far a skip jumps
+// and when the controls hide are settings too (prefs.seekStep, prefs.hideAfterMs), read when used.
 const RESUME_MIN_SEC = 5;
 
 const RESUME_END_MARGIN_SEC = 15;
@@ -146,10 +146,23 @@ export function PlayerScreen({
   const [volume, setVolume] = useState(1);
   const [rate, setRate] = useState(1);
   const [audioTrack, setAudioTrack] = useState(-1);
+  // -1: the file's default subtitle track, -2: none (Settings → Subtitles), else a track picked in the Playback sheet
+  const [subtitleTrack, setSubtitleTrack] = useState(() =>
+    prefs.subtitles === 'off' ? -2 : -1
+  );
+  // The device's settings the player follows while it plays
+  const { hardwareDecoding, tlsVerify, stats: showStats } = useSnapshot(prefs);
   const [time, setTime] = useState(0);
   // The playing time, always current; `time` (what the controls show) follows it only while they are visible, so
   // progress reports do not re-render the screen while the controls are hidden.
   const timeRef = useRef(0);
+  // Hardware decoding or the TLS check changed: the native view opens the file again, and this is where to go back to
+  const reopenAt = useRef<number | null>(null);
+  const opened = useRef(`${hardwareDecoding} ${tlsVerify}`);
+  if (opened.current !== `${hardwareDecoding} ${tlsVerify}`) {
+    opened.current = `${hardwareDecoding} ${tlsVerify}`;
+    reopenAt.current = timeRef.current;
+  }
   const [seeking, setSeeking] = useState(false);
   const [scrub, setScrub] = useState<number | null>(null); // 0–1 while dragging the seek bar
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -246,9 +259,10 @@ export function PlayerScreen({
 
   const scheduleHide = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current);
+    if (!prefs.hideAfterMs) return; // Never
     hideTimer.current = setTimeout(() => {
       if (!overControls.current) setControls(false);
-    }, HIDE_AFTER_MS);
+    }, prefs.hideAfterMs);
   }, []);
   const showControls = useCallback(() => {
     setControls(true);
@@ -353,7 +367,9 @@ export function PlayerScreen({
     const at = resumeAt.current;
     if (
       startAt != null ||
-      (at > RESUME_MIN_SEC && at < duration - RESUME_END_MARGIN_SEC)
+      (prefs.resume &&
+        at > RESUME_MIN_SEC &&
+        at < duration - RESUME_END_MARGIN_SEC)
     ) {
       resumeSeek(at);
       seekTo(at);
@@ -412,11 +428,13 @@ export function PlayerScreen({
   const seekBySide = (side: 'left' | 'right', now: number) => {
     const s = streak.current;
     const seconds =
-      s && s.side === side && now < s.until ? s.seconds + SEEK_STEP : SEEK_STEP;
+      s && s.side === side && now < s.until
+        ? s.seconds + prefs.seekStep
+        : prefs.seekStep;
     streak.current = { until: now + SEEK_STREAK_MS, side, seconds };
     seekTo(
       Math.max(0, timeRef.current - clipStart) +
-        (side === 'left' ? -SEEK_STEP : SEEK_STEP)
+        (side === 'left' ? -prefs.seekStep : prefs.seekStep)
     );
     setFlash({ side, seconds });
     if (flashTimer.current) clearTimeout(flashTimer.current);
@@ -580,7 +598,7 @@ export function PlayerScreen({
               icon="clock-counter-clockwise"
               iconSize={32}
               accessibilityLabel="Back 10 seconds"
-              onPress={() => skip(-SEEK_STEP)}
+              onPress={() => skip(-prefs.seekStep)}
               color={overVideo.ink}
             />
             <PlayButton
@@ -597,7 +615,7 @@ export function PlayerScreen({
               icon="clock-clockwise"
               iconSize={32}
               accessibilityLabel="Forward 10 seconds"
-              onPress={() => skip(SEEK_STEP)}
+              onPress={() => skip(prefs.seekStep)}
               color={overVideo.ink}
             />
           </View>
@@ -646,6 +664,13 @@ export function PlayerScreen({
             <Text style={styles.ratePillText}>{rate}×</Text>
           </Pressable>
           <IconButton
+            icon="gear-six"
+            iconSize={20}
+            accessibilityLabel="Playback settings"
+            onPress={() => setSheet('settings')}
+            color={overVideo.ink}
+          />
+          <IconButton
             icon="corners-out"
             iconSize={20}
             accessibilityLabel="Full screen"
@@ -691,12 +716,18 @@ export function PlayerScreen({
           volume={volume}
           rate={rate}
           audioTrack={audioTrack}
-          // Behind TLS-inspecting antivirus (Windows) or with a CA the user installed (Android), the player's own
-          // TLS check fails; the app's fetch already checked this server at login.
-          tlsVerify={false}
+          subtitleTrack={subtitleTrack}
+          hardwareDecoding={hardwareDecoding}
+          // Off by default (Settings → Check server certificates): behind TLS-inspecting antivirus (Windows) or with a
+          // CA the user installed (Android), the player's own TLS check fails; the app's fetch already checked this
+          // server at login.
+          tlsVerify={tlsVerify}
           onLoad={(e) => {
             setInfo(e.nativeEvent);
-            if (clipStart > 0) player.current?.seek(clipStart);
+            const back = reopenAt.current;
+            reopenAt.current = null;
+            if (back != null && back > 0) player.current?.seek(back);
+            else if (clipStart > 0) player.current?.seek(clipStart);
           }}
           onProgress={(e) => {
             firstFrameShown();
@@ -736,6 +767,21 @@ export function PlayerScreen({
           }}
           onError={(e) => setError(e.nativeEvent.message)}
         />
+        {/* Settings → Playback statistics */}
+        {showStats ? (
+          // 1k: in the top row, between minimize and the gear; 1l: under the top bar; 1m: the corner (its controls are
+          // at the bottom)
+          <PlaybackStats
+            info={info}
+            at={
+              tablet
+                ? { top: 12, left: 12 }
+                : immersive
+                  ? { top: 76, left: 48 }
+                  : { top: 8, left: 56 }
+            }
+          />
+        ) : null}
 
         {/* Taps and clicks on the video itself, under the controls. */}
         <Pressable style={StyleSheet.absoluteFill} onPress={onVideoPress} />
@@ -837,6 +883,13 @@ export function PlayerScreen({
                     color={overVideo.ink}
                   />
                 ) : null}
+                <IconButton
+                  icon="gear-six"
+                  iconSize={20}
+                  accessibilityLabel="Playback settings"
+                  onPress={() => setSheet('settings')}
+                  color={overVideo.ink}
+                />
               </View>
 
               {info && !error && !seeking ? (
@@ -846,7 +899,7 @@ export function PlayerScreen({
                       icon="clock-counter-clockwise"
                       iconSize={32}
                       accessibilityLabel="Back 10 seconds"
-                      onPress={() => skip(-SEEK_STEP)}
+                      onPress={() => skip(-prefs.seekStep)}
                       color={overVideo.ink}
                     />
                     <PlayButton
@@ -861,7 +914,7 @@ export function PlayerScreen({
                       icon="clock-clockwise"
                       iconSize={32}
                       accessibilityLabel="Forward 10 seconds"
-                      onPress={() => skip(SEEK_STEP)}
+                      onPress={() => skip(prefs.seekStep)}
                       color={overVideo.ink}
                     />
                   </View>
@@ -974,7 +1027,7 @@ export function PlayerScreen({
                       icon="clock-counter-clockwise"
                       iconSize={28}
                       accessibilityLabel="Back 10 seconds"
-                      onPress={() => skip(-SEEK_STEP)}
+                      onPress={() => skip(-prefs.seekStep)}
                       color={overVideo.ink}
                     />
                     <PlayButton
@@ -989,7 +1042,7 @@ export function PlayerScreen({
                       icon="clock-clockwise"
                       iconSize={28}
                       accessibilityLabel="Forward 10 seconds"
-                      onPress={() => skip(SEEK_STEP)}
+                      onPress={() => skip(prefs.seekStep)}
                       color={overVideo.ink}
                     />
                   </View>
@@ -1443,6 +1496,21 @@ export function PlayerScreen({
         }))}
         currentTrack={currentTrack}
         onTrack={setAudioTrack}
+        subtitles={(info?.subtitleTracks ?? []).map((t, i) => ({
+          index: t.index,
+          label:
+            [t.language, t.title].filter(Boolean).join(' · ') ||
+            `Track ${i + 1}`,
+        }))}
+        currentSubtitle={
+          subtitleTrack === -1 ? (info?.subtitleTrack ?? -1) : subtitleTrack
+        }
+        onSubtitle={setSubtitleTrack}
+        onAllSettings={() => {
+          setSheet(null);
+          setPaused(true);
+          openSettings('player');
+        }}
       />
       <MomentsSheet
         visible={sheet === 'moments'}

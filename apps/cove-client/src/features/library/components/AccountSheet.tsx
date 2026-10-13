@@ -5,13 +5,14 @@ import { Avatar } from '../../../ui/Avatar';
 import { Sheet, SheetRow, SheetRule } from '../../../ui/Sheet';
 import { StatusDot } from '../../../ui/Text';
 
-/** The avatar's account sheet (design 6e): who and where, Refresh library, Log out. */
+/** The avatar's account sheet (design 6e): who and where, Refresh library, this device's Settings, Log out. */
 export const AccountSheet = memo(function AccountSheet({
   visible,
   onClose,
   username,
   server,
   onRefresh,
+  onSettings,
   onLogout,
 }: {
   visible: boolean;
@@ -19,6 +20,7 @@ export const AccountSheet = memo(function AccountSheet({
   username: string;
   server: string;
   onRefresh: () => void;
+  onSettings: () => void;
   onLogout: () => void;
 }) {
   return (
@@ -44,6 +46,15 @@ export const AccountSheet = memo(function AccountSheet({
         onPress={() => {
           onClose();
           onRefresh();
+        }}
+      />
+      <SheetRow
+        icon="gear-six"
+        label="Settings"
+        meta="This device"
+        onPress={() => {
+          onClose();
+          onSettings();
         }}
       />
       <SheetRow

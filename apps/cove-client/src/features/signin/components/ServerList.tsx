@@ -2,7 +2,8 @@ import { useRef, type ComponentRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { Button } from '../../../ui/Button';
 import { Icon } from '../../../ui/Icon';
-import { MoreButton } from '../../../ui/IconButton';
+import { IconButton, MoreButton } from '../../../ui/IconButton';
+import { CoveMark } from '../../../ui/CoveMark';
 import { StatusDot } from '../../../ui/Text';
 import { fonts, nocturne as n } from '../../../theme/tokens';
 import { type KeptServer, type SignIn } from '../../../state/signIn';
@@ -18,6 +19,7 @@ export function ServerList({
   onPick,
   onMenu,
   onAdd,
+  onSettings,
 }: {
   state: SignIn;
   reached: Record<string, boolean | undefined>;
@@ -27,6 +29,8 @@ export function ServerList({
   onPick: (id: string) => void;
   onMenu: (server: KeptServer, anchor?: { x: number; y: number }) => void;
   onAdd: () => void;
+  // This device's settings: a gear by the brand (phone), Settings at the foot of the list (tablet)
+  onSettings: () => void;
 }) {
   // The ⋮ buttons, so a tablet's popover can open under one
   const mores = useRef(new Map<string, ComponentRef<typeof View>>());
@@ -35,8 +39,17 @@ export function ServerList({
       <View style={styles.glow} pointerEvents="none" />
       <ScrollView contentContainerStyle={styles.serversContent}>
         <View style={styles.brand}>
-          <View style={styles.brandMark} />
+          <CoveMark size={large ? 22 : 24} />
           <Text style={styles.brandText}>Cove</Text>
+          {large ? null : (
+            <IconButton
+              icon="gear-six"
+              onPress={onSettings}
+              accessibilityLabel="Settings"
+              color={n.textAlpha(70)}
+              style={styles.gear}
+            />
+          )}
         </View>
         <Text style={[styles.h1, large && styles.h1Large]}>
           {large ? 'Connect to your library' : 'Connect to\nyour library'}
@@ -130,6 +143,22 @@ export function ServerList({
             style={styles.add}
           />
         </View>
+        {large ? (
+          <>
+            <View style={styles.grow} />
+            <Pressable
+              onPress={onSettings}
+              accessibilityRole="button"
+              style={({ pressed }) => [
+                styles.settings,
+                pressed && styles.pressed,
+              ]}
+            >
+              <Icon name="gear-six" size={20} color={n.textAlpha(80)} />
+              <Text style={styles.settingsText}>Settings</Text>
+            </Pressable>
+          </>
+        ) : null}
       </ScrollView>
     </View>
   );
@@ -146,20 +175,30 @@ const styles = StyleSheet.create({
     borderRadius: 210,
     experimental_backgroundImage: `radial-gradient(circle, ${n.accentAlpha(22)}, transparent 70%)`,
   },
-  serversContent: { paddingTop: 28, paddingBottom: 30 },
+  serversContent: { flexGrow: 1, paddingTop: 28, paddingBottom: 30 },
   brand: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 24,
   },
-  brandMark: {
-    width: 22,
-    height: 22,
-    borderRadius: 7,
-    borderWidth: 1.5,
-    borderColor: n.accent,
-    boxShadow: `0 0 12px ${n.accentAlpha(60)}`,
+  // 44 px to press, in a row 22 high: it overhangs it
+  gear: { marginLeft: 'auto', marginVertical: -11, marginRight: -10 },
+  grow: { flexGrow: 1, minHeight: 16 },
+  settings: {
+    alignSelf: 'flex-start',
+    height: 44,
+    marginHorizontal: 16,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: n.radiusMd,
+  },
+  settingsText: {
+    color: n.textAlpha(80),
+    fontSize: 14,
+    fontFamily: fonts.regular,
   },
   brandText: { color: n.text, fontSize: 17, fontFamily: fonts.medium },
   h1: {
