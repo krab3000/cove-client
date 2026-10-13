@@ -53,6 +53,7 @@ import { AddRow } from './components/RuleRows';
 import { CutTag } from './components/RuleRows';
 import { ConditionRow } from './components/RuleRows';
 import { addActions, menuActions, type ActionContext } from './actions';
+import { SmoothEdges } from '../../platform/SmoothEdges';
 
 /**
  * Design 2b (design_handoff_cove_mobile, "Rule tree as an outline"), for phones: a Cove filter as an outline of
@@ -201,7 +202,8 @@ export function FilterScreen({
       toValue: 0,
       duration: 200,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      // RNW's native animated driver is incomplete; there the JS one runs
+      useNativeDriver: Platform.OS !== 'windows',
     }).start();
     const y = offsets.current.get(focus.id) ?? 0;
     requestAnimationFrame(() =>
@@ -555,6 +557,7 @@ export function FilterScreen({
           animationType="fade"
           onRequestClose={() => setLevels(false)}
         >
+          <SmoothEdges />
           <Pressable
             style={styles.levelsScrim}
             onPress={() => setLevels(false)}

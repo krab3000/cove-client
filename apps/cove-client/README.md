@@ -1,16 +1,25 @@
 # Cove client
 
-A React Native client for a Cove media server (Android phones and tablets; Windows, without playback for now), built
-from the design in [design_handoff_cove_mobile](design_handoff_cove_mobile/README.md). Playback goes through
-`react-native-mpv` (this repository's packages).
+A React Native client for a Cove media server (Android phones and tablets, Windows), built from the design in
+[design_handoff_cove_mobile](design_handoff_cove_mobile/README.md). Playback goes through `react-native-mpv` (this
+repository's packages) on both.
 
 ## Running
 
 ```sh
 yarn start:cove          # Metro, from the repository root
 yarn cove:android        # build and install on Android
-yarn cove:windows        # build and run on Windows
+yarn cove:windows        # build and run on Windows (x64; needs libmpv: yarn build-mpv-windows, once)
 ```
+
+On Windows the app's fonts (Inter, the Phosphor icons) are the Android assets, installed with the package
+(`windows.sharedFonts` in `windows/CoveClient.Package/Package.appxmanifest`) and named by family in `theme/tokens.ts`.
+`windows/ExperimentalFeatures.props` makes `@react-native-async-storage/async-storage`'s Windows project build in this
+app (New Architecture, the installed toolset, its checked-in codegen). Around react-native-windows' drawing:
+`platform/SmoothEdges` (one per root: the app's and each Modal's) turns on anti-aliasing for rounded corners, `Icon`
+leaves out lineHeight there (with one, the baseline is 80% of it whatever the font: Phosphor's glyphs sit off
+center), and `roundRadius` (`theme/tokens.ts`) keeps
+the corners of a fully rounded border from overlapping.
 
 ## Test server
 

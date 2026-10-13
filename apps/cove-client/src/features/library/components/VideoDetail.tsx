@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { primaryFile, type CoveClient } from '../../../api/cove';
 import type { Video } from '../../../api/types';
-import { fonts, nocturne as n } from '../../../theme/tokens';
+import { fonts, nocturne as n, roundRadius } from '../../../theme/tokens';
 import {
   formatDuration,
   resolutionLabel,
@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   playRound: {
     width: 56,
     height: 56,
-    borderRadius: 28,
+    borderRadius: roundRadius(56),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(14,15,24,0.5)',

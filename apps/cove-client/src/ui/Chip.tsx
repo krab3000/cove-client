@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { fonts, nocturne as n } from '../theme/tokens';
+import { fonts, nocturne as n, roundRadius } from '../theme/tokens';
 import { Avatar } from './Avatar';
 
 /** A person: their initials in a small avatar, and the name. A tap (when given) adds them to the filter. */
@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 14,
+    borderRadius: roundRadius(28),
     borderWidth: 1,
     borderColor: n.divider,
     backgroundColor: n.surface,

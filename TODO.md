@@ -3,28 +3,23 @@
 Work left for later, with enough context to pick it up. Keep entries current: when a change leaves something
 behind for a platform, add it here, and remove the entry when it is done.
 
-## Windows: mpv (react-native-mpv, Cove client)
+## Windows (react-native-mpv, Cove client)
 
-Windows has no player for now: the earlier Windows implementation was removed with the move to mpv, and Cove's
-`apps/cove-client/src/platform/player.ts` renders a placeholder ("Playback isn't available on this platform yet";
-`prefetchMedia` and `bindMediaAuth` are no-ops). `apps/cove-client/react-native.config.js` keeps react-native-mpv out
-of Windows autolinking.
+Windows plays with mpv like Android (react-native-mpv's README: `windows/ReactNativeMpv`, `scripts/mpv-windows`; checked
+with the test server's EdgeCases and Exotic files, and Big Buck Bunny 2160p60 over HTTP at 60 fps). Left:
 
-- **libmpv for Windows.** Build libmpv (LGPL, `-Dgpl=false`) and the FFmpeg it links for x64 (and arm64), the
-  counterpart of `scripts/mpv-android`, into `third_party/`.
-- **The view.** A react-native-windows `MpvVideoView` (C++/WinRT) with the same props and events as Android's, on
-  `cpp/MpvPlayer` (the shared player; its `wid`/surface handling is Android-only so far: mpv takes an HWND or a
-  SwapChainPanel through `vo=gpu-next`/d3d11), plus codegen for the component.
-- **HTTP cache wiring.** Call `HttpCache::SetPlatform` once: total RAM from `GlobalMemoryStatusEx`
-  (`ullTotalPhys`); the cache dir from `winrt::Windows::Storage::ApplicationData::Current().LocalCacheFolder()`
-  (`\mpv-http`), catching `hresult_error` for unpackaged apps and falling back to `GetTempPathW` + `mpv-http`.
-- **WinHttpFetcher.** An `HttpFetcher` over WinHTTP (async, a session per origin, keep-alive, ETag and
-  Last-Modified read from the response), registered with `HttpCache::SetFetcher`; without it
-  `HttpCache::MakeSourceFactory` returns nothing and mpv would open URLs with its own HTTP.
-- **Native module.** A `MpvCache` C++/WinRT module (`[REACT_MODULE]`) with `configureHttp`, `clearHttpCache`,
-  `getHttpCacheStats`, `setHttpAuthorization`. Then remove the `Platform.OS === 'android'` guards in
-  `packages/react-native-mpv/src/index.tsx`, and point Cove's `player.ts` at react-native-mpv (or make
-  `player.android.ts` the shared one).
+- **arm64.** `scripts/mpv-windows` builds x64 only (`Mpv.props` stops other platforms): an aarch64 llvm-mingw target
+  (FFmpeg `--arch=aarch64`, the meson cross file, CMake toolchain) into `third_party/mpv/win-arm64`.
+- **HDR output.** The views' composition surfaces are 8-bit BGRA, so mpv tone maps HDR10/HLG to SDR. On an HDR display:
+  an FP16 surface (`d3d11-output-format=rgba16f`, `d3d11-output-csp=linear`, scRGB) when the window is on an HDR output.
+- **Frame pacing.** Frames reach the surface when mpv would present them, on mpv's clock (the composition swapchain is on
+  no output, so mpv gets no vsync feedback); composition shows each at its next frame. Measure judder at 60 fps on a
+  60 Hz display; if needed, feed the compositor's timing back to mpv (a hook for the vsync, `display-sync`).
+- **Device loss.** A player's D3D11 device (`MpvVideoView.cpp`, `VideoDevice`) is not made again after a device
+  removal (driver update, TDR): that player shows its last frame until its source changes. Watch
+  `GetDeviceRemovedReason` in the frame hook and reopen the player on a new device at its position.
+- **Hover previews under the player.** On Windows the Library's hover preview of the card under the pointer keeps
+  playing beneath the player after it opens (no pointer-exit reaches the card); stop previews while the player is up.
 - **Two processes, one cache dir.** Tolerated (atomic renames, misses on vanished files), but each process
   enforces the limit on its own. Optionally take a `LockFileEx` lock on `<dir>/lock`; a second process then runs
   RAM-only.
@@ -32,11 +27,13 @@ of Windows autolinking.
   `RnTraceEnabled` MSBuild property, with a PowerShell twin of `packages/rn-trace/scripts/fetch-perfetto.sh`. Link
   it from react-native-mpv's vcxproj and define `MPV_RNTRACE` (otherwise the `MPV_TRACE*` macros stay no-ops).
   Expose the `RnTrace` TurboModule.
-- **Cove's media auth.** Cove sends the access JWT as a header on Android; on Windows it still puts it in media URLs
-  (`TOKEN_IN_MEDIA_URLS` in `src/api/cove.ts`). Switch to the header once the Windows fetcher sends it.
-- **Verify.** Build; play Big Buck Bunny 2160p60 over HTTP through the cache; check `LocalCache\mpv-http` grows,
-  stays under its limit, and a reopen after restart starts from disk. Then a desktop driver for `tools/bench` (in
-  place of adb) and a trace source (rn-trace in-process, or ETW).
+- **Images' token.** On Windows Cove's images still carry the JWT in their URLs (`TOKEN_IN_IMAGE_URLS` in
+  `src/api/cove.ts`): react-native-windows' image loader has no hook for a header, as Android's OkHttp interceptor is.
+  The player and preview clips send the header (WinHttpFetcher).
+- **Bench on Windows.** A desktop driver for `tools/bench` (UI Automation in place of adb) and a trace source (rn-trace
+  in-process, or ETW).
+- **The libmpv patch.** `scripts/mpv-windows/patches/0001-*` (`--d3d11-composition-device`, `--d3d11-composition-hook`)
+  has to be rebased whenever `MPV_COMMIT` moves; propose it upstream.
 
 ## iOS
 
@@ -72,7 +69,7 @@ Found while benchmarking on the S22 (tools/bench):
 - **Cove has no subtitle picker.** react-native-mpv has `subtitleTrack` and onLoad's `subtitleTracks` (apps/mpv-test
   uses them); Cove's player shows the file's default track and offers no choice or "off". Add a captions control to
   PlayerScreen (the design hand-off has none yet).
-- **Fonts beyond Roboto.** Subtitles are drawn with the system's Roboto (`MpvPlayer.prepareSubtitleFonts`): Latin,
+- **Fonts beyond Roboto (Android).** Subtitles are drawn with the system's Roboto (`MpvPlayer.prepareSubtitleFonts`): Latin,
   Cyrillic, Greek. CJK, Arabic, Hebrew, Thai, ... need more fonts in `mpv-fonts` (libass loads every file there into
   memory, so pick per language rather than linking all of /system/fonts). MKV font attachments are used as they are.
 - **External subtitle files** (`.srt` next to the video, `sub-auto` is off) and subtitle styling (size, position).

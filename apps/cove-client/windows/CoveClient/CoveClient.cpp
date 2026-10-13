@@ -7,6 +7,7 @@
 #include "AutolinkedNativeModules.g.h"
 
 #include "NativeModules.h"
+#include "SmoothEdges.h"
 #include "WheelCapture.h"
 
 // A PackageProvider containing any turbo modules you define within this app project
@@ -15,6 +16,7 @@ struct CompReactPackageProvider
  public: // IReactPackageProvider
   void CreatePackage(winrt::Microsoft::ReactNative::IReactPackageBuilder const &packageBuilder) noexcept {
     AddAttributedModules(packageBuilder, true);
+    RegisterSmoothEdgesNativeComponent(packageBuilder);
     RegisterWheelCaptureNativeComponent(packageBuilder);
   }
 };

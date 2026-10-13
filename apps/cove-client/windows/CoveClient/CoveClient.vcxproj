@@ -101,6 +101,7 @@
   <PropertyGroup Label="UserMacros" />
   <ItemGroup>
     <ClInclude Include="CoveClient.h" />
+    <ClInclude Include="SmoothEdges.h" />
     <ClInclude Include="WheelCapture.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="AutolinkedNativeModules.g.h" />
@@ -109,6 +110,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CoveClient.cpp" />
+    <ClCompile Include="SmoothEdges.cpp" />
     <ClCompile Include="WheelCapture.cpp" />
     <ClCompile Include="AutolinkedNativeModules.g.cpp" />
     <ClCompile Include="pch.cpp">

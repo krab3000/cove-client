@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { Animated, Easing, PanResponder, StyleSheet, View } from 'react-native';
-import { nocturne as n } from '../theme/tokens';
+import {
+  Animated,
+  Easing,
+  PanResponder,
+  Platform,
+  StyleSheet,
+  View,
+} from 'react-native';
+import { nocturne as n, raisedEdge } from '../theme/tokens';
 
 const INSET = 12;
 // A swipe right this far (or this fast) closes it
 const SWIPE_CLOSE = 90;
 const SWIPE_VELOCITY = 0.5;
+// RNW's native animated driver is incomplete (the drawer stayed transparent and out of place); there the JS one runs
+const NATIVE_DRIVER = Platform.OS !== 'windows';
 
 /**
  * A temporary panel over the right of its parent (design 1h's preview): it floats inset from the edges, opaque and
@@ -34,7 +43,7 @@ export function Drawer({
       toValue: open ? 0 : away,
       duration: open ? 340 : 220,
       easing: open ? Easing.bezier(0.2, 0.8, 0.2, 1) : Easing.in(Easing.quad),
-      useNativeDriver: true,
+      useNativeDriver: NATIVE_DRIVER,
     });
     run.start(({ finished }) => {
       if (finished && !open) setMounted(false);
@@ -48,7 +57,7 @@ export function Drawer({
     const settle = () =>
       Animated.spring(shift, {
         toValue: 0,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
         bounciness: 0,
       }).start();
     return PanResponder.create({
@@ -96,7 +105,10 @@ const styles = StyleSheet.create({
     bottom: INSET,
     borderRadius: 22,
     backgroundColor: n.surface,
-    boxShadow: `inset 0 0 0 1px ${n.textAlpha(10)}, -12px 0 48px rgba(0,0,0,0.5), 0 24px 60px rgba(0,0,0,0.4)`,
+    ...raisedEdge(
+      n.textAlpha(10),
+      '-12px 0 48px rgba(0,0,0,0.5), 0 24px 60px rgba(0,0,0,0.4)'
+    ),
   },
   inner: { flex: 1, borderRadius: 22, overflow: 'hidden' },
 });

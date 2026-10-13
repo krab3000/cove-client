@@ -1,43 +1,51 @@
-import { createElement } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
-import type { MpvVideoViewProps } from 'react-native-mpv';
+import type { ComponentType } from 'react';
+import {
+  clearHttpCache,
+  configureHttpCache,
+  MpvVideoView,
+  onHttpAuthorizationNeeded,
+  setHttpAuthorization,
+  type MpvVideoViewProps,
+} from 'react-native-mpv';
 import type { CoveClient } from '../api/cove';
 
 /**
- * Platforms without a player yet (Windows: mpv comes there later, see TODO.md). Same exports as player.android.ts,
- * so the screens compile and run unchanged; VideoView shows a notice instead of the video.
+ * Media requests to the session's server (the player, preview downloads; on Android also images, through
+ * MainApplication's OkHttp interceptor) carry its access JWT as an Authorization header, set again on every renewal;
+ * a request the server refuses (the token ran out while the app slept) renews it. Returns the function that unbinds
+ * it (log out).
  */
+export function bindMediaAuth(client: CoveClient): () => void {
+  const unlisten = client.onAccessToken((token) =>
+    setHttpAuthorization(client.server, `Bearer ${token}`)
+  );
+  const unsubscribe = onHttpAuthorizationNeeded(() => {
+    client.renew().catch(() => {});
+  });
+  return () => {
+    unlisten();
+    unsubscribe();
+    setHttpAuthorization(client.server, null);
+    clearHttpCache(); // signed out: the session's media must not stay on the device
+  };
+}
+
+export { prefetchMedia } from 'react-native-mpv';
+
+// Streaming: Cove's videos are read in 1 MB range requests and kept in react-native-mpv's HTTP cache: a RAM tier sized
+// from the device's memory (16 MB on a 4 GB tablet) and a disk tier in the app's cache directory (up to 512 MB) that
+// survives restarts, so a video reopened later starts from disk.
+configureHttpCache({ chunkSize: 1 << 20 });
 
 export type {
   MpvVideoViewHandle as VideoViewHandle,
   LoadEvent,
 } from 'react-native-mpv';
 
-export function bindMediaAuth(_client: CoveClient): () => void {
-  return () => {};
-}
+/**
+ * The video player: mpv (libmpv), on Android (MediaCodec where it can, software decoding otherwise) and Windows
+ * (D3D11VA where it can, software decoding otherwise).
+ */
+export const VideoView: ComponentType<MpvVideoViewProps> = MpvVideoView;
 
-export function prefetchMedia(_urls: string[]): void {}
-
-export function VideoView({ style }: MpvVideoViewProps) {
-  return createElement(
-    View,
-    { style: [styles.box, style] },
-    createElement(
-      Text,
-      { style: styles.text },
-      "Playback isn't available on this platform yet"
-    )
-  );
-}
-
-export const playerEngine = 'none';
-
-const styles = StyleSheet.create({
-  box: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#000',
-  },
-  text: { color: '#aaa', fontSize: 14 },
-});
+export const playerEngine = 'mpv';

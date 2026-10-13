@@ -42,19 +42,21 @@ const SPRITE_SHEETS = false;
 const RENEW_EARLY_MS = 60_000;
 // A renewal that failed (offline, the server restarting) is tried again after this long.
 const RENEW_RETRY_MS = 30_000;
-// Android: media requests (the player, preview downloads, images) carry the JWT as an Authorization header that
-// react-native-mpv keeps current (platform/player.android.ts), so media URLs have no token. Elsewhere images load
+// Media requests through react-native-mpv (the player, preview downloads; on Android also images) carry the JWT as an
+// Authorization header it keeps current (platform/player.ts), so their URLs have no token. On Windows images load
 // bare URLs: the current JWT goes in them.
-const TOKEN_IN_MEDIA_URLS = Platform.OS !== 'android';
+const TOKEN_IN_VIDEO_URLS =
+  Platform.OS !== 'android' && Platform.OS !== 'windows';
+const TOKEN_IN_IMAGE_URLS = Platform.OS !== 'android';
 
 /**
  * A session with a Cove server, like Cove's own CLI client (cli/src/client.ts): a 15-minute access JWT sent as a
  * Bearer header, renewed with the rotating refresh token a minute before it expires (and once on a 401).
  *
  * Media (thumbnails, frames, preview clips, the video stream) uses the same JWT, never an API token: Cove checks an
- * API token with BCrypt on every request (~300 ms each), a JWT by its signature. On Android media requests send it
- * as a header that follows every renewal (onAccessToken), so a long playback outlives any one token; elsewhere media
- * URLs carry it (mediaAuth).
+ * API token with BCrypt on every request (~300 ms each), a JWT by its signature. The player and preview clips send it
+ * as a header that follows every renewal (onAccessToken), so a long playback outlives any one token; images too on
+ * Android, while on Windows their URLs carry it (mediaAuth).
  */
 export class CoveClient {
   private refreshing: Promise<void> | null = null;
@@ -252,7 +254,7 @@ export class CoveClient {
   frameUrl(video: Video, seconds: number): string {
     return (
       `${this.server}/api/stream/video/${video.id}/screenshot?seconds=${Math.max(0, Math.round(seconds))}` +
-      this.mediaAuth('&')
+      this.mediaAuth('&', 'image')
     );
   }
 
@@ -387,7 +389,7 @@ export class CoveClient {
   imageUrl(video: Video, max = 640): string {
     return (
       `${this.server}/api/videos/${video.id}/image?max=${max}` +
-      `&v=${encodeURIComponent(video.updatedAt)}${this.mediaAuth('&')}`
+      `&v=${encodeURIComponent(video.updatedAt)}${this.mediaAuth('&', 'image')}`
     );
   }
 
@@ -396,13 +398,13 @@ export class CoveClient {
     return (
       `${this.server}/api/stream/video/${video.id}` +
       (file ? `?fileId=${file.id}` : '') +
-      this.mediaAuth(file ? '&' : '?')
+      this.mediaAuth(file ? '&' : '?', 'video')
     );
   }
 
   /** The short preview clip Cove's generate task makes (low resolution, a few seconds); see previewAvailable. */
   previewUrl(video: Video): string {
-    return `${this.server}/api/stream/video/${video.id}/preview${this.mediaAuth('?')}`;
+    return `${this.server}/api/stream/video/${video.id}/preview${this.mediaAuth('?', 'video')}`;
   }
 
   previewAvailable(video: Video): Promise<boolean> {
@@ -450,16 +452,16 @@ export class CoveClient {
     const cues = parseSpriteVtt(vtt);
     if (!cues.length) return null;
     return {
-      url: `${this.server}/api/stream/video/${video.id}/sprite${this.mediaAuth('?')}`,
+      url: `${this.server}/api/stream/video/${video.id}/sprite${this.mediaAuth('?', 'image')}`,
       cues,
       width: Math.max(...cues.map((c) => c.x + c.w)),
       height: Math.max(...cues.map((c) => c.y + c.h)),
     };
   }
 
-  /** The token part of a media URL: none on Android (a header carries it), else the current JWT. */
-  private mediaAuth(separator: '?' | '&'): string {
-    return TOKEN_IN_MEDIA_URLS
+  /** The token part of a media URL: none where a header carries it (TOKEN_IN_*_URLS), else the current JWT. */
+  private mediaAuth(separator: '?' | '&', kind: 'image' | 'video'): string {
+    return (kind === 'video' ? TOKEN_IN_VIDEO_URLS : TOKEN_IN_IMAGE_URLS)
       ? `${separator}access_token=${encodeURIComponent(this.accessToken)}`
       : '';
   }
@@ -665,4 +667,3 @@ export function primaryFile(video: Video): VideoFile | undefined {
     video.files.find((f) => f.id === video.primaryFileId) ?? video.files[0]
   );
 }
-

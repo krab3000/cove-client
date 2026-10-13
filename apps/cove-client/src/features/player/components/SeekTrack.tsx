@@ -6,7 +6,7 @@ import {
   View,
   type GestureResponderEvent,
 } from 'react-native';
-import { fonts, nocturne as n } from '../../../theme/tokens';
+import { fonts, nocturne as n, roundRadius } from '../../../theme/tokens';
 
 const GLOW = '#9184d9';
 const TICK = '#d2cefd';
@@ -112,7 +112,7 @@ export function SeekTrack({
                 left: `${shown * 100}%`,
                 width: thumb,
                 height: thumb,
-                borderRadius: thumb / 2,
+                borderRadius: roundRadius(thumb, big ? 5 : 0),
                 marginLeft: -thumb / 2,
                 marginTop: -thumb / 2 + height / 2,
               },

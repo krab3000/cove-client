@@ -8,9 +8,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { fonts, nocturne as n, shadows } from '../theme/tokens';
+import { fonts, nocturne as n, raisedEdge, shadows } from '../theme/tokens';
 import { Icon, type IconName } from './Icon';
 import { Sheet, SheetRow, SheetRule } from './Sheet';
+import { SmoothEdges } from '../platform/SmoothEdges';
 
 /** A menu's entry, or 'rule' (a fading rule, before the destructive ones). `selected`: the one in effect (a choice). */
 export type MenuEntry =
@@ -99,6 +100,7 @@ export function Popover({
       navigationBarTranslucent
       onRequestClose={onClose}
     >
+      <SmoothEdges />
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={onClose}
@@ -168,7 +170,7 @@ const styles = StyleSheet.create({
     padding: 6,
     borderRadius: n.radiusPopover,
     backgroundColor: n.surface,
-    boxShadow: `inset 0 0 0 1px ${n.textAlpha(10)}, ${shadows.lg}`,
+    ...raisedEdge(n.textAlpha(10), shadows.lg),
   },
   item: {
     height: 44,

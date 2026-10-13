@@ -13,6 +13,7 @@ import {
 import { fonts, nocturne as n } from '../theme/tokens';
 import { Icon, type IconName } from './Icon';
 import { useSafeInsets } from '../platform/insets';
+import { SmoothEdges } from '../platform/SmoothEdges';
 
 /**
  * A bottom sheet (Nocturne): surface, 22 px top corners, grabber, over a dimmed screen. A tap on the dim, or Android
@@ -38,6 +39,7 @@ export function Sheet({
       animationType="fade"
       onRequestClose={onClose}
     >
+      <SmoothEdges />
       <KeyboardAvoidingView
         style={styles.fill}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -1,6 +1,6 @@
 import { memo, useRef, useState, type ComponentRef } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
-import { fonts, nocturne as n } from '../../../theme/tokens';
+import { fonts, nocturne as n, roundRadius } from '../../../theme/tokens';
 import { Icon, type IconName } from '../../../ui/Icon';
 import { Avatar } from '../../../ui/Avatar';
 import { EditedTag } from '../../../ui/Chip';
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    borderRadius: 22,
+    borderRadius: roundRadius(44),
     borderWidth: 1,
     borderColor: 'transparent',
     backgroundColor: n.surface,
@@ -589,7 +589,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: 18,
+    borderRadius: roundRadius(36),
     borderWidth: 1,
     borderColor: n.divider,
   },
@@ -639,7 +639,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     marginRight: 4,
-    borderRadius: 18,
+    borderRadius: roundRadius(36),
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,

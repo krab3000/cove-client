@@ -26,12 +26,13 @@ import {
   type Condition,
   type Modifier,
 } from '../model';
-import { fonts, nocturne as n } from '../../../theme/tokens';
+import { fonts, nocturne as n, roundRadius } from '../../../theme/tokens';
 import { FolderBrowser, TypedPath, type FolderPick } from './FolderBrowser';
 import { Icon } from '../../../ui/Icon';
 import { useSafeInsets } from '../../../platform/insets';
 import { Button } from '../../../ui/Button';
 import { ErrorText } from '../../../ui/Text';
+import { SmoothEdges } from '../../../platform/SmoothEdges';
 
 const QUICK_DATES = ['-7d', '-1m', '-1y', '0d'];
 
@@ -97,6 +98,7 @@ export function ConditionSheet({
       onRequestClose={onCancel}
       statusBarTranslucent
     >
+      <SmoothEdges />
       <View style={styles.scrim}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
         <View
@@ -922,7 +924,7 @@ const styles = StyleSheet.create({
   chip: {
     height: 32,
     paddingHorizontal: 12,
-    borderRadius: 999,
+    borderRadius: roundRadius(32),
     borderWidth: 1,
     borderColor: n.divider,
     flexDirection: 'row',

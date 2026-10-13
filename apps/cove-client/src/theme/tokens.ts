@@ -1,5 +1,7 @@
 // Nocturne, the design system of the Cove Mobile design (design_handoff_cove_mobile/design/tokens/nocturne.css): the
-// app's tokens. Fonts are in android/app/src/main/assets/fonts (fontFamily = file name).
+// app's tokens. Fonts are in android/app/src/main/assets/fonts (Android: fontFamily = file name), shared with Windows.
+
+import { Platform } from 'react-native';
 
 const text = '233,233,237'; // #e9e9ed
 const accent = '145,132,217'; // #9184d9
@@ -65,9 +67,45 @@ export const shadows = {
   drawer: `inset 0 0 0 1px rgba(${text},0.1), -12px 0 48px rgba(0,0,0,0.5), 0 24px 60px rgba(0,0,0,0.4)`,
 };
 
-export const fonts = {
-  regular: 'Inter-Regular',
-  medium: 'Inter-Medium',
-  semiBold: 'Inter-SemiBold',
-  mono: 'monospace',
-};
+/**
+ * A raised panel's edge (a 1 px hairline of edgeColor inside it) and its shadow (boxShadow, outer shadows only).
+ * React Native Windows draws only the first boxShadow, as an unclipped rectangle and without inset: the hairline
+ * became a light square behind the rounded corners. There the hairline is a border and the shadow the first outer one.
+ */
+export function raisedEdge(edgeColor: string, shadow: string) {
+  return Platform.OS === 'windows'
+    ? {
+        borderWidth: 1,
+        borderColor: edgeColor,
+        boxShadow: shadow.split(/,(?![^(]*\))/)[0]!.trim(),
+      }
+    : { boxShadow: `inset 0 0 0 1px ${edgeColor}, ${shadow}` };
+}
+
+/**
+ * The borderRadius of a shape rounded all the way at this height (a pill, a circle) with a border of borderWidth.
+ * Windows draws a rounded border's corners as squares of radius + borderWidth, which overlap at the sides of a full
+ * round (brighter dots there); leaving the border's width out keeps them apart.
+ */
+export function roundRadius(height: number, borderWidth = 1): number {
+  return Platform.OS === 'windows'
+    ? Math.max(0, height / 2 - borderWidth)
+    : height / 2;
+}
+
+// Android names a font by its file; Windows by its family (DirectWrite; the package installs the same files: see
+// windows/CoveClient.Package/Package.appxmanifest).
+export const fonts =
+  Platform.OS === 'windows'
+    ? {
+        regular: 'Inter',
+        medium: 'Inter Medium',
+        semiBold: 'Inter SemiBold',
+        mono: 'Consolas',
+      }
+    : {
+        regular: 'Inter-Regular',
+        medium: 'Inter-Medium',
+        semiBold: 'Inter-SemiBold',
+        mono: 'monospace',
+      };

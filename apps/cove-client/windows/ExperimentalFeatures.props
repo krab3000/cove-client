@@ -24,4 +24,18 @@
     <ReactExperimentalFeaturesSet>true</ReactExperimentalFeaturesSet>
   </PropertyGroup>
 
+  <!--
+    @react-native-async-storage/async-storage's project still has a packages.config, which makes NuGet restore it the
+    old way: the Windows App SDK's component packages are not restored as its dependencies, and the SDK's check for
+    them fails the build. It needs none of them (Microsoft.ReactNative and C++/WinRT only). Its codegen output ships
+    with it; generating it again needs the CLI's Windows commands in its folder, which a workspace app doesn't have.
+    It picks the New Architecture (a Win32 library rather than UWP) by UseFabric.
+  -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'ReactNativeAsyncStorage'">
+    <UseFabric>true</UseFabric>
+    <WindowsAppSDKVerifyTransitiveDependencies>false</WindowsAppSDKVerifyTransitiveDependencies>
+    <RunCodegenWindows>false</RunCodegenWindows>
+    <ForceImportBeforeCppProps>$(MSBuildThisFileDirectory)AsyncStorageToolset.props</ForceImportBeforeCppProps>
+  </PropertyGroup>
+
 </Project>

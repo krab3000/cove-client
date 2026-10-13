@@ -3,8 +3,9 @@
 <Package
   xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap4="http://schemas.microsoft.com/appx/manifest/uap/windows10/4"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap rescap">
+  IgnorableNamespaces="uap uap4 rescap">
 
   <Identity
     Name="CoveClient"
@@ -39,6 +40,19 @@
         <uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png" />
         <uap:SplashScreen Image="Images\SplashScreen.png" />
       </uap:VisualElements>
+      <Extensions>
+        <!-- The app's fonts (the same files as Android's assets), for its text: React Native Windows draws text with
+             DirectWrite's system font collection, which shared fonts join while the package is installed. -->
+        <uap4:Extension Category="windows.sharedFonts">
+          <uap4:SharedFonts>
+            <uap4:Font File="Fonts\Inter-Regular.ttf" />
+            <uap4:Font File="Fonts\Inter-Medium.ttf" />
+            <uap4:Font File="Fonts\Inter-SemiBold.ttf" />
+            <uap4:Font File="Fonts\Phosphor.ttf" />
+            <uap4:Font File="Fonts\Phosphor-Fill.ttf" />
+          </uap4:SharedFonts>
+        </uap4:Extension>
+      </Extensions>
     </Application>
   </Applications>
 

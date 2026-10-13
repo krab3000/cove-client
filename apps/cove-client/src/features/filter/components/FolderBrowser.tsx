@@ -11,7 +11,7 @@ import {
 import { CoveError, type CoveClient } from '../../../api/cove';
 import type { FilterExpression, LibraryFolder } from '../../../api/types';
 import { folderChain, type FolderRef } from '../model';
-import { fonts, nocturne as n } from '../../../theme/tokens';
+import { fonts, nocturne as n, roundRadius } from '../../../theme/tokens';
 import { Icon } from '../../../ui/Icon';
 import { Button } from '../../../ui/Button';
 import { BackButton } from '../../../ui/IconButton';
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
   radio: {
     width: 20,
     height: 20,
-    borderRadius: 10,
+    borderRadius: roundRadius(20, 1.5),
     borderWidth: 1.5,
     borderColor: n.divider,
     alignItems: 'center',

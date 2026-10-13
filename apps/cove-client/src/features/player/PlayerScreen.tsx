@@ -17,7 +17,12 @@ import type { Video } from '../../api/types';
 import { Bar } from './components/Bar';
 import { Icon, type IconName } from '../../ui/Icon';
 import { SeekTrack } from './components/SeekTrack';
-import { fonts, nocturne as n, overVideo } from '../../theme/tokens';
+import {
+  fonts,
+  nocturne as n,
+  overVideo,
+  roundRadius,
+} from '../../theme/tokens';
 import {
   formatDuration,
   resolutionLabel,
@@ -1526,7 +1531,7 @@ const styles = StyleSheet.create({
     marginTop: -24,
     width: 48,
     height: 48,
-    borderRadius: 24,
+    borderRadius: roundRadius(48),
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(14,15,24,0.6)',

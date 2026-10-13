@@ -149,6 +149,28 @@
           "Microsoft.ReactNative.Cxx": "[0.84.0, )",
           "Microsoft.VCRTForwarders.140": "[1.0.2-rc, )",
           "Microsoft.WindowsAppSDK": "[1.8.260508005, )",
+          "ReactNativeAsyncStorage": "[1.0.0, )",
+          "ReactNativeMpv": "[1.0.0, )",
+          "boost": "[1.84.0, )"
+        }
+      },
+      "reactnativeasyncstorage": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.ReactNative": "[0.84.0, )",
+          "Microsoft.ReactNative.Cxx": "[0.84.0, )",
+          "Microsoft.VCRTForwarders.140": "[1.0.2-rc, )",
+          "Microsoft.WindowsAppSDK": "[1.8.260508005, )",
+          "boost": "[1.84.0, )"
+        }
+      },
+      "reactnativempv": {
+        "type": "Project",
+        "dependencies": {
+          "Microsoft.ReactNative": "[0.84.0, )",
+          "Microsoft.ReactNative.Cxx": "[0.84.0, )",
+          "Microsoft.VCRTForwarders.140": "[1.0.2-rc, )",
+          "Microsoft.WindowsAppSDK": "[1.8.260508005, )",
           "boost": "[1.84.0, )"
         }
       }

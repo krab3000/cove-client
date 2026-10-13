@@ -14,6 +14,7 @@ import { nocturne } from './theme/tokens';
 import { Spinner } from './ui/Text';
 import { ClientContext } from './data/client';
 import { type CoveClient } from './api/cove';
+import { SmoothEdges } from './platform/SmoothEdges';
 
 /**
  * The app's shell: what was kept is read and the last session resumed (a spinner meanwhile), then signing in or the
@@ -46,6 +47,7 @@ export default function App() {
     <QueryClientProvider client={queryClient}>
       <ClientContext.Provider value={client}>
         <View style={styles.app}>
+          <SmoothEdges />
           <View
             style={[
               styles.content,

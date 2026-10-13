@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet } from 'react-native';
 import { Icon, type IconName } from '../../../ui/Icon';
-import { overVideo } from '../../../theme/tokens';
+import { overVideo, roundRadius } from '../../../theme/tokens';
 
 export function PlayButton({
   size,
@@ -17,7 +17,7 @@ export function PlayButton({
       accessibilityLabel={icon === 'pause' ? 'Pause' : 'Play'}
       style={({ pressed }) => [
         styles.play,
-        { width: size, height: size, borderRadius: size / 2 },
+        { width: size, height: size, borderRadius: roundRadius(size) },
         pressed && styles.pressed,
       ]}
     >

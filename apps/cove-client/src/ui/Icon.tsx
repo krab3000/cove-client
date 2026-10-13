@@ -1,4 +1,10 @@
-import { StyleSheet, Text, type StyleProp, type TextStyle } from 'react-native';
+import {
+  Platform,
+  StyleSheet,
+  Text,
+  type StyleProp,
+  type TextStyle,
+} from 'react-native';
 
 // Phosphor icons (https://phosphoricons.com), from its icon fonts in android/app/src/main/assets/fonts: the glyphs the
 // app uses, by name, with their codepoints from @phosphor-icons/web's style.css.
@@ -72,6 +78,11 @@ const GLYPHS = {
 
 export type IconName = keyof typeof GLYPHS;
 
+// Windows: no lineHeight. With one, react-native-windows puts the baseline at 80% of it whatever the font, and the
+// glyphs land off center; without, DirectWrite takes Phosphor's own metrics, whose line is exactly the em (ascent 960
+// + descent 64 of 1024), as Android lays it out with lineHeight = size.
+const OWN_LINE_HEIGHT = Platform.OS !== 'windows';
+
 /** A Phosphor icon: regular, or fill (active states, play). */
 export function Icon({
   name,
@@ -93,7 +104,7 @@ export function Icon({
         fill ? styles.fill : styles.regular,
         {
           fontSize: size,
-          lineHeight: size,
+          lineHeight: OWN_LINE_HEIGHT ? size : undefined,
           color,
         },
         style,

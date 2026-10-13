@@ -1,5 +1,5 @@
 import { Pressable, StyleSheet, Text } from 'react-native';
-import { fonts, nocturne as n, overVideo } from '../theme/tokens';
+import { fonts, nocturne as n, overVideo, roundRadius } from '../theme/tokens';
 import { Icon, type IconName } from './Icon';
 
 /**
@@ -107,12 +107,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    borderRadius: n.radiusPill,
     borderWidth: 1,
   },
-  pillGround: { height: 38, paddingHorizontal: 14, borderColor: n.divider },
+  pillGround: {
+    height: 38,
+    borderRadius: roundRadius(38),
+    paddingHorizontal: 14,
+    borderColor: n.divider,
+  },
   pillOver: {
     height: 32,
+    borderRadius: roundRadius(32),
     paddingHorizontal: 12,
     borderColor: overVideo.inkAlpha(30),
   },
