@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Plays each Cove video whose file name starts with a prefix (default "Exotic": test-server/media/exotic, codecs and
-# containers off the hardware path) and records what happened: a screenshot 8 s in, and mpv's verbose log (decoder,
-# hardware or software, video output, errors). One summary line per video; files in out/codecs-<session>/.
+# Plays each Cove video whose file name starts with a prefix (default "Exotic": test-server/media/Exotic from
+# make-exotic.sh, codecs and containers off the hardware path) and records what happened: a screenshot 8 s in, and
+# mpv's verbose log (decoder, hardware or software, video output, errors). One summary line per video; files in out/codecs-<session>/.
 #
 #   codecs.sh [prefix] [seconds]
 set -uo pipefail

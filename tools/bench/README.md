@@ -12,8 +12,14 @@ than tapping blind.
   the video, traces the tap and the first seconds of playback.
 - `previews.sh`: one pass over 15 feed cards (cold, then warm).
 - `codecs.sh [prefix]`: plays each video whose name starts with the prefix (default `Exotic`, the files in
-  `apps/cove-client/test-server/media/exotic`), with a screenshot and mpv's verbose log for each, and one summary
+  `apps/cove-client/test-server/media/Exotic`, made by `test-server/make-exotic.sh`), with a screenshot and mpv's verbose log for each, and one summary
   line: started, video output, hardware or software decoding, errors.
+- `windows/codecs.sh [filter...]` (Windows, Git Bash): the codec check without the app or adb. `windows/codecs.cpp`
+  runs react-native-mpv's Windows player stack (MpvPlayer, the HTTP cache over WinHTTP with the Bearer header,
+  libmpv's D3D11 output on a host device with the frame hook) on each video whose path contains a filter (default
+  `Exotic/`), resizes and seeks, and prints one RESULT line each: first frame, frames shown, hardware or software,
+  tracks; a frame of each is kept as a BMP. `COVE_USER` / `COVE_PASSWORD` as above; Visual Studio and
+  `yarn build-mpv-windows` first.
 - `metrics.sh <out/session>`: `metrics.sql` per trace into `metrics.csv`; `report.py <out/session>`: `report.md`.
 - `previews.sql`, `previews-total.sql`: per preview, and a pass's totals.
 

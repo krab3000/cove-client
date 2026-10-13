@@ -44,6 +44,11 @@ Auth is on, as on a real server. The JWT secret is fixed in `.env`, so you stay 
 
 From the root, extra arguments are passed to the script: `yarn cove:server -Full -EdgeCases`, `yarn cove:server down`.
 
+`./make-exotic.sh` (Git Bash, Linux, macOS) adds `media/Exotic`: 15-second cuts of Big Buck Bunny in codecs and
+containers off the hardware path (MPEG-2, interlaced MPEG-2 TS, Xvid, DivX 3, WMV2, FLV/Sorenson, H.263, MJPEG, 10-bit
+and 4:4:4 H.264, 10-bit HEVC, VP8, VP9, AV1, Theora, ProRes, DTS 5.1, and a file with two audio and two subtitle tracks,
+ASS and SRT), encoded with the ffmpeg in the Cove image. Run it after the first setup, then rescan (re-run setup).
+
 Downloads are idempotent: a file that is already in `media/` is skipped, and an interrupted download resumes. Re-running with
 `-Full` or `-EdgeCases` therefore fetches only the new files and rescans. To keep the library on another drive, set
 `COVE_TEST_MEDIA=E:/cove-test-media` in `.env`. Set `COVE_IMAGE` to pin a Cove image.
