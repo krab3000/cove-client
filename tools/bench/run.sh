@@ -12,7 +12,7 @@ set -uo pipefail
 source "$(dirname "$0")/lib.sh"
 
 video=$1 start=$2 cache=$3 out=$4 seconds=${5:-15}
-RESUME_AT=300
+RESUME_AT=${RESUME_AT:-300} # seconds; the environment can set another
 label="video $video $start $cache"
 
 case "$start" in fresh) at=0 ;; resume) at=$RESUME_AT ;; *) echo "start: fresh or resume" >&2; exit 2 ;; esac
@@ -27,14 +27,13 @@ pos=$("$BENCH_DIR/cove-api.sh" set-position "$video" "$at") || { fail "$label: c
 [ "${pos%.*}" = "$at" ] || { fail "$label: the position reads $pos, not $at"; exit 1; }
 clear_crashes
 start_cove || exit 1
-# The search for the title's last word (and the one before), so the card is the only one or the first.
-query=$(echo "$title" | awk '{print $(NF-1), $NF}')
-xy=$(search "$query" "$title") || exit 1
+# The search for the whole title: the card is then the only one (a part of it can match several, the card off screen).
+xy=$(search "$title" "$title") || exit 1
 # The search results' preview starts where the card is: let it settle (download, first frames) before the tap.
 log "  card found, letting its preview settle"
 sleep 5
 cove_in_front || { fail "$label: Cove is not in front"; exit 1; }
-xy=$(wait_ui "$title" 5) || { fail "$label: the card went"; exit 1; }
+xy=$(wait_ui "$title" 5 notext) || { fail "$label: the card went"; exit 1; }
 
 "$REPO_DIR/packages/rn-trace/scripts/perfetto-trace.sh" -t "$seconds" -o "$out" >/dev/null 2>"$out.log" &
 tracer=$!

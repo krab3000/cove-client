@@ -35,6 +35,7 @@ import {
 } from '../../platform/player';
 import { useSafeInsets } from '../../platform/insets';
 import { firstFrameShown, resumeSeek, seekDone } from '../../state/player';
+import { counter as traceCounter, instant as traceInstant } from 'rn-trace';
 import { isLarge } from '../../theme/layout';
 import { BackButton, IconButton } from '../../ui/IconButton';
 import { PersonChip, TagChip } from '../../ui/Chip';
@@ -697,6 +698,7 @@ export function PlayerScreen({
           }}
           onProgress={(e) => {
             firstFrameShown();
+            traceCounter('player time', e.nativeEvent.currentTime);
             if (scrub !== null || seeking) return;
             const t = e.nativeEvent.currentTime;
             timeRef.current = t;
@@ -721,6 +723,7 @@ export function PlayerScreen({
             setSeeking(false);
           }}
           onEnd={() => {
+            traceInstant('player end');
             setEnded(true);
             setPaused(true);
             report('ended');

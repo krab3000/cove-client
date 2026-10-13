@@ -66,3 +66,10 @@ there too, untested until someone builds on Windows.
 
 - Run tools/bench's A/B (libVLC vs libav) on Windows once libav plays there: a driver for the desktop UI in place of
   adb, and a trace source (rn-trace in-process recording, or ETW) in place of Perfetto's system trace.
+
+## libVLC on Windows: read through a byte cache
+
+- Android's libVLC reads Cove's streams through callbacks (react-native-vlc CacheInput + cpp/VlcInput.cpp:
+  libvlc_media_new_callbacks over HttpChunkCache). Windows' libVLC loads URLs with the token in them. The same
+  callbacks work there (the C API is the same); the cache would need a Windows implementation (C++ or C#), or the
+  C++ one from react-native-libav.

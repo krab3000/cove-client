@@ -2,7 +2,8 @@ buildscript {
   ext.Vlc = [
     kotlinVersion: "2.1.20",
     minSdkVersion: 24,
-    compileSdkVersion: 36
+    compileSdkVersion: 36,
+    ndkVersion: "27.1.12297006"
   ]
 
   ext.getExtOrDefault = { prop ->
@@ -38,9 +39,23 @@ android {
   namespace "com.rnvlc"
 
   compileSdkVersion getExtOrDefault("compileSdkVersion")
+  ndkVersion getExtOrDefault("ndkVersion")
 
   defaultConfig {
     minSdkVersion getExtOrDefault("minSdkVersion")
+    externalNativeBuild {
+      cmake {
+        arguments "-DANDROID_STL=c++_shared"
+      }
+    }
+  }
+
+  // librnvlcinput: libVLC's input from the byte cache (src/main/cpp/VlcInput.cpp).
+  externalNativeBuild {
+    cmake {
+      path "src/main/cpp/CMakeLists.txt"
+      version "3.22.1"
+    }
   }
 
   compileOptions {

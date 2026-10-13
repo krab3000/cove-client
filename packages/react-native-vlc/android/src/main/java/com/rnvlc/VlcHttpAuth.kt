@@ -7,9 +7,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The Authorization header for each server (origin), set by the app (setHttpAuthorization in JS) and kept current as
- * its token renews. libVLC sends no headers of its own: its streams go through StreamProxy, whose requests to the
- * server carry it, as do preview downloads (MediaCache). Media URLs then need no token, and a short-lived token works
- * for a long playback: each request takes the header current then.
+ * its token renews. libVLC sends no headers of its own: its streams are read through the app's byte cache
+ * (CacheInput), whose requests to the server carry it, as do preview downloads (MediaCache). Media URLs then need no
+ * token, and a short-lived token works for a long playback: each request takes the header current then.
  *
  * A request refused with 401 asks the app for a new token (the event VlcAuthRequired, at most once per origin per few
  * seconds), waits for it a moment, and is retried once.

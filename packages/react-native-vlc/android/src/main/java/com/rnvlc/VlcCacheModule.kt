@@ -24,7 +24,7 @@ class VlcCacheModule(private val context: ReactApplicationContext) : ReactContex
     VlcHttpAuth.onRenewalNeeded = { origin -> context.emitDeviceEvent("VlcAuthRequired", origin) }
   }
 
-  /** The Authorization header for a server's media requests (streams through StreamProxy, preview downloads). */
+  /** The Authorization header for a server's media requests (streams read through the byte cache, preview downloads). */
   @ReactMethod
   fun setHttpAuthorization(server: String, value: String?) {
     VlcHttpAuth.set(server, value)

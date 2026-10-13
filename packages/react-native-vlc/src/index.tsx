@@ -30,9 +30,9 @@ export function prefetchMedia(urls: string[]): void {
 }
 
 /**
- * Android: the byte cache http(s) streams play through (a loopback proxy, android/.../StreamProxy, in front of
- * HttpChunkCache): read in chunks of chunkSize bytes (default 1 MB), each from RAM, else from the disk tier, else
- * downloaded with one Range request and kept in both; the disk tier persists across launches.
+ * Android: the byte cache http(s) streams play through: libVLC reads them with callbacks (android/.../CacheInput,
+ * cpp/VlcInput.cpp) from HttpChunkCache, in chunks of chunkSize bytes (default 1 MB), each from RAM, else from the
+ * disk tier, else downloaded with one Range request and kept in both; the disk tier persists across launches.
  * - chunkSize: bytes per range request and cache entry
  * - memorySize: the RAM tier (default: from device RAM, 8-64 MB)
  * - diskSize: the disk tier (default 512 MB, less if the system's cache quota is), 0 for none

@@ -9,7 +9,7 @@ REPO_DIR=$(cd "$BENCH_DIR/../.." && pwd)
 log() { echo "[$(date +%H:%M:%S)] $*" >&2; }
 fail() { log "FAILED: $*"; return 1; }
 
-# The on-screen elements with a text or description: one per line, "text|x|y" (x, y: its center).
+# The on-screen elements with a text or description: one per line, "text|x|y|class" (x, y: its center).
 ui() {
   # A dump waits for the UI to go idle: bounded, playing video can keep it busy.
   timeout 15 adb shell uiautomator dump /sdcard/bench-ui.xml >/dev/null 2>&1 || return 1
@@ -21,15 +21,17 @@ for m in re.finditer(r"<node ([^>]*)>", sys.stdin.read()):
     if not t and not a.get("class", "").endswith("EditText"):
         continue
     x1, y1, x2, y2 = map(int, re.findall(r"\d+", a["bounds"]))
-    print(f"{t}|{(x1 + x2) // 2}|{(y1 + y2) // 2}")'
+    c = a.get("class", "").split(".")[-1]
+    print(f"{t}|{(x1 + x2) // 2}|{(y1 + y2) // 2}|{c}")'
 }
 
 # Waits until an element's text starts with a match of the regex (up to $2 seconds, default 30); prints its center
-# "x y".
+# "x y". $3 = "notext": not a text field (whose text may be what was typed into it, e.g. a search).
 wait_ui() {
   local pattern=$1 timeout=${2:-30} end=$((SECONDS + ${2:-30})) hit
   while [ $SECONDS -lt $end ]; do
-    hit=$(ui | grep -m1 -E "^($pattern)[^|]*\|") && { echo "$hit" | awk -F'|' '{print $2, $3}'; return 0; }
+    hit=$(ui | { if [ "${3:-}" = notext ]; then grep -v '|EditText$'; else cat; fi; } | grep -m1 -E "^($pattern)[^|]*\|") &&
+      { echo "$hit" | awk -F'|' '{print $2, $3}'; return 0; }
     sleep 1
   done
   return 1
@@ -72,7 +74,7 @@ search() {
   adb shell input text "${query// /%s}"
   sleep 2
   adb shell input keyevent 111 # Escape: the keyboard goes, the results stay
-  wait_ui "$title" 15 || fail "no card '$title' after searching '$query'"
+  wait_ui "$title" 15 notext || fail "no card '$title' after searching '$query'"
 }
 
 # The crash buffer since clear_crashes, if anything is in it.

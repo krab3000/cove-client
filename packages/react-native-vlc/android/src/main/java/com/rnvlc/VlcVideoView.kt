@@ -49,7 +49,10 @@ private object Vlc {
           "--no-spu",
           "--text-renderer=none",
           "--no-sub-autodetect-file",
-        ),
+        ).apply {
+          // debug.libav.vlc_verbose 1: libVLC's own log (logcat tag VLC), which modules it picks and why.
+          if (HttpChunkCache.debugProperty("vlc_verbose") == "1") add("-vv")
+        },
       ).also {
         Dialog.setCallbacks(it, dialogs)
         instance = it
@@ -234,6 +237,8 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
     }
 
     private val trace = VlcTrace(src)
+    // The byte-cache input the player reads through (http(s) sources), released after the player.
+    private var input: CachedInput? = null
 
     fun start() {
       trace.begin("playing", "vout", "first time")
@@ -293,13 +298,16 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
           if (preview) it.addOption(":codec=avcodec,all")
         }
       } else {
-        // http(s): through the app's byte cache (StreamProxy, HttpChunkCache), which also sends the server's
-        // Authorization header.
-        val played = StreamProxy.url(reactContext, src, tlsVerify)
-        val uri = if (played.contains("://")) Uri.parse(played) else null
+        // http(s): read from the app's byte cache (CachedInput: callbacks or a local file, over HttpChunkCache), whose
+        // requests send the server's Authorization header; else (the cache off, or no such media) libVLC opens the URL.
+        val http = src.startsWith("http://") || src.startsWith("https://")
+        val cacheInput = if (http && HttpChunkCache.enabled) CachedInput.create(reactContext, src, tlsVerify) else null
+        val viaCache = cacheInput?.newMedia(vlc)
+        if (viaCache != null) input = cacheInput else cacheInput?.release()
+        val uri = if (src.contains("://")) Uri.parse(src) else null
         if (!tlsVerify)
           uri?.host?.let { Vlc.allowUnverified(it) }
-        (if (uri != null) Media(vlc, uri) else Media(vlc, played)).also {
+        (viaCache ?: if (uri != null) Media(vlc, uri) else Media(vlc, src)).also {
           // Start sooner than with the default 1 s buffers; Cove streams from the LAN.
           it.addOption(":network-caching=300")
           it.addOption(":file-caching=300")
@@ -307,8 +315,10 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       }
       if (loop)
         media.addOption(":input-repeat=65535")
-      if (demux.isNotEmpty())
-        media.addOption(":demux=$demux")
+      // debug.libav.vlc_demux overrides the demux prop (A/B of demuxers): "any" lets libVLC choose.
+      val chosenDemux = HttpChunkCache.debugProperty("vlc_demux").ifEmpty { demux }
+      if (chosenDemux.isNotEmpty() && chosenDemux != "any")
+        media.addOption(":demux=$chosenDemux")
       if (!preview) media.setHWDecoderEnabled(hardwareDecoding, false)
       p.media = media
       media.release()
@@ -433,12 +443,16 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       val p = player
       val st = surfaceTexture
       val d = drain
+      val i = input
+      i?.abort() // a read waiting for the network gives up, so stop() below doesn't wait for it
+      input = null
       player = null
       surfaceTexture = null
       drain = null
       if (p == null) {
         d?.finish()
         st?.release()
+        i?.release()
         return
       }
       p.setEventListener(null)
@@ -447,6 +461,7 @@ class VlcVideoView(private val reactContext: ThemedReactContext) : FrameLayout(r
       Thread {
         p.stop()
         p.release()
+        i?.release() // the media, and its callbacks, went with the player
         d?.finish()
         st?.release()
       }.start()
