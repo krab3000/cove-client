@@ -11,10 +11,10 @@ set(ENGINE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../cpp)
 set(FFMPEG_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/ffmpeg/android-${ANDROID_ABI})
 set(MPV_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../third_party/mpv/android-${ANDROID_ABI})
 if(NOT EXISTS ${FFMPEG_DIR}/include/libavcodec/avcodec.h)
-  message(FATAL_ERROR "FFmpeg for Android not found in ${FFMPEG_DIR}. Run: yarn build-mpv-android")
+  message(FATAL_ERROR "FFmpeg for Android not found in ${FFMPEG_DIR}. Run: yarn turbo run build:android:docker --filter=react-native-mpv")
 endif()
 if(NOT EXISTS ${MPV_DIR}/include/mpv/client.h)
-  message(FATAL_ERROR "libmpv for Android not found in ${MPV_DIR}. Run: yarn build-mpv-android")
+  message(FATAL_ERROR "libmpv for Android not found in ${MPV_DIR}. Run: yarn turbo run build:android:docker --filter=react-native-mpv")
 endif()
 
 file(GLOB ENGINE_SOURCES CONFIGURE_DEPENDS ${ENGINE_DIR}/*.cpp) # new files are picked up without a reconfigure

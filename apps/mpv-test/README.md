@@ -10,10 +10,12 @@ An Android app for trying react-native-mpv on its own. Its one screen has:
 - **The HTTP cache:** stats, clear, and prefetch of the URL.
 
 ```sh
-yarn build-mpv-android <android-ndk-r27b-linux.zip>   # once: FFmpeg + libmpv (from the repository root)
-yarn start:test                                       # Metro
-yarn android                                          # build, install, launch
+yarn setup:android:local                                         # once (from the repository root): the toolchain
+yarn turbo run build:android:docker --filter=mpv-test^...        # once: its libraries (FFmpeg + libmpv, in Docker)
+yarn start:test                            # Metro
+yarn android                               # build, install, launch (debug)
+yarn turbo run build:android:local --filter=mpv-test    # a release APK -> apps/mpv-test/dist/android/
 ```
 
-Debug builds allow plain `http://` to any host (a LAN server). A release build does the same with
-`./gradlew assembleRelease -PmpvCleartext=true`.
+Debug builds allow plain `http://` to any host (a LAN server); so do the release APKs the build scripts make
+(`-PmpvCleartext=true`; `COVE_CLEARTEXT=0` turns it off).

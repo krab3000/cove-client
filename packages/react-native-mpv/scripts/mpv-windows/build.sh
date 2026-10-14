@@ -13,7 +13,7 @@
 set -euo pipefail
 
 LLVM_MINGW=20261006
-FFMPEG_BRANCH=release/9.0
+FFMPEG_COMMIT=7e93014c5bbb61e7c22afebb478bf92f7a08d59a # release/9.0, 2026-10-12 (as the Android build)
 DAV1D_TAG=1.5.1
 ZLIB_VERSION=1.3.1
 MPV_COMMIT=c3ac7f39514c  # the Android build's
@@ -130,8 +130,10 @@ EOF
 static dav1d -Denable_tools=false -Denable_tests=false
 
 # --- FFmpeg (shared)
-[ -d ffmpeg ] || git clone --depth 1 -b "$FFMPEG_BRANCH" https://github.com/FFmpeg/FFmpeg.git ffmpeg
-git -C ffmpeg fetch --depth 1 origin "$FFMPEG_BRANCH" && git -C ffmpeg reset --hard FETCH_HEAD
+if [ "$(git -C ffmpeg rev-parse HEAD 2>/dev/null)" != "$FFMPEG_COMMIT" ]; then
+  rm -rf ffmpeg && git init -q ffmpeg && git -C ffmpeg remote add origin https://github.com/FFmpeg/FFmpeg.git
+  git -C ffmpeg fetch -q --depth 1 origin "$FFMPEG_COMMIT" && git -C ffmpeg checkout -q FETCH_HEAD
+fi
 (
   cd ffmpeg
   make distclean >/dev/null 2>&1 || true

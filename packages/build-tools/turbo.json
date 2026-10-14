@@ -1,0 +1,10 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build:android:docker": {
+      "inputs": ["docker/toolchain.Dockerfile", "src/toolchain.mjs", "src/docker.mjs"],
+      "cache": false
+    }
+  }
+}

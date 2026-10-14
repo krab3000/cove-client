@@ -1,0 +1,19 @@
+# app.Dockerfile's context (the repo root): sources only; installs and build outputs are made in the image. The
+# libraries' build:android:docker outputs are let in: the app builds with them.
+.git
+**/node_modules
+**/build
+**/.gradle
+**/.cxx
+**/dist
+**/third_party
+!packages/react-native-mpv/third_party/ffmpeg/android-arm64-v8a
+!packages/react-native-mpv/third_party/mpv/android-arm64-v8a
+!packages/rn-trace/third_party/perfetto
+.build-deps
+**/.turbo
+tools/bench/out
+apps/*/windows
+**/*.binlog
+**/*.log
+.yarn/install-state.gz

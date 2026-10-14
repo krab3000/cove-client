@@ -8,8 +8,10 @@ repository's packages) on both.
 
 ```sh
 yarn start:cove          # Metro, from the repository root
-yarn cove:android        # build and install on Android
-yarn cove:windows        # build and run on Windows (x64; needs libmpv: yarn build-mpv-windows, once)
+yarn cove:android        # build and install on Android (debug); once before: yarn setup:android:local and
+                         #   yarn turbo run build:android:docker --filter=react-native-mpv-cove-client^... (its libraries)
+yarn cove:windows        # build and run on Windows (x64; yarn turbo run build:windows:docker --filter=react-native-mpv once)
+yarn build:android:local # a release APK -> apps/cove-client/dist/android/ (or :docker, entirely in Docker)
 ```
 
 On Windows the app's fonts (Inter, the Phosphor icons) are the Android assets, installed with the package

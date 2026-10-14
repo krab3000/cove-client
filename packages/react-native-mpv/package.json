@@ -34,8 +34,8 @@
     "prepare": "bob build",
     "typecheck": "tsc -p .",
     "clean": "del-cli lib android/build android/.cxx windows/x64 windows/ReactNativeMpv/x64",
-    "build-mpv-android": "bash scripts/mpv-android/build-docker.sh",
-    "build-mpv-windows": "bash scripts/mpv-windows/build-docker.sh",
+    "build:android:docker": "build-tools docker scripts/android.Dockerfile scripts third_party --clean ffmpeg/android-arm64-v8a --clean mpv/android-arm64-v8a",
+    "build:windows:docker": "node scripts/mpv-windows/build-docker.mjs",
     "test-cache": "bash scripts/test-cache.sh",
     "codegen-windows": "react-native-windows-codegen --files \"src/*NativeComponent.ts\" --libraryName MpvSpec --namespace ReactNativeMpvCodegen --outputDirectory windows/ReactNativeMpv/codegen --componentsWindows --separateDataTypes"
   },
@@ -67,6 +67,7 @@
     "@react-native-windows/codegen": "0.84.0",
     "@react-native/babel-preset": "0.84.1",
     "@types/react": "^19.2.0",
+    "build-tools": "workspace:*",
     "del-cli": "^7.0.0",
     "react": "19.2.3",
     "react-native": "0.84.1",

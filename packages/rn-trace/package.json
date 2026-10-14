@@ -18,7 +18,7 @@
   ],
   "scripts": {
     "typecheck": "tsc -p .",
-    "fetch-perfetto": "bash scripts/fetch-perfetto.sh",
+    "build:android:docker": "build-tools docker scripts/android.Dockerfile scripts third_party --clean perfetto",
     "trace": "bash scripts/perfetto-trace.sh"
   },
   "codegenConfig": {
@@ -31,6 +31,7 @@
   },
   "devDependencies": {
     "@types/react": "^19.2.0",
+    "build-tools": "workspace:*",
     "react": "19.2.3",
     "react-native": "0.84.1",
     "typescript": "^6.0.3"

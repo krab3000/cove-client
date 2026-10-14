@@ -3,7 +3,7 @@ project(rntrace CXX)
 
 # librntrace: the process's one tracer (include/rntrace/rntrace.h). Shared, so every library linking it (the app's
 # RnTrace TurboModule, react-native-mpv, ...) records into the same instance.
-#   RNTRACE_ENABLED=ON  the Perfetto backend, when its SDK is there (scripts/fetch-perfetto.sh)
+#   RNTRACE_ENABLED=ON  the Perfetto backend, when its SDK is there (scripts/fetch-perfetto.mjs, yarn turbo run build:android:docker --filter=react-native-mpv)
 #   RNTRACE_ENABLED=OFF a no-op library with the same API (release builds by default)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -29,7 +29,7 @@ if(RNTRACE_ENABLED AND EXISTS ${PERFETTO_SDK_DIR}/perfetto.cc)
   endif()
   message(STATUS "rn-trace: Perfetto backend (${PERFETTO_SDK_DIR})")
 elseif(RNTRACE_ENABLED)
-  message(STATUS "rn-trace: no Perfetto SDK (scripts/fetch-perfetto.sh): no-op backend")
+  message(STATUS "rn-trace: no Perfetto SDK (scripts/fetch-perfetto.mjs, yarn turbo run build:android:docker --filter=react-native-mpv): no-op backend")
 else()
   message(STATUS "rn-trace: no-op backend (RNTRACE_ENABLED=OFF)")
 endif()

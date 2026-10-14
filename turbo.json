@@ -1,0 +1,19 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "stream",
+  "envMode": "loose",
+  "tasks": {
+    "build:android:docker": {
+      "dependsOn": ["^build:android:docker"]
+    },
+    "build:android:local": {
+      "dependsOn": ["^build:android:docker"],
+      "cache": false
+    },
+    "build:windows:docker": {},
+    "build:windows:local": {
+      "dependsOn": ["^build:windows:docker"],
+      "cache": false
+    }
+  }
+}

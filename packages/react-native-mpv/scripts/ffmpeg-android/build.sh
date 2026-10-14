@@ -1,57 +1,56 @@
 #!/usr/bin/env bash
-# Builds FFmpeg 9.0 (the release/9.0 branch, the same library majors as the Windows build) for Android arm64-v8a
-# into /out/android-arm64-v8a/{include,lib}. Runs in the container from the Dockerfile next to this script:
-#   /ndk.zip   the Linux NDK r27b zip (mounted)
-#   /cache     a volume: the unzipped NDK and the sources, kept between runs
-#   /out       third_party/ffmpeg (mounted)
+# Builds FFmpeg 9.0 (a pinned commit of release/9.0, the same library majors as the Windows build) for Android
+# arm64-v8a into /out/ffmpeg/android-arm64-v8a/{include,lib}. Runs in the `ffmpeg` stage of scripts/android.Dockerfile
+# (yarn turbo run build:android:docker --filter=react-native-mpv), which provides:
+#   $ANDROID_NDK_HOME, $ANDROID_HOME/cmake   the toolchain image's NDK and CMake
+#   /cache                                   a BuildKit cache mount: the sources and downloads, kept between builds
+# The install prefix (/opt/prefix-arm64-v8a) stays in the image layer for the mpv stage (scripts/mpv-android).
 # LGPL v3 build: MediaCodec hardware decoders (through the NDK AMediaCodec API or JNI), FFmpeg's software decoders as
 # the fallback, dav1d (BSD) for software AV1, and mbedTLS (Apache-2.0, hence --enable-version3) for https sources;
-# both linked statically. libavfilter is built for libmpv (scripts/mpv-android); react-native-mpv doesn't use it.
+# both linked statically. libavfilter is built for libmpv; react-native-mpv's own code doesn't use it.
 set -euo pipefail
 
 API=24
 ABI=arm64-v8a
 TARGET=aarch64-linux-android
-FFMPEG_BRANCH=release/9.0
+FFMPEG_COMMIT=7e93014c5bbb61e7c22afebb478bf92f7a08d59a # release/9.0, 2026-10-12
 DAV1D_TAG=1.5.1
+DAV1D_COMMIT=42b2b24fb8819f1ed3643aa9cf2a62f03868e3aa
 MBEDTLS_VERSION=3.6.4
+MBEDTLS_SHA256=ec35b18a6c593cf98c3e30db8b98ff93e8940a8c4e690e66b41dfc011d678110
 
-NDK=/cache/android-ndk-r27b
-if [ ! -f "$NDK/source.properties" ]; then
-  echo "Unzipping the NDK"
-  unzip -q /ndk.zip -d /cache
-fi
+NDK=${ANDROID_NDK_HOME:?the toolchain image sets ANDROID_NDK_HOME}
 TOOLCHAIN=$NDK/toolchains/llvm/prebuilt/linux-x86_64
 SYSROOT=$TOOLCHAIN/sysroot
 CC=$TOOLCHAIN/bin/$TARGET$API-clang
 CXX=$TOOLCHAIN/bin/$TARGET$API-clang++
-PREFIX=/cache/prefix-$ABI
-OUT=/out/android-$ABI
+PREFIX=/opt/prefix-$ABI
+OUT=/out/ffmpeg/android-$ABI
+export PATH=$(echo "$ANDROID_HOME"/cmake/*/bin | tr ' ' ':'):$PATH # the SDK's CMake and Ninja, for mbedTLS
 
-mkdir -p /cache/src
+# A download, checked against its SHA-256.
+fetch() { curl -fsSL --retry 5 --retry-all-errors --retry-delay 3 -o "$2" "$1" && echo "$3  $2" | sha256sum -c --quiet -; }
+# A git source at a pinned commit (ref: the tag or the commit to fetch), reused while it is that commit.
+git_at() {
+  local dir=$1 url=$2 ref=$3 commit=$4
+  if [ "$(git -C "$dir" rev-parse HEAD 2>/dev/null)" != "$commit" ]; then
+    rm -rf "$dir" && git init -q "$dir" && git -C "$dir" remote add origin "$url"
+    for try in 1 2 3 4 5; do git -C "$dir" fetch -q --depth 1 origin "$ref" && break; [ $try = 5 ] && exit 1; sleep 3; done
+    git -C "$dir" checkout -q FETCH_HEAD
+  fi
+  [ "$(git -C "$dir" rev-parse HEAD)" = "$commit" ] || { echo "$dir: not at the pinned $commit" >&2; exit 1; }
+}
+
+mkdir -p /cache/src "$PREFIX"
 cd /cache/src
-[ -d dav1d ] || git clone --depth 1 -b "$DAV1D_TAG" https://code.videolan.org/videolan/dav1d.git
-[ -d ffmpeg ] || git clone --depth 1 -b "$FFMPEG_BRANCH" https://github.com/FFmpeg/FFmpeg.git ffmpeg
-git -C ffmpeg fetch --depth 1 origin "$FFMPEG_BRANCH" && git -C ffmpeg reset --hard FETCH_HEAD
-
-# Downloads over HTTPS with Python (the image has no curl; plain HTTP may be blocked on the build machine).
-fetch() { python3 -c 'import sys, urllib.request; urllib.request.urlretrieve(sys.argv[1], sys.argv[2])' "$1" "$2"; }
-
-# CMake for mbedTLS, from Kitware's release (not in the image).
-CMAKE_VERSION=3.31.6
-if [ ! -x /cache/cmake-$CMAKE_VERSION/bin/cmake ]; then
-  fetch "https://github.com/Kitware/CMake/releases/download/v$CMAKE_VERSION/cmake-$CMAKE_VERSION-linux-x86_64.tar.gz" /cache/cmake.tar.gz
-  mkdir -p /cache/cmake-$CMAKE_VERSION
-  tar -xzf /cache/cmake.tar.gz -C /cache/cmake-$CMAKE_VERSION --strip-components=1
-  rm /cache/cmake.tar.gz
-fi
-export PATH=/cache/cmake-$CMAKE_VERSION/bin:$PATH
+git_at dav1d https://code.videolan.org/videolan/dav1d.git "$DAV1D_TAG" "$DAV1D_COMMIT"
+git_at ffmpeg https://github.com/FFmpeg/FFmpeg.git "$FFMPEG_COMMIT" "$FFMPEG_COMMIT"
 
 # mbedTLS: static, from the release tarball (git sources need code generation first).
 if [ ! -d mbedtls-$MBEDTLS_VERSION ]; then
-  fetch "https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-$MBEDTLS_VERSION/mbedtls-$MBEDTLS_VERSION.tar.bz2" /cache/mbedtls.tar.bz2
-  python3 -c 'import sys, tarfile; tarfile.open(sys.argv[1]).extractall(".")' /cache/mbedtls.tar.bz2
-  rm /cache/mbedtls.tar.bz2
+  fetch "https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-$MBEDTLS_VERSION/mbedtls-$MBEDTLS_VERSION.tar.bz2" \
+    /cache/mbedtls.tar.bz2 "$MBEDTLS_SHA256"
+  tar -xjf /cache/mbedtls.tar.bz2 && rm /cache/mbedtls.tar.bz2
 fi
 rm -rf mbedtls-$MBEDTLS_VERSION/build-$ABI
 cmake -S mbedtls-$MBEDTLS_VERSION -B mbedtls-$MBEDTLS_VERSION/build-$ABI -G Ninja \
@@ -98,7 +97,6 @@ rm -rf "$OUT"
 mkdir -p "$OUT/lib"
 cp -r "$PREFIX/include" "$OUT/include"
 rm -rf "$OUT/include/dav1d" "$OUT/include/mbedtls" "$OUT/include/psa" "$OUT/include/everest"
-# libavfilter: for libmpv (scripts/mpv-android), packaged in debug builds only (android/build.gradle).
 for lib in avformat avcodec avutil swresample swscale avfilter; do
   cp "$PREFIX/lib/lib$lib.so" "$OUT/lib/"
   "$TOOLCHAIN/bin/llvm-strip" --strip-unneeded "$OUT/lib/lib$lib.so"
@@ -109,6 +107,5 @@ for so in "$OUT"/lib/*.so; do
   echo "$(basename "$so"): $("$TOOLCHAIN/bin/llvm-readelf" -d "$so" | grep SONAME | sed 's/.*\[\(.*\)\]/\1/')"
 done
 echo "--- mediacodec decoders"
-grep -o '[a-z0-9]*_mediacodec_decoder' "$PREFIX/../src/ffmpeg/libavcodec/codec_list.c" 2>/dev/null || \
-  grep -o '[a-z0-9]*_mediacodec_decoder' libavcodec/codec_list.c
-echo "FFmpeg for Android $ABI in $OUT"
+grep -o '[a-z0-9]*_mediacodec_decoder' libavcodec/codec_list.c || true
+echo "FFmpeg for Android $ABI in $OUT ($(git rev-parse --short HEAD))"

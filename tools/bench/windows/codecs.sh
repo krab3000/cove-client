@@ -7,7 +7,7 @@
 #   windows/codecs.sh [filter...]          e.g. windows/codecs.sh Exotic/ EdgeCases/
 #
 # COVE_SERVER (default http://127.0.0.1:5073), COVE_USER, COVE_PASSWORD; PLAY_SECONDS (default 6), NO_HW=1 for
-# software decoding only, MPV_LOG=v for mpv's log. Needs libmpv for Windows (yarn build-mpv-windows) and Visual Studio.
+# software decoding only, MPV_LOG=v for mpv's log. Needs libmpv for Windows (yarn turbo run build:windows:docker --filter=react-native-mpv) and Visual Studio.
 set -euo pipefail
 here=$(cd "$(dirname "$0")" && pwd)
 repo=$(cd "$here/../../.." && pwd)

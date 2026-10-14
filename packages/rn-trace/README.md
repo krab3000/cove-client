@@ -34,7 +34,7 @@ Open traces at https://ui.perfetto.dev. The trace is read in the browser, not up
 
 ## Builds
 
-- **SDK:** `scripts/fetch-perfetto.sh` downloads Perfetto's amalgamated C++ SDK (pinned version, checksum-verified)
+- **SDK:** `scripts/fetch-perfetto.mjs` (this package's `build:android:docker`, in Docker; the apps' builds run it first) downloads Perfetto's amalgamated C++ SDK (pinned version, checksum-verified)
   into `third_party/perfetto/sdk`. It's a release asset, not in Perfetto's git tags, so it's fetched rather than
   added as a submodule.
 - **Debug builds** compile the Perfetto backend. In the Cove debug APK, librntrace is about 8.6 MB.

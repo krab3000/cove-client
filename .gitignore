@@ -78,8 +78,12 @@ android/generated
 # React Native Nitro Modules
 nitrogen/
 
-# FFmpeg SDK (scripts/fetch-ffmpeg.ps1)
+# Native dependencies (yarn deps:android / deps:windows) and the Perfetto SDK
 third_party/
+
+# The local Android toolchain (yarn setup:android) and the built apps (yarn build:*)
+.build-deps/
+apps/*/dist/
 
 # Test media (scripts/make-test-media.ps1)
 /media/
@@ -87,8 +91,6 @@ third_party/
 # Native build outputs
 **/windows/x64/
 **/windows/ARM64/
-# FFmpeg Android build log (scripts/ffmpeg-android/build.ps1)
-ffmpeg-android-build.log
 *.binlog
 msbuild_*.err
 msbuild_*.wrn

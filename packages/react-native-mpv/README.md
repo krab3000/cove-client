@@ -82,15 +82,20 @@ Authorization header for a server's media requests, renewed on 401), and `getDeb
 
 ## Setup
 
-libmpv and the FFmpeg it links are built from source in Docker into `third_party/`.
+libmpv and the FFmpeg it links are built from source in Docker into `third_party/`, by this package's
+`build:android:docker` and `build:windows:docker` Turborepo tasks (the apps' builds run them first; alone:
+`yarn turbo run build:android:docker --filter=react-native-mpv` from the repository root).
+Turborepo caches the results by their inputs, the build scripts: a rebuild happens only when one changes. Every
+source is pinned to a commit or a SHA-256.
 
 ### Android
 
-Built with the Linux NDK r27b (linux/amd64):
+Built by `scripts/android.Dockerfile` (the `ffmpeg` and `mpv` stages) on the repo's Android toolchain image
+(`packages/build-tools`: Ubuntu, the Android SDK's NDK r27b; linux/amd64). Sources stay in a BuildKit cache mount; a
+change to `scripts/mpv-android` alone reuses the FFmpeg stage.
 
 ```sh
-yarn build-mpv-android /path/to/android-ndk-r27b-linux.zip            # FFmpeg 9.0, then libmpv
-yarn build-mpv-android /path/to/android-ndk-r27b-linux.zip --mpv-only # libmpv alone, FFmpeg already built
+yarn turbo run build:android:docker --filter=react-native-mpv   # FFmpeg 9.0, then libmpv -> third_party/{ffmpeg,mpv}/android-arm64-v8a
 ```
 
 - **FFmpeg** (`scripts/ffmpeg-android`): LGPL v3, with MediaCodec decoders, dav1d and mbedTLS.
@@ -104,8 +109,8 @@ yarn build-mpv-android /path/to/android-ndk-r27b-linux.zip --mpv-only # libmpv a
 Cross-compiled with llvm-mingw (UCRT), which the build downloads into its Docker cache volume:
 
 ```sh
-yarn build-mpv-windows             # FFmpeg 9.0, mpv's dependencies, then libmpv (Git Bash on Windows, or macOS/Linux)
-yarn build-mpv-windows --mpv-only  # libmpv alone, e.g. after changing scripts/mpv-windows/patches
+yarn turbo run build:windows:docker --filter=react-native-mpv                                            # FFmpeg 9.0, mpv's dependencies, then libmpv
+node packages/react-native-mpv/scripts/mpv-windows/build-docker.mjs --mpv-only   # libmpv alone (patches changed)
 ```
 
 - **FFmpeg** (`scripts/mpv-windows/build.sh`): LGPL v2.1+, D3D11VA/DXVA2, dav1d, Schannel for https, zlib.

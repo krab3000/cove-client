@@ -24,7 +24,7 @@ with the test server's EdgeCases and Exotic files, and Big Buck Bunny 2160p60 ov
   enforces the limit on its own. Optionally take a `LockFileEx` lock on `<dir>/lock`; a second process then runs
   RAM-only.
 - **rn-trace on Windows.** Build `rntrace.dll` (Perfetto in-process backend; `RNTRACE_PERFETTO`) behind an
-  `RnTraceEnabled` MSBuild property, with a PowerShell twin of `packages/rn-trace/scripts/fetch-perfetto.sh`. Link
+  `RnTraceEnabled` MSBuild property, with `packages/rn-trace/scripts/fetch-perfetto.mjs` (already cross-platform). Link
   it from react-native-mpv's vcxproj and define `MPV_RNTRACE` (otherwise the `MPV_TRACE*` macros stay no-ops).
   Expose the `RnTrace` TurboModule.
 - **Images' token.** On Windows Cove's images still carry the JWT in their URLs (`TOKEN_IN_IMAGE_URLS` in

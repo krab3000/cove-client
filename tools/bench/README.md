@@ -19,7 +19,7 @@ than tapping blind.
   libmpv's D3D11 output on a host device with the frame hook) on each video whose path contains a filter (default
   `Exotic/`), resizes and seeks, and prints one RESULT line each: first frame, frames shown, hardware or software,
   tracks; a frame of each is kept as a BMP. `COVE_USER` / `COVE_PASSWORD` as above; Visual Studio and
-  `yarn build-mpv-windows` first.
+  `yarn turbo run build:windows:docker --filter=react-native-mpv` first.
 - `metrics.sh <out/session>`: `metrics.sql` per trace into `metrics.csv`; `report.py <out/session>`: `report.md`.
 - `previews.sql`, `previews-total.sql`: per preview, and a pass's totals.
 

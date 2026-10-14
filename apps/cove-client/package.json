@@ -7,8 +7,11 @@
     "windows": "npx @react-native-community/cli run-windows",
     "start": "react-native start",
     "typecheck": "tsc -p .",
-    "android": "react-native run-android",
-    "test-server": "powershell -NoProfile -ExecutionPolicy Bypass -File test-server/setup.ps1"
+    "android": "build-tools android env react-native run-android",
+    "test-server": "powershell -NoProfile -ExecutionPolicy Bypass -File test-server/setup.ps1",
+    "build:android:local": "build-tools android local",
+    "build:windows:local": "npx @react-native-community/cli run-windows --release --arch x64 --no-deploy --no-launch --logging",
+    "build:android:docker": "build-tools android docker"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "^3.1.1",
@@ -31,6 +34,7 @@
     "@react-native/typescript-config": "0.84.1",
     "@rnx-kit/jest-preset": "^0.3.1",
     "@types/react": "^19.2.0",
+    "build-tools": "workspace:*",
     "react-native-builder-bob": "^0.43.1",
     "react-native-monorepo-config": "^0.4.0",
     "typescript": "^6.0.3"
@@ -57,5 +61,8 @@
       "outputDirectory": "windows/CoveClient/codegen",
       "separateDataTypes": true
     }
+  },
+  "androidBuild": {
+    "cleartextProperty": "coveCleartext"
   }
 }

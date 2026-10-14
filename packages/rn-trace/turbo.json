@@ -1,0 +1,10 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "build:android:docker": {
+      "inputs": ["scripts/android.Dockerfile", "scripts/android.Dockerfile.dockerignore", "scripts/fetch-perfetto.mjs"],
+      "outputs": ["third_party/perfetto/**"]
+    }
+  }
+}
