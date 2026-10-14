@@ -52,6 +52,9 @@ export default function App() {
         <View style={styles.app}>
           <SmoothEdges />
           <View
+            // Under the player, the Library is not drawn (transparent: Android skips the views; mounted: its scroll
+            // and state stay). Drawn, its dozens of card images went through the GPU's texture cache on every frame
+            // the player drew (a seek-bar drag): a small cache (Galaxy Tab S6 Lite) re-uploaded them each time.
             style={[
               styles.content,
               {
@@ -60,7 +63,10 @@ export default function App() {
                 paddingBottom: insets.bottom,
                 paddingLeft: insets.left,
               },
+              playing ? styles.covered : null,
             ]}
+            pointerEvents={playing ? 'none' : 'auto'}
+            importantForAccessibility={playing ? 'no-hide-descendants' : 'auto'}
           >
             {status === 'hydrating' || status === 'resuming' ? (
               <View style={styles.waiting}>
@@ -120,6 +126,7 @@ export default function App() {
 const styles = StyleSheet.create({
   app: { flex: 1, backgroundColor: nocturne.bg },
   content: { flex: 1 },
+  covered: { opacity: 0 },
   settings: { ...StyleSheet.absoluteFillObject, backgroundColor: nocturne.bg },
   waiting: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 });
