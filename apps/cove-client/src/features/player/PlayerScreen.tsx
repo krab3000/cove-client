@@ -12,7 +12,7 @@ import {
   View,
   type GestureResponderEvent,
 } from 'react-native';
-import { primaryFile, type CoveClient } from '../../api/cove';
+import { primaryFile, type CoveClient, type SpriteSheet } from '../../api/cove';
 import type { Video } from '../../api/types';
 import { Bar } from './components/Bar';
 import { Icon, type IconName } from '../../ui/Icon';
@@ -542,23 +542,47 @@ export function PlayerScreen({
     .filter(Boolean)
     .join(' · ');
   const shownPosition = scrubSeconds ?? position;
-  // The bubble's frame follows the drag once it rests a moment: a frame request per pixel of dragging would never
-  // finish loading one.
-  const [frameUri, setFrameUri] = useState('');
+  // The seek bar's frames: the video's sprite sheet, loaded (and decoded, Image.prefetch) once when the player opens,
+  // so the bubble follows the drag at once. Only here: the cards never load a sheet.
+  const [sprite, setSprite] = useState<SpriteSheet | null>(null);
+  useEffect(() => {
+    let alive = true;
+    setSprite(null);
+    client.spriteSheet(video).then((frames) => {
+      if (!alive || !frames) return;
+      Image.prefetch(frames.url).catch(() => {});
+      setSprite(frames);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [client, video]);
   const frameSecond =
     scrubSeconds !== null ? clipStart + Math.round(scrubSeconds) : null;
+  const cue =
+    sprite && scrubSeconds !== null
+      ? (sprite.cues.find(
+          (c) =>
+            clipStart + scrubSeconds >= c.start &&
+            clipStart + scrubSeconds < c.end
+        ) ?? sprite.cues[sprite.cues.length - 1]!)
+      : null;
+  // Without a sheet, the frame comes from the server once the drag rests a moment: a frame request per pixel of
+  // dragging would never finish loading one.
+  const [frameUri, setFrameUri] = useState('');
   useEffect(() => {
-    if (frameSecond === null) return;
+    if (frameSecond === null || sprite) return;
     const timer = setTimeout(
       () => setFrameUri(client.frameUrl(video, frameSecond)),
       FRAME_REST_MS
     );
     return () => clearTimeout(timer);
-  }, [client, video, frameSecond]);
+  }, [client, video, frameSecond, sprite]);
   const bubble =
     scrubSeconds !== null
       ? {
           uri: frameUri,
+          cue,
           label: [
             formatDuration(scrubSeconds),
             momentAt(scrubSeconds)
@@ -577,6 +601,7 @@ export function PlayerScreen({
       showThumb={visible}
       scrub={scrub}
       bubble={bubble}
+      sprite={sprite}
       onScrub={(f) => {
         setScrub(f);
         showControls();
@@ -585,6 +610,7 @@ export function PlayerScreen({
         setScrub(null);
         seekTo(f * duration);
       }}
+      onCancel={() => setScrub(null)}
     />
   );
   // The controls stay up while the mouse is on them.

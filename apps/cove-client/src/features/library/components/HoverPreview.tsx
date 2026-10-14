@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import type { CoveClient, SpriteSheet } from '../../../api/cove';
 import type { Video } from '../../../api/types';
 import { VideoView } from '../../../platform/player';
@@ -8,9 +8,10 @@ import { SpriteCell } from './SpriteCell';
 import { useSnapshot } from 'valtio';
 import { prefs } from '../../../state/prefs';
 
-// Phones and tablets: no sprite-sheet fallback. A sheet is one 2880×1620 JPEG (19 MB decoded) for a 300 px frame;
-// a few of them fill the image cache and starve a weak device's memory and GPU.
-const SPRITE_FALLBACK = Platform.OS !== 'android';
+// Cards get no sprite-sheet fallback: a sheet is one JPEG of up to 2880×1620 (19 MB decoded) for a 300 px frame, and
+// a few of them fill the image cache and starve a weak device's memory and GPU. Only the open player's seek bar
+// loads one.
+const SPRITE_FALLBACK = false;
 
 // Hardware decoding for previews is a setting (prefs.previewHardware). Off by default on Android: preview clips decode
 // on the CPU. They are small (~640×360), so that is cheap, and it skips opening a MediaCodec for every card: hardware

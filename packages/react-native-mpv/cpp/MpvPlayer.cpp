@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <climits>
+#include <cmath>
 #include <cstdio>
 
 namespace ReactNativeMpv {
@@ -645,7 +646,19 @@ void MpvPlayer::Events() {
           if (m_callbacks.onProgress)
             m_callbacks.onProgress(t, m_duration);
         }
+        bool earlier = false; // the restart of a seek a newer one replaced: the newer one is still on its way
         if (m_seeking) {
+          std::lock_guard lock(m_mutex);
+          earlier = m_seeksPending > 1 && std::abs(t - m_seekTarget) > 0.5;
+          if (earlier)
+            --m_seeksPending;
+        }
+        if (earlier) {
+          char line[160];
+          snprintf(line, sizeof(line), "seek: a restart at %.3f s for an earlier seek, still on the way to %.2f s %s", t,
+                   m_seekTarget, m_label.c_str());
+          LogTo("MpvSeek", line);
+        } else if (m_seeking) {
           m_seeking = false;
           m_ended = false;
           double ms, target;

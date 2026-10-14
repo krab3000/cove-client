@@ -34,10 +34,6 @@ export function authFailure(error: unknown): 'expired' | 'offline' | null {
   return null;
 }
 
-// Sprite sheets (seek-bar and card frames) are off for now: one is a 2880×1620 JPEG, 19 MB decoded, to show a
-// 300 px frame, which starves weak devices' memory and GPU. Turn back on once frames come cropped.
-const SPRITE_SHEETS = false;
-
 // The access JWT is renewed this long before it expires (Cove's last 15 minutes by default).
 const RENEW_EARLY_MS = 60_000;
 // A renewal that failed (offline, the server restarting) is tried again after this long.
@@ -424,10 +420,10 @@ export class CoveClient {
 
   /**
    * The seek-bar thumbnails Cove's generate task makes (a sprite sheet and a WebVTT index of its cells), or null
-   * when the video has none yet.
+   * when the video has none yet. For the open player's seek bar only: a sheet is one big JPEG (up to 2880×1620,
+   * 19 MB decoded), fine once, not per card.
    */
   spriteSheet(video: Video): Promise<SpriteSheet | null> {
-    if (!SPRITE_SHEETS) return Promise.resolve(null);
     let sheet = this.sprites.get(video.id);
     if (!sheet) {
       sheet = this.fetchSpriteSheet(video);

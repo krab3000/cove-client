@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   Image,
   StyleSheet,
@@ -6,9 +6,13 @@ import {
   View,
   type GestureResponderEvent,
 } from 'react-native';
+import type { SpriteCue, SpriteSheet } from '../../../api/cove';
 import { fonts, nocturne as n, roundRadius } from '../../../theme/tokens';
+import { SpriteCell } from '../../library/components/SpriteCell';
 
 const GLOW = '#9184d9';
+const FRAME_W = 176;
+const FRAME_H = 99;
 const TICK = '#d2cefd';
 const THUMB = '#e7e5fe';
 
@@ -25,24 +29,32 @@ export function SeekTrack({
   showThumb,
   scrub,
   bubble,
+  sprite,
   onScrub,
   onCommit,
+  onCancel,
 }: {
   value: number; // 0–1, played
   markers: number[]; // 0–1
   big: boolean;
   showThumb: boolean;
   scrub: number | null; // 0–1 while dragging
-  // While dragging: the frame there and its label ("19:52 · Ridge line")
-  bubble: { uri: string; label: string } | null;
+  // While dragging: the frame there (a cell of the sprite sheet, else an image from the server) and its label
+  // ("19:52 · Ridge line")
+  bubble: { uri: string; cue: SpriteCue | null; label: string } | null;
+  sprite: SpriteSheet | null; // the video's seek-bar frames, loaded when the player opened
   onScrub: (fraction: number) => void;
   onCommit: (fraction: number) => void;
+  onCancel: () => void; // another gesture took the touch (the page scrolling): no seek
 }) {
   const [width, setWidth] = useState(1);
   // A video without generated frames (no thumbnails, no sprite sheet, no cover): the bubble keeps just its label.
   const [noFrames, setNoFrames] = useState(false);
+  // Where the track starts on the screen, taken when the finger lands: a move's locationX is relative to whatever
+  // view is under the finger then (it jumps), pageX is not.
+  const originX = useRef(0);
   const at = (e: GestureResponderEvent) =>
-    Math.min(1, Math.max(0, e.nativeEvent.locationX / width));
+    Math.min(1, Math.max(0, (e.nativeEvent.pageX - originX.current) / width));
   const shown = scrub ?? value;
   const height = big ? 5 : 3;
   const thumb = big ? 20 : 13;
@@ -58,9 +70,13 @@ export function SeekTrack({
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
       onResponderTerminationRequest={() => false}
-      onResponderGrant={(e) => onScrub(at(e))}
+      onResponderGrant={(e) => {
+        originX.current = e.nativeEvent.pageX - e.nativeEvent.locationX;
+        onScrub(at(e));
+      }}
       onResponderMove={(e) => onScrub(at(e))}
       onResponderRelease={(e) => onCommit(at(e))}
+      onResponderTerminate={onCancel}
       accessibilityRole="adjustable"
       accessibilityLabel="Seek"
     >
@@ -69,7 +85,16 @@ export function SeekTrack({
           pointerEvents="none"
           style={[styles.bubble, { left: bubbleLeft, width: BUBBLE_W }]}
         >
-          {noFrames ? null : bubble.uri ? (
+          {sprite && bubble.cue ? (
+            <View style={[styles.frame, styles.cell]}>
+              <SpriteCell
+                sprite={sprite}
+                cue={bubble.cue}
+                width={FRAME_W - 3}
+                height={FRAME_H - 3}
+              />
+            </View>
+          ) : noFrames ? null : bubble.uri ? (
             <Image
               source={{ uri: bubble.uri }}
               style={styles.frame}
@@ -166,13 +191,14 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   frame: {
-    width: 176,
-    height: 99,
+    width: FRAME_W,
+    height: FRAME_H,
     borderRadius: n.radiusMd,
     borderWidth: 1.5,
     borderColor: GLOW,
     backgroundColor: '#0a0b12',
   },
+  cell: { overflow: 'hidden' },
   bubbleLabel: {
     paddingHorizontal: 9,
     paddingVertical: 3,
