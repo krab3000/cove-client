@@ -18,7 +18,9 @@ Commands are named `<what>:<platform>:<where>`: **setup** installs or checks a t
 and `:local` runs on this machine, `:docker` in Docker. Builds are Turborepo tasks of the same name in every package,
 each depending on its dependencies' (`^build:<platform>:docker`): build-tools' builds the Android toolchain image, then
 the libraries' build on it in Docker (react-native-mpv: FFmpeg + libmpv; rn-trace: the Perfetto SDK), cached by their
-inputs, so they rebuild only when their build scripts change; then the app's, `:local` or `:docker`.
+inputs, so they rebuild only when their build scripts change; then the app's, `:local` or `:docker`. The APK is
+cached too: through a `transit` task (Turborepo's transit-node pattern) the app's hash covers its libraries' sources,
+so a change anywhere it builds from rebuilds it, and nothing else does.
 
 | Command | What |
 | --- | --- |

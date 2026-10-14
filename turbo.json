@@ -3,16 +3,22 @@
   "ui": "stream",
   "envMode": "loose",
   "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
     "build:android:docker": {
-      "dependsOn": ["^build:android:docker"]
+      "dependsOn": ["^build:android:docker", "transit"],
+      "outputs": ["dist/**"],
+      "env": ["COVE_CLEARTEXT"]
     },
     "build:android:local": {
-      "dependsOn": ["^build:android:docker"],
-      "cache": false
+      "dependsOn": ["^build:android:docker", "transit"],
+      "outputs": ["dist/**"],
+      "env": ["COVE_CLEARTEXT"]
     },
     "build:windows:docker": {},
     "build:windows:local": {
-      "dependsOn": ["^build:windows:docker"],
+      "dependsOn": ["^build:windows:docker", "transit"],
       "cache": false
     }
   }
