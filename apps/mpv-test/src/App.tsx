@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -19,6 +20,7 @@ import {
   getHttpCacheStats,
   onHttpAuthorizationNeeded,
   prefetchMedia,
+  prepareMedia,
   setHttpAuthorization,
   type AudioTrack,
   type SubtitleTrack,
@@ -82,9 +84,11 @@ export default function App() {
     [note]
   );
 
-  const open = () => {
-    const server = serverOf(url);
-    if (server) setHttpAuthorization(server, auth.trim() || null);
+  // size: the media's size if known (the deep link's): the HTTP cache starts its last chunks with the first.
+  const open = (target = url, header = auth, size?: number) => {
+    const server = serverOf(target);
+    if (server) setHttpAuthorization(server, header.trim() || null);
+    if (size && !cache) prepareMedia(target.trim(), { size });
     setTracks([]);
     setAudioTrack(-1);
     setSubtitleTracks([]);
@@ -92,9 +96,41 @@ export default function App() {
     progressed.current = false;
     setPaused(false);
     // A new string reopens even when the URL is the same.
-    setSource(source === url.trim() ? `${url.trim()}#` : url.trim());
-    note(`open ${url.trim()}`);
+    setSource((s) =>
+      s === target.trim() ? `${target.trim()}#` : target.trim()
+    );
+    note(`open ${target.trim()}`);
+    // logcat ReactNativeJS: where tools/bench/startup-cache.py starts its clock
+    console.log(`mpvtest open ${target.trim()}`);
   };
+
+  // adb shell am start -a android.intent.action.VIEW -d 'mpvtest://open?url=<encoded>&auth=<encoded>[&size=<bytes>]':
+  // opens a source from a script (tools/bench), as typing it and pressing Open does (with its size: prepareMedia).
+  const openRef = useRef(open);
+  openRef.current = open;
+  useEffect(() => {
+    const handle = (link?: string | null) => {
+      const m = link && /^mpvtest:\/\/open\?(.*)$/.exec(link);
+      if (!m) return;
+      const params = Object.fromEntries(
+        m[1]!.split('&').map((kv) => {
+          const i = kv.indexOf('=');
+          return [kv.slice(0, i), decodeURIComponent(kv.slice(i + 1))];
+        })
+      );
+      if (!params.url) return;
+      setUrl(params.url);
+      setAuth(params.auth ?? '');
+      openRef.current(
+        params.url,
+        params.auth ?? '',
+        params.size ? Number(params.size) : undefined
+      );
+    };
+    Linking.getInitialURL().then(handle);
+    const sub = Linking.addEventListener('url', (e) => handle(e.url));
+    return () => sub.remove();
+  }, []);
 
   const seek = (seconds: number) => {
     const target = Math.max(0, seconds);
@@ -172,7 +208,7 @@ export default function App() {
           autoCorrect={false}
         />
         <Row>
-          <Button label="Open" onPress={open} />
+          <Button label="Open" onPress={() => open()} />
           <Button
             label="Close"
             onPress={() => {

@@ -35,6 +35,7 @@ export function bindMediaAuth(client: CoveClient): () => void {
 
 export {
   prefetchMedia,
+  prepareMedia,
   clearHttpCache,
   getHttpCacheStats,
   type HttpCacheStats,

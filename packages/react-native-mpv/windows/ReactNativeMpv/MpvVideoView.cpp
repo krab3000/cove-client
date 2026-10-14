@@ -268,6 +268,10 @@ struct MpvVideoView : winrt::implements<MpvVideoView, winrt::Windows::Foundation
 
   void Load() {
     Stop();
+    if (!m_source.empty()) { // its first and last chunks on the way while the output and mpv start
+      WindowsPlatform::Init();
+      HttpCache::Warm(m_source, m_tlsVerify);
+    }
     const uint64_t generation = ++m_generation;
     const auto weak = get_weak();
     const RN::IReactDispatcher dispatcher = m_dispatcher;

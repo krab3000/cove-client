@@ -19,6 +19,11 @@ struct MpvCacheModule {
   REACT_METHOD(Prefetch, L"prefetch")
   void Prefetch(std::vector<std::string> urls) noexcept;
 
+  // The intent to play url (prepareMedia): the HTTP cache starts its first and last chunks now. size: the media's
+  // size in bytes, or -1 if unknown.
+  REACT_METHOD(Prepare, L"prepare")
+  void Prepare(std::string url, double size, bool tlsVerify) noexcept;
+
   // The Authorization header for a server's media requests, or null for none.
   REACT_METHOD(SetHttpAuthorization, L"setHttpAuthorization")
   void SetHttpAuthorization(std::string server, std::optional<std::string> value) noexcept;

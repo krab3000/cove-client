@@ -17,7 +17,7 @@ namespace fs = std::filesystem;
 
 namespace {
 
-constexpr char kVersion[] = "mpv-http 1";
+constexpr char kVersion[] = "mpv-http 2"; // 2: the last chunk takes in a short rest
 constexpr uint64_t kMinDiskBytes = 32ull << 20;  // below this the disk tier is not worth it
 constexpr uint64_t kMaxQueuedBytes = 8ull << 20; // writes waiting for the store's thread (shared with RAM)
 constexpr auto kTouchEvery = std::chrono::minutes(10);
@@ -246,7 +246,8 @@ void DiskChunkStore::Scan() {
         continue;
       std::error_code sizeError;
       const uint64_t size = chunkEntry.file_size(sizeError);
-      if (path.extension() != ".chk" || sizeError || size <= kHeaderSize || size > kHeaderSize + m_chunkSize) {
+      if (path.extension() != ".chk" || sizeError || size <= kHeaderSize ||
+          size > kHeaderSize + MaxChunkLength()) {
         fs::remove(path, ec);
         continue;
       }
@@ -320,7 +321,7 @@ ChunkPtr DiskChunkStore::Read(const ChunkKey &key, const MediaMeta &meta) {
     Header header;
     if (std::fread(raw, 1, kHeaderSize, file.get()) == kHeaderSize && header.Decode(raw) &&
         header.chunkSize == m_chunkSize && header.index == key.index && header.mediaId == key.media &&
-        header.length == expected && header.length <= m_chunkSize &&
+        header.length == expected && header.length <= MaxChunkLength() &&
         (meta.size < 0 || header.mediaSize == meta.size) && header.validatorHash == meta.ValidatorHash()) {
       auto data = std::make_unique<uint8_t[]>(header.length);
       if (std::fread(data.get(), 1, header.length, file.get()) == header.length &&

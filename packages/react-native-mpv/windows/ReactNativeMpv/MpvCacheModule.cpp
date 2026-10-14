@@ -20,6 +20,11 @@ void MpvCacheModule::Prefetch(std::vector<std::string> urls) noexcept {
   WindowsPlatform::Prefetch(urls);
 }
 
+void MpvCacheModule::Prepare(std::string url, double size, bool tlsVerify) noexcept {
+  WindowsPlatform::Init();
+  HttpCache::Warm(url, tlsVerify, int64_t(size));
+}
+
 void MpvCacheModule::SetHttpAuthorization(std::string server, std::optional<std::string> value) noexcept {
   HttpAuth::Set(server, value);
 }

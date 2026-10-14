@@ -28,6 +28,7 @@ class CachedHttpSource final : public ByteSource {
 
  private:
   bool Load(int64_t index); // m_current := chunk index; false on failure (m_error set)
+  int64_t SinceOpenMs() const;
 
   const std::shared_ptr<ChunkCache> m_cache;
   std::shared_ptr<Media> m_media;
@@ -35,6 +36,7 @@ class CachedHttpSource final : public ByteSource {
   const uint32_t m_chunkSize;
   const int m_readAhead;
   const bool m_log;
+  const bool m_readLog; // read_log=1: every read (offset, size, ms since open), for studying what playback needs
   uint32_t m_generation = 0;
   CancelToken m_token;
 

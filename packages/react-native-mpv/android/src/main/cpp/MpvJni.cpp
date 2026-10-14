@@ -476,6 +476,17 @@ extern "C" JNIEXPORT void JNICALL Java_com_rnmpv_HttpFetch_nativeConfigure(JNIEn
   HttpCache::Override(overrides);
 }
 
+// The intent to play a URL (HttpCache::Warm): its first and last chunks start downloading now. size: -1 if unknown.
+extern "C" JNIEXPORT void JNICALL Java_com_rnmpv_HttpFetch_nativeWarm(JNIEnv *env, jclass, jstring url,
+                                                                     jboolean tlsVerify, jlong size) {
+  if (!url)
+    return;
+  const char *chars = env->GetStringUTFChars(url, nullptr);
+  const std::string text = chars ? chars : "";
+  env->ReleaseStringUTFChars(url, chars);
+  HttpCache::Warm(text, tlsVerify, size);
+}
+
 extern "C" JNIEXPORT void JNICALL Java_com_rnmpv_HttpFetch_nativeTrimMemory(JNIEnv *, jclass) {
   HttpCache::Instance()->TrimMemory();
 }

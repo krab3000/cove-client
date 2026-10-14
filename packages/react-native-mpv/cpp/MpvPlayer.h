@@ -151,6 +151,11 @@ class MpvPlayer {
   std::atomic<bool> m_loaded{false}; // also read by SetAudioTrack/SetSubtitleTrack (caller's thread)
   bool m_reconfigured = false, m_restarted = false, m_ended = false;
   std::atomic<bool> m_seeking{false}; // set by Seek, cleared by the event thread
+  // The latest seek, for its log line and trace span (logcat -s MpvSeek): guarded by m_mutex
+  std::chrono::steady_clock::time_point m_seekAt;
+  double m_seekFrom = 0, m_seekTarget = 0;
+  int m_seekCount = 0, m_seeksPending = 0;
+  std::string m_seekSummary; // the source's counters when it began
   std::atomic<bool> m_loop{false};
   double m_duration = 0;
   double m_lastProgress = -1;

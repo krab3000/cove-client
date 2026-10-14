@@ -231,7 +231,17 @@ object HttpFetch {
     }
   }
 
+  /**
+   * The intent to play [url] (cpp HttpCache::Warm): its first chunk and its last ones start downloading now, before
+   * the player asks. [size]: the media's size if known (-1: not), so the last chunks start with the first.
+   */
+  fun warm(context: Context, url: String, tlsVerify: Boolean, size: Long = -1) {
+    attach(context)
+    nativeWarm(url, tlsVerify, size)
+  }
+
   // The cache (cpp/HttpCache, MpvJni.cpp).
+  @JvmStatic external fun nativeWarm(url: String, tlsVerify: Boolean, size: Long)
   @JvmStatic external fun nativeSetPlatform(totalRam: Long, lowRam: Boolean, dir: String, quota: Long)
   @JvmStatic external fun nativeConfigure(chunkSize: Long, memorySize: Long, diskSize: Long, diskDir: String?)
   @JvmStatic external fun nativeTrimMemory()

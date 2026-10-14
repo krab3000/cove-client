@@ -389,6 +389,7 @@ void MpvPlayer::Open(std::string source, bool hardwareDecoding, int audioTrack) 
   rntrace_name_track(m_track, ("mpv " + m_label).c_str());
   rntrace_name_track(m_track + 1, ("mpv vconfig " + m_label).c_str());
   rntrace_name_track(m_track + 2, ("mpv restart " + m_label).c_str());
+  rntrace_name_track(m_track + 3, ("mpv seek " + m_label).c_str());
 #endif
   MPV_TRACE_BEGIN("mpv open → file-loaded", m_track);
   MPV_TRACE_BEGIN("mpv open → video-reconfig", m_track + 1);
@@ -431,6 +432,25 @@ void MpvPlayer::SetSpeed(double speed) {
 }
 
 void MpvPlayer::Seek(double seconds) {
+  const double from = PropertyDouble("time-pos", -1);
+  int number, superseded;
+  {
+    std::lock_guard lock(m_mutex);
+    superseded = m_seeksPending;
+    number = ++m_seekCount;
+    ++m_seeksPending;
+    m_seekAt = std::chrono::steady_clock::now();
+    m_seekFrom = from;
+    m_seekTarget = seconds;
+    m_seekSummary = m_stream ? m_stream->source->Summary() : "";
+  }
+  if (superseded)
+    MPV_TRACE_END(m_track + 3);
+  MPV_TRACE_BEGIN("seek → playback-restart", m_track + 3);
+  char line[160];
+  snprintf(line, sizeof(line), "seek #%d %.2f → %.2f s%s %s", number, from, seconds,
+           superseded ? " (the one before not done)" : "", m_label.c_str());
+  LogTo("MpvSeek", line);
   m_seeking = true;
   const std::string target = std::to_string(seconds);
   Command({"seek", target.c_str(), "absolute+exact"});
@@ -628,6 +648,23 @@ void MpvPlayer::Events() {
         if (m_seeking) {
           m_seeking = false;
           m_ended = false;
+          double ms, target;
+          int number;
+          std::string before, after;
+          {
+            std::lock_guard lock(m_mutex);
+            ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - m_seekAt).count();
+            target = m_seekTarget;
+            number = m_seekCount;
+            m_seeksPending = 0;
+            before = m_seekSummary;
+            after = m_stream ? m_stream->source->Summary() : "";
+          }
+          MPV_TRACE_END(m_track + 3);
+          char line[1024];
+          snprintf(line, sizeof(line), "seek #%d to %.2f s done in %.0f ms, at %.3f s | cache before: %s | after: %s %s",
+                   number, target, ms, t, before.c_str(), after.c_str(), m_label.c_str());
+          LogTo("MpvSeek", line);
           if (m_callbacks.onSeek)
             m_callbacks.onSeek(t);
         }

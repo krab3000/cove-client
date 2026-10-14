@@ -46,7 +46,9 @@ player.current?.seek(42.5);
 
 The module functions: `configureHttpCache({ chunkSize, memorySize, diskSize, diskDir })`, `clearHttpCache()`,
 `getHttpCacheStats()`, `prefetchMedia(urls)` (preview clips for `cache`; on Windows the start of each URL into the HTTP
-cache, and `cache` streams from it), `setHttpAuthorization(server, value)` and `onHttpAuthorizationNeeded(listener)` (an
+cache, and `cache` streams from it), `prepareMedia(url, { size, tlsVerify })` (the intent to play: the HTTP cache
+starts the file's first and last chunks before the view opens it; with the size, the last ones on a first open
+too), `setHttpAuthorization(server, value)` and `onHttpAuthorizationNeeded(listener)` (an
 Authorization header for a server's media requests, renewed on 401), and `getDebugProperty(name)`.
 
 ## How it works
@@ -56,8 +58,11 @@ Authorization header for a server's media requests, renewed on 401), and `getDeb
   HTTP in between. Its events become the view's (`onLoad` at the first video reconfig, `onProgress` from `time-pos`,
   `onSeek` at `playback-restart`, `onEnd` at `eof-reached`).
 - **`cpp/ChunkCache`, `DiskChunkStore`, `HttpCache`:** the cache. A RAM tier sized from the device's memory, a disk
-  tier with checksummed chunk files and LRU eviction, deduplicated fetches with priorities, and read-ahead. Host tests:
-  `yarn test-cache` (ASan/UBSan and TSan).
+  tier with checksummed chunk files and LRU eviction, deduplicated fetches, and read-ahead. A read mpv waits for
+  starts its download at once; background downloads (the start of a file, its tail, read-ahead, prefetch) share
+  `maxFetches` slots by priority. Setting a view's source (or `prepareMedia`) warms the file: chunk 0 and the chunks
+  holding its last 512 KB start in parallel while mpv starts, so the demuxer finds its header and index on the way.
+  Host tests: `yarn test-cache` (ASan/UBSan and TSan).
 - **`android/`:**
   - `MpvVideoView`: the SurfaceView; reopens at the same position when the surface comes back.
   - `MpvJni.cpp`: the bridge.
@@ -128,6 +133,7 @@ yarn build-mpv-windows --mpv-only  # libmpv alone, e.g. after changing scripts/m
   | `cache` | `ram` / `disk` / `off` | Which cache tiers are on. |
   | `read_ahead` | chunks | The cache's read-ahead. |
   | `http_log` | `1` | One log line per cache chunk read. |
+  | `cache_startup` | `legacy` | No warm start; mpv's reads share the download workers (to compare startup). |
 
 - **Logs:** `adb logcat -s MpvPlayer mpv MpvHttp MpvStartup MpvCache`; on Windows the same tags go to
   `OutputDebugString` (the debugger's output, or DebugView).

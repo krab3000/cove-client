@@ -123,8 +123,9 @@ struct CacheConfig {
   uint64_t diskBytes = 512ull << 20;  // disk tier (0: none)
   std::string diskDir;                // disk tier directory (empty: none)
   int readAhead = 2;                  // chunks fetched ahead of a sequential reader (0..4)
-  int maxFetches = 4;                 // downloads at once; read-ahead and prefetch leave one for demand reads
+  int maxFetches = 4;                 // background downloads at once; one a reader waits for starts on top
   bool ram = true, disk = true;       // tiers on (debug.mpv.cache)
+  bool legacyStartup = false;         // debug.mpv.cache_startup=legacy: no warm, demand shares the workers
 };
 
 } // namespace ReactNativeMpv

@@ -14,9 +14,9 @@ flags=(-std=c++20 -g -O1 -Wall -Wextra -Wno-unused-parameter -pthread -I"$cpp")
 
 echo "== ASan + UBSan"
 clang++ "${flags[@]}" -fsanitize=address,undefined -fno-omit-frame-pointer "${sources[@]}" -o "$out/cache-tests-asan"
-"$out/cache-tests-asan"
+setarch "$(uname -m)" -R "$out/cache-tests-asan" # no address randomization: sanitizers on newer kernels need it
 
 echo
 echo "== TSan"
 clang++ "${flags[@]}" -fsanitize=thread "${sources[@]}" -o "$out/cache-tests-tsan"
-"$out/cache-tests-tsan"
+setarch "$(uname -m)" -R "$out/cache-tests-tsan"

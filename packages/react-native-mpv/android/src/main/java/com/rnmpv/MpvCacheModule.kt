@@ -17,6 +17,15 @@ class MpvCacheModule(private val context: ReactApplicationContext) : ReactContex
     UiThreadUtil.runOnUiThread { list.forEach { MediaCache.fetch(context, it, "prefetch") } }
   }
 
+  /**
+   * The intent to play url (prepareMedia): the HTTP cache starts its first and last chunks now. size: the media's size
+   * in bytes, or -1 if unknown.
+   */
+  @ReactMethod
+  fun prepare(url: String, size: Double, tlsVerify: Boolean) {
+    HttpFetch.warm(context, url, tlsVerify, size.toLong())
+  }
+
   init {
     HttpAuth.onRenewalNeeded = { origin -> context.emitDeviceEvent("MpvAuthRequired", origin) }
   }

@@ -95,3 +95,4 @@ msbuild_*.wrn
 
 # Benchmark traces and reports (tools/bench)
 tools/bench/out/
+__pycache__/

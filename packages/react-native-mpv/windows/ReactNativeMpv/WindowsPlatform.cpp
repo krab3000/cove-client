@@ -68,14 +68,12 @@ struct Prefetcher {
     if (!fetcher)
       return;
     const uint32_t chunkSize = cache->Config().chunkSize;
-    std::shared_ptr<Media> media = cache->Open(url, true, fetcher);
+    // Background downloads (Fetch, not Get): they take a slot, so a player's reads never wait for them.
+    std::shared_ptr<Media> media = cache->Register(url, true, fetcher);
     CancelToken token;
-    const int64_t size = cache->Size(media, chunkSize, token);
-    const int64_t chunks = size > 0 ? std::min<int64_t>((size + chunkSize - 1) / chunkSize, kPrefetchChunks) : 0;
-    for (int64_t i = 0; i < chunks; ++i)
-      if (cache->Get(media, chunkSize, i, token).error != CacheError::None)
+    for (int64_t i = 0; i < kPrefetchChunks; ++i) // past the end: End, once chunk 0 told the size
+      if (cache->Fetch(media, chunkSize, i, Priority::Prefetch, token).error != CacheError::None)
         break;
-    cache->Close(media);
   }
 };
 

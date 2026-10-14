@@ -8,6 +8,7 @@
 //   cache       all (default) | ram | disk | off      tiers on
 //   read_ahead  0..4                                   chunks fetched ahead of sequential reading
 //   http_log    1                                      one log line per chunk read (where it came from)
+//   cache_startup  legacy                              no warm; readers' downloads share the workers (to compare)
 
 #include <functional>
 #include <memory>
@@ -46,7 +47,12 @@ void Override(const CacheOverrides &overrides);
 CacheConfig Derive(const PlatformInfo &info, const CacheOverrides &overrides); // pure
 
 std::shared_ptr<ChunkCache> Instance(); // made on first use from the platform info and overrides
-void ApplyDebugSwitches();              // the cache, read_ahead switches
+void ApplyDebugSwitches();              // the cache, read_ahead, cache_startup switches
+
+// The intent to play a URL (the player's source is set, or prepareMedia): its chunk 0 and tail start downloading now,
+// in the background, before the player asks. sizeHint: the media's size if the app knows it (-1: not), so the tail
+// starts with chunk 0 on a first open too. Not http(s): nothing.
+void Warm(const std::string &url, bool tlsVerify, int64_t sizeHint = -1);
 
 // The player's source for http(s) URLs: the cache over the platform's fetcher. CachedHttpSource.cpp.
 ByteSourceFactory MakeSourceFactory(bool tlsVerify);

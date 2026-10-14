@@ -52,6 +52,21 @@ export function prefetchMedia(urls: string[]): void {
 }
 
 /**
+ * The intent to play url, before a MpvVideoView opens it: the HTTP cache starts downloading its first chunk and its
+ * last ones (the header, and the index most containers keep at the end) now, so they are there or on the way when
+ * the player asks. size: the media's size in bytes, if known, so the last chunks start with the first on a first
+ * open too. A MpvVideoView does this itself when its source is set (without the size). Android and Windows; does
+ * nothing elsewhere or for other URLs.
+ */
+export function prepareMedia(
+  url: string,
+  { size, tlsVerify = true }: { size?: number; tlsVerify?: boolean } = {}
+): void {
+  if (NATIVE && /^https?:\/\//.test(url))
+    NativeModules.MpvCache?.prepare(url, size ?? -1, tlsVerify);
+}
+
+/**
  * Android and Windows: the HTTP cache http(s) sources play through (C++, cpp/HttpCache). Each read is served from a chunk of
  * chunkSize bytes (default 1 MB), from RAM, else from the disk tier, else downloaded with one Range request and kept
  * in both. The disk tier persists across launches, so a video reopened later starts from disk.

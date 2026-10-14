@@ -2,7 +2,7 @@
 
 // The HTTP cache's file tier: chunks kept across sessions, one file per chunk.
 //
-//   <dir>/VERSION                         "mpv-http 1" (another version: everything is deleted)
+//   <dir>/VERSION                         "mpv-http 2" (another version: everything is deleted)
 //   <dir>/tmp/                            files being written (wiped at start)
 //   <dir>/c<chunk KB>/<media id>/meta     text: the media key, size, ETag, Last-Modified
 //   <dir>/c<chunk KB>/<media id>/<index>.chk   a 64-byte header (magic, chunk size, length, index, media id and
@@ -58,6 +58,8 @@ class DiskChunkStore {
   void Stop(); // drops queued writes, joins the thread
 
   static constexpr uint32_t kHeaderSize = 64;
+  // A media's last chunk takes in a rest under half a chunk (ChunkCache::LastChunk).
+  uint32_t MaxChunkLength() const { return m_chunkSize + m_chunkSize / 2; }
 
  private:
   struct Entry {

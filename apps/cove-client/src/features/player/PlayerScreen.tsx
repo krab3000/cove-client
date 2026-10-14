@@ -34,6 +34,7 @@ import {
 } from '../../utils/format';
 import {
   playerEngine,
+  prepareMedia,
   VideoView,
   type LoadEvent,
   type VideoViewHandle,
@@ -183,6 +184,14 @@ export function PlayerScreen({
   const toggleFavoriteOf = useToggleFavorite();
   const toggleLaterOf = useToggleSavedForLater();
   const queryClient = useQueryClient();
+  // The stream's first and last chunks start downloading now (its size known: the last ones too, on a first open),
+  // in render, before the player view mounts and mpv starts.
+  const streamUrl = client.streamUrl(video);
+  const streamSize = primaryFile(video)?.size ?? undefined;
+  useMemo(
+    () => prepareMedia(streamUrl, { size: streamSize, tlsVerify }),
+    [streamUrl, streamSize, tlsVerify]
+  );
 
   const landscape = size.width > size.height;
   const large = isLarge(size.width, size.height);
@@ -710,7 +719,7 @@ export function PlayerScreen({
         <VideoView
           ref={player}
           style={StyleSheet.absoluteFill}
-          source={client.streamUrl(video)}
+          source={streamUrl}
           paused={paused}
           muted={muted}
           volume={volume}

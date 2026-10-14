@@ -31,11 +31,18 @@ CachedHttpSource::CachedHttpSource(std::shared_ptr<ChunkCache> cache, std::share
                                    const std::string &url, bool tlsVerify, std::string name)
     : m_cache(std::move(cache)), m_name(std::move(name)), m_label(Label(url)),
       m_chunkSize(m_cache->Config().chunkSize), m_readAhead(m_cache->Config().readAhead),
-      m_log(HttpCache::ChunkLogging()), m_opened(std::chrono::steady_clock::now()) {
+      m_log(HttpCache::ChunkLogging()), m_readLog(DebugProperty("read_log") == "1"),
+      m_opened(std::chrono::steady_clock::now()) {
   m_media = m_cache->Open(url, tlsVerify, std::move(fetcher));
   m_generation = m_cache->Generation(*m_media);
-  // A demuxer starts at 0 (an MP4 one then reads the tail, queued once the size is known).
-  m_cache->Prefetch(m_media, m_chunkSize, 0, Priority::Demand);
+  // A demuxer starts at 0 and most read the tail next: both on the way (unless a warm has them already).
+  const std::vector<int64_t> queued = m_cache->Warm(m_media, m_chunkSize);
+  if (m_log && !queued.empty()) {
+    std::string chunks;
+    for (const int64_t index : queued)
+      chunks += (chunks.empty() ? "" : ", ") + std::to_string(index);
+    LogTo("MpvHttp", m_label + " open: chunks " + chunks + " queued");
+  }
 }
 
 CachedHttpSource::~CachedHttpSource() {
@@ -49,6 +56,10 @@ CachedHttpSource::~CachedHttpSource() {
                          std::to_string(stats.ramLimit >> 20) + " MB, disk " +
                          std::to_string(stats.disk.bytes >> 20) + "/" + std::to_string(stats.disk.limit >> 20) +
                          " MB" + (stats.disk.enabled ? "" : " (off)"));
+}
+
+int64_t CachedHttpSource::SinceOpenMs() const {
+  return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - m_opened).count();
 }
 
 std::string CachedHttpSource::Summary() const {
@@ -76,7 +87,7 @@ bool CachedHttpSource::Load(int64_t index) {
     return false;
   }
   m_current = result.chunk;
-  m_currentIndex = index;
+  m_currentIndex = result.index;
   m_waitMs += int64_t(result.waitMs);
   switch (result.tier) {
     case Tier::Ram: ++m_ram; break;
@@ -101,20 +112,27 @@ bool CachedHttpSource::Load(int64_t index) {
 int CachedHttpSource::Read(uint8_t *buffer, int size) {
   if (m_token.Cancelled())
     return kSourceAborted;
-  const int64_t index = m_position / m_chunkSize;
-  const auto offset = uint32_t(m_position % m_chunkSize);
-  if (!m_current || m_currentIndex != index) {
+  const auto inCurrent = [&] {
+    const int64_t start = m_currentIndex * int64_t(m_chunkSize);
+    return m_current && m_position >= start && m_position < start + int64_t(m_current->length);
+  };
+  if (!inCurrent()) {
     m_current.reset();
     if (m_cache->Generation(*m_media) != m_generation) { // old and new bytes must not mix
       LogTo("MpvHttp", m_label + ": the media changed on the server while playing");
       return kSourceChanged;
     }
-    if (!Load(index))
+    // The last chunk may hold more than chunkSize bytes (a short rest goes with it)
+    if (!Load(m_cache->ChunkOf(m_media, m_chunkSize, m_position)))
       return m_error; // 0 at the end
+    if (!inCurrent())
+      return 0;
   }
-  if (offset >= m_current->length)
-    return 0;
+  const auto offset = uint32_t(m_position - m_currentIndex * int64_t(m_chunkSize));
   const int count = int(std::min<uint32_t>(uint32_t(size), m_current->length - offset));
+  if (m_readLog)
+    LogTo("MpvRead", m_label + " t=" + std::to_string(SinceOpenMs()) + " read " + std::to_string(m_position) + " +" +
+                           std::to_string(count) + " (asked " + std::to_string(size) + ")");
   std::memcpy(buffer, m_current->data.get() + offset, size_t(count));
   m_position += count;
   ++m_reads;
@@ -124,8 +142,12 @@ int CachedHttpSource::Read(uint8_t *buffer, int size) {
 
 int64_t CachedHttpSource::Seek(int64_t offset, int whence) {
   switch (whence) {
-    case kSeekSize:
-      return m_cache->Size(m_media, m_chunkSize, m_token);
+    case kSeekSize: {
+      const int64_t size = m_cache->Size(m_media, m_chunkSize, m_token);
+      if (m_readLog)
+        LogTo("MpvRead", m_label + " t=" + std::to_string(SinceOpenMs()) + " size " + std::to_string(size));
+      return size;
+    }
     case SEEK_SET:
       m_position = offset;
       break;

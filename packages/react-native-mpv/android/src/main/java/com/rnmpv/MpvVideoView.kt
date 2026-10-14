@@ -145,6 +145,8 @@ class MpvVideoView(private val reactContext: ThemedReactContext) :
     }
     player.close() // before its source file (if any) is closed
     val src = source
+    if (!restoring && !cache && src != null && (src.startsWith("http://") || src.startsWith("https://")))
+      HttpFetch.warm(reactContext, src, tlsVerify) // its first and last chunks on the way while mpv starts
     if (src.isNullOrEmpty() || !surfaceReady)
       return // opens once the surface is there
     if (hardwareDecoding && surfaceUsedByCpu) {

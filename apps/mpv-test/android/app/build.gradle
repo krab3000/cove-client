@@ -110,6 +110,13 @@ android {
     if (findProperty("mpvCleartext") == "true") {
         sourceSets.release.res.srcDirs += ["src/debug/res"] // debug's network_security_config.xml
     }
+    // -PextractNativeLibs=true: the native libraries extracted at install, for x86_64 emulators running this
+    // arm64-only app through ARM translation (SoLoader then finds the extracted lib/arm64).
+    packaging {
+        jniLibs {
+            useLegacyPackaging = findProperty("extractNativeLibs") == "true"
+        }
+    }
 }
 
 dependencies {

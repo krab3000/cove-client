@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <mutex>
+#include <thread>
 
 #include "Platform.h"
 
@@ -17,7 +18,7 @@ struct State {
   std::shared_ptr<ChunkCache> cache;
   std::shared_ptr<HttpFetcher> fetcher;
   std::function<std::string(const std::string &)> headers;
-  std::string debugCache, debugReadAhead;
+  std::string debugCache, debugReadAhead, debugStartup;
 };
 
 State &S() {
@@ -28,7 +29,8 @@ State &S() {
 constexpr uint64_t MB = 1ull << 20;
 
 // The debug switches on top of a config.
-CacheConfig WithDebug(CacheConfig config, const std::string &cache, const std::string &readAhead) {
+CacheConfig WithDebug(CacheConfig config, const std::string &cache, const std::string &readAhead,
+                      const std::string &startup) {
   if (cache == "ram") {
     config.disk = false;
   } else if (cache == "disk") {
@@ -39,6 +41,7 @@ CacheConfig WithDebug(CacheConfig config, const std::string &cache, const std::s
   }
   if (!readAhead.empty())
     config.readAhead = std::clamp(std::atoi(readAhead.c_str()), 0, 4);
+  config.legacyStartup = startup == "legacy";
   return config;
 }
 
@@ -99,7 +102,7 @@ void SetPlatform(const PlatformInfo &info) {
     std::lock_guard lock(S().mutex);
     S().platform = info;
     cache = S().cache;
-    config = WithDebug(Derive(S().platform, S().overrides), S().debugCache, S().debugReadAhead);
+    config = WithDebug(Derive(S().platform, S().overrides), S().debugCache, S().debugReadAhead, S().debugStartup);
   }
   if (cache)
     cache->Configure(config);
@@ -112,7 +115,7 @@ void Override(const CacheOverrides &overrides) {
     std::lock_guard lock(S().mutex);
     S().overrides = overrides;
     cache = S().cache;
-    config = WithDebug(Derive(S().platform, S().overrides), S().debugCache, S().debugReadAhead);
+    config = WithDebug(Derive(S().platform, S().overrides), S().debugCache, S().debugReadAhead, S().debugStartup);
   }
   if (cache)
     cache->Configure(config);
@@ -126,27 +129,57 @@ std::shared_ptr<ChunkCache> Instance() {
   if (!S().cache) {
     S().debugCache = DebugProperty("cache");
     S().debugReadAhead = DebugProperty("read_ahead");
-    const CacheConfig config = WithDebug(Derive(S().platform, S().overrides), S().debugCache, S().debugReadAhead);
+    S().debugStartup = DebugProperty("cache_startup");
+    const CacheConfig config =
+        WithDebug(Derive(S().platform, S().overrides), S().debugCache, S().debugReadAhead, S().debugStartup);
     S().cache = std::make_shared<ChunkCache>(config);
   }
   return S().cache;
 }
 
 void ApplyDebugSwitches() {
-  const std::string cacheSwitch = DebugProperty("cache"), readAhead = DebugProperty("read_ahead");
+  const std::string cacheSwitch = DebugProperty("cache"), readAhead = DebugProperty("read_ahead"),
+                    startup = DebugProperty("cache_startup");
   std::shared_ptr<ChunkCache> cache = Instance();
   CacheConfig config;
   {
     std::lock_guard lock(S().mutex);
-    if (cacheSwitch == S().debugCache && readAhead == S().debugReadAhead)
+    if (cacheSwitch == S().debugCache && readAhead == S().debugReadAhead && startup == S().debugStartup)
       return;
     S().debugCache = cacheSwitch;
     S().debugReadAhead = readAhead;
-    config = WithDebug(Derive(S().platform, S().overrides), cacheSwitch, readAhead);
+    S().debugStartup = startup;
+    config = WithDebug(Derive(S().platform, S().overrides), cacheSwitch, readAhead, startup);
   }
   Log("http cache: debug switches cache=" + (cacheSwitch.empty() ? std::string("all") : cacheSwitch) +
-      " read_ahead=" + (readAhead.empty() ? std::to_string(config.readAhead) : readAhead));
+      " read_ahead=" + (readAhead.empty() ? std::to_string(config.readAhead) : readAhead) +
+      " cache_startup=" + (config.legacyStartup ? "legacy" : "warm"));
   cache->Configure(config);
+}
+
+void Warm(const std::string &url, bool tlsVerify, int64_t sizeHint) {
+  if (url.rfind("http://", 0) != 0 && url.rfind("https://", 0) != 0)
+    return;
+  // Off the caller's (UI) thread: the disk index may still be loading (Register waits for it, up to 100 ms).
+  std::thread([url, tlsVerify, sizeHint] {
+    SetThreadName("mpv warm");
+    ApplyDebugSwitches();
+    std::shared_ptr<HttpFetcher> fetcher = PlatformFetcher();
+    if (!fetcher)
+      return;
+    const std::shared_ptr<ChunkCache> cache = Instance();
+    if (cache->Config().legacyStartup)
+      return; // cache_startup=legacy: the player's open asks for chunk 0
+    const std::vector<int64_t> queued = cache->Warm(url, tlsVerify, fetcher, sizeHint);
+    if (ChunkLogging()) {
+      std::string chunks;
+      for (const int64_t index : queued)
+        chunks += (chunks.empty() ? "" : ", ") + std::to_string(index);
+      const std::string path = url.substr(0, url.find('?'));
+      LogTo("MpvHttp", "warm " + path.substr(path.find_last_of('/') + 1) + " (size hint " +
+                           std::to_string(sizeHint) + "): " + (chunks.empty() ? "nothing to fetch" : "chunks " + chunks));
+    }
+  }).detach();
 }
 
 bool ChunkLogging() {

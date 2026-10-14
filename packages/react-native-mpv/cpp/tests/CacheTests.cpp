@@ -57,11 +57,11 @@ CacheConfig Config(uint32_t chunk = MB, uint64_t ram = 64ull * MB, const fs::pat
 bool ReadAll(ChunkCache &cache, const std::shared_ptr<Media> &media, Test::FakeFetcher &fake, size_t size,
              uint32_t chunk, std::vector<Tier> *tiers = nullptr) {
   CancelToken reader;
-  for (int64_t i = 0; i * chunk < int64_t(size); ++i) {
+  for (int64_t i = 0; i <= ChunkCache::LastChunk(int64_t(size), chunk); ++i) {
     const auto r = cache.Get(media, chunk, i, reader);
     if (!r.chunk)
       return false;
-    const size_t expected = std::min<size_t>(chunk, size - size_t(i) * chunk);
+    const auto expected = size_t(ChunkCache::ChunkLength(int64_t(size), chunk, i));
     if (r.chunk->length != expected)
       return false;
     for (size_t b = 0; b < expected; b += 4093)
@@ -135,18 +135,48 @@ int main() {
     CHECK(c.diskDir == "/other");
   });
 
-  Run("sequential read: exact bytes, short last chunk, one fetch per chunk", [] {
+  Run("sequential read: exact bytes, a short rest in the last chunk, one fetch per chunk", [] {
     const size_t size = 5 * MB + 12345;
     auto fake = std::make_shared<Test::FakeFetcher>(size);
     ChunkCache cache(Config());
     auto media = cache.Open(kUrl, true, fake);
-    CHECK(ReadAll(cache, media, *fake, size, MB));
-    CHECK(fake->calls == 6);
+    CHECK(ReadAll(cache, media, *fake, size, MB)); // chunks 0-4, the last with 1 MB + 12345 bytes
+    CHECK(fake->calls == 5);
+    CHECK(fake->CallsFor(5 * MB) == 0); // the 12345 bytes: no request of their own
     CancelToken reader;
+    const auto rest = cache.Get(media, MB, 5, reader); // its bytes are in chunk 4
+    CHECK(rest.chunk && rest.index == 4 && rest.chunk->length == MB + 12345);
     CHECK(cache.Get(media, MB, 6, reader).error == CacheError::End);
     CHECK(cache.Size(media, MB, reader) == int64_t(size));
     CHECK(ReadAll(cache, media, *fake, size, MB)); // again: from RAM
-    CHECK(fake->calls == 6);
+    CHECK(fake->calls == 5);
+    cache.Close(media);
+  });
+
+  Run("layout: the last chunk takes in a rest under half a chunk", [] {
+    CHECK(ChunkCache::LastChunk(10 * MB + 100 * 1024, MB) == 9);
+    CHECK(ChunkCache::ChunkLength(10 * MB + 100 * 1024, MB, 9) == MB + 100 * 1024);
+    CHECK(ChunkCache::ChunkLength(10 * MB + 100 * 1024, MB, 10) == 0);
+    CHECK(ChunkCache::LastChunk(10 * MB + 600 * 1024, MB) == 10);
+    CHECK(ChunkCache::ChunkLength(10 * MB + 600 * 1024, MB, 10) == 600 * 1024);
+    CHECK(ChunkCache::LastChunk(11 * MB, MB) == 10);
+    CHECK(ChunkCache::LastChunk(300 * 1024, MB) == 0);
+    CHECK(ChunkCache::LastChunk(MB + 100 * 1024, MB) == 0); // a small file: one chunk
+    CHECK(ChunkCache::ChunkAt(10 * MB + 100 * 1024, MB, 10 * MB + 5) == 9);
+    CHECK(ChunkCache::ChunkAt(10 * MB + 100 * 1024, MB, 3 * MB + 5) == 3);
+    CHECK(ChunkCache::ChunkAt(-1, MB, 10 * MB + 5) == 10); // size unknown: plain chunks
+  });
+
+  Run("a short rest asked for before the size is known: one whole last chunk", [] {
+    const size_t size = MB + 100 * 1024; // all of it is chunk 0
+    auto fake = std::make_shared<Test::FakeFetcher>(size);
+    ChunkCache cache(Config());
+    auto media = cache.Open(kUrl, true, fake);
+    CancelToken reader;
+    const auto r = cache.Get(media, MB, 0, reader); // asked for 1 MB, the response told the size: the rest too
+    CHECK(r.chunk && r.chunk->length == size);
+    CHECK(r.chunk->data[size - 1] == fake->At(size - 1));
+    CHECK(fake->calls == 2);
     cache.Close(media);
   });
 
@@ -227,6 +257,196 @@ int main() {
     cache.Close(media);
   });
 
+  Run("TailChunks: the last chunk, never chunk 0", [] {
+    CHECK((ChunkCache::TailChunks(10 * MB + 100 * 1024, MB) == std::vector<int64_t>{9}));
+    CHECK((ChunkCache::TailChunks(10 * MB + 700 * 1024, MB) == std::vector<int64_t>{10}));
+    CHECK((ChunkCache::TailChunks(11 * MB, MB) == std::vector<int64_t>{10}));
+    CHECK(ChunkCache::TailChunks(MB + 100 * 1024, MB).empty());
+    CHECK(ChunkCache::TailChunks(300 * 1024, MB).empty());
+  });
+
+  Run("a reader's download starts on top of busy slots", [] {
+    auto fake = std::make_shared<Test::FakeFetcher>(32 * MB);
+    fake->latencyFor = [](int64_t start) { return start < 8 * MB ? 3000 : 50; };
+    CacheConfig config = Config();
+    config.maxFetches = 2;
+    ChunkCache cache(config);
+    auto media = cache.Open(kUrl, true, fake);
+    for (int i = 1; i <= 4; ++i)
+      cache.Prefetch(media, MB, i, Priority::ReadAhead);
+    CHECK(WaitFor([&] { return fake->active == 2; }));
+    std::this_thread::sleep_for(20ms);
+    CHECK(fake->active == 2); // two slots: the other read-aheads wait
+    CancelToken reader;
+    const auto t0 = Clock::now();
+    const auto r = cache.Get(media, MB, 20, reader);
+    const double ms = Ms(t0);
+    CHECK(r.chunk != nullptr && r.tier == Tier::Http);
+    CHECK(ms < 1000); // ~50, not after a 3 s read-ahead
+    CHECK(fake->maxActive == 3);
+    cache.Close(media);
+    CHECK(WaitFor([&] { return cache.Stats().inFlight == 0; }));
+  });
+
+  Run("a queued download a reader asks for starts at once", [] {
+    auto fake = std::make_shared<Test::FakeFetcher>(32 * MB);
+    fake->latencyFor = [](int64_t start) { return start == 3 * MB ? 50 : 3000; };
+    CacheConfig config = Config();
+    config.maxFetches = 1;
+    ChunkCache cache(config);
+    auto media = cache.Open(kUrl, true, fake);
+    for (int i = 1; i <= 3; ++i)
+      cache.Prefetch(media, MB, i, Priority::ReadAhead);
+    CHECK(WaitFor([&] { return fake->CallsFor(MB) == 1; }));
+    CancelToken reader;
+    const auto t0 = Clock::now();
+    const auto r = cache.Get(media, MB, 3, reader);
+    CHECK(r.chunk != nullptr);
+    CHECK(Ms(t0) < 1000);
+    CHECK(fake->CallsFor(3 * MB) == 1);
+    CHECK(fake->CallsFor(2 * MB) == 0); // still queued behind the one slot
+    cache.Close(media);
+    CHECK(WaitFor([&] { return cache.Stats().inFlight == 0; }));
+  });
+
+  Run("a reader joins a running download", [] {
+    auto fake = std::make_shared<Test::FakeFetcher>(8 * MB);
+    fake->latencyMs = 300;
+    ChunkCache cache(Config());
+    auto media = cache.Open(kUrl, true, fake);
+    cache.Prefetch(media, MB, 5, Priority::ReadAhead);
+    CHECK(WaitFor([&] { return fake->CallsFor(5 * MB) == 1; }));
+    CancelToken reader;
+    const auto r = cache.Get(media, MB, 5, reader);
+    CHECK(r.chunk && r.tier == Tier::Joined);
+    CHECK(fake->CallsFor(5 * MB) == 1);
+    cache.Close(media);
+  });
+
+  Run("Fetch (a prefetcher's blocking read) takes a slot", [] {
+    auto fake = std::make_shared<Test::FakeFetcher>(8 * MB);
+    fake->latencyFor = [](int64_t start) { return start == MB ? 300 : 20; };
+    CacheConfig config = Config();
+    config.maxFetches = 1;
+    ChunkCache cache(config);
+    auto media = cache.Register(kUrl, true, fake);
+    cache.Prefetch(media, MB, 1, Priority::ReadAhead);
+    CHECK(WaitFor([&] { return fake->active == 1; }));
+    CancelToken token;
+    const auto t0 = Clock::now();
+    const auto r = cache.Fetch(media, MB, 2, Priority::Prefetch, token);
+    CHECK(r.chunk && r.tier == Tier::Http);
+    CHECK(Ms(t0) >= 200); // after the read-ahead's slot came free
+    CHECK(fake->maxActive == 1);
+  });
+
+  Run("Warm with a size: chunk 0 and the tail at once, before the player asks", [] {
+    const size_t size = 10 * MB + 100 * 1024; // the last chunk: 1 MB + 100 KB, one request
+    auto fake = std::make_shared<Test::FakeFetcher>(size);
+    fake->latencyMs = 200;
+    ChunkCache cache(Config());
+    const auto queued = cache.Warm(kUrl, true, fake, int64_t(size));
+    CHECK((queued == std::vector<int64_t>{0, 9}));
+    CHECK(WaitFor([&] { return fake->calls == 2; }));
+    CHECK(fake->maxActive == 2);
+    CHECK(std::chrono::abs(fake->StartedAt(9 * MB) - fake->StartedAt(0)) < 100ms);
+    auto media = cache.Open(kUrl, true, fake);
+    CHECK(cache.Warm(media, MB).empty()); // the player's open: all on the way
+    CancelToken reader;
+    const auto r0 = cache.Get(media, MB, 0, reader);
+    CHECK(r0.chunk && (r0.tier == Tier::Joined || r0.tier == Tier::Ram));
+    const auto tail = cache.Get(media, MB, 10, reader); // the rest's bytes: in chunk 9
+    CHECK(tail.chunk && tail.index == 9 && tail.chunk->length == MB + 100 * 1024);
+    CHECK(fake->calls == 2);
+    cache.Close(media);
+  });
+
+  Run("Warm with a wrong size: the real tail follows chunk 0's response", [] {
+    const size_t size = 10 * MB + 100 * 1024;
+    auto fake = std::make_shared<Test::FakeFetcher>(size);
+    fake->latencyMs = 50;
+    ChunkCache cache(Config());
+    CHECK((cache.Warm(kUrl, true, fake, 20 * MB) == std::vector<int64_t>{0, 19}));
+    CHECK(WaitFor([&] { return fake->CallsFor(9 * MB) == 1; }));
+    CancelToken reader;
+    auto media = cache.Open(kUrl, true, fake);
+    const auto tail = cache.Get(media, MB, 9, reader);
+    CHECK(tail.chunk && tail.chunk->length == MB + 100 * 1024);
+    cache.Close(media);
+  });
+
+  Run("Warm without a size: the tail follows chunk 0's response", [] {
+    const size_t size = 10 * MB + 100 * 1024;
+    auto fake = std::make_shared<Test::FakeFetcher>(size);
+    fake->latencyMs = 150;
+    ChunkCache cache(Config());
+    CHECK((cache.Warm(kUrl, true, fake) == std::vector<int64_t>{0}));
+    CHECK(WaitFor([&] { return fake->CallsFor(9 * MB) == 1; }));
+    CHECK(fake->StartedAt(9 * MB) - fake->StartedAt(0) >= 140ms);
+    CHECK(WaitFor([&] { return cache.Stats().ramChunks == 2; }));
+    CHECK(fake->CallsFor(10 * MB) == 0);
+  });
+
+  Run("Warm of a media on disk: nothing to fetch", [] {
+    const fs::path dir = TempDir("warm");
+    const size_t size = 3 * MB + 100;
+    {
+      auto fake = std::make_shared<Test::FakeFetcher>(size);
+      fake->latencyMs = 10;
+      ChunkCache cache(Config(MB, 64ull * MB, dir));
+      auto media = cache.Open(kUrl, true, fake);
+      CHECK(ReadAll(cache, media, *fake, size, MB));
+      CHECK(WaitFor([&] { return cache.Stats().disk.writes >= 3; }));
+      cache.Close(media);
+      cache.Shutdown();
+    }
+    auto fake = std::make_shared<Test::FakeFetcher>(size);
+    ChunkCache cache(Config(MB, 64ull * MB, dir));
+    CHECK(cache.Warm(kUrl, true, fake).empty()); // the size from disk: the tail is known too, and there
+    std::this_thread::sleep_for(50ms);
+    CHECK(fake->calls == 0);
+    cache.Shutdown();
+    fs::remove_all(dir);
+  });
+
+  Run("the player closing cancels the start downloads", [] {
+    auto fake = std::make_shared<Test::FakeFetcher>(8 * MB + 100);
+    fake->blockUntilCancel = true;
+    ChunkCache cache(Config());
+    CHECK(cache.Warm(kUrl, true, fake, 8 * MB + 100).size() == 2);
+    CHECK(WaitFor([&] { return fake->calls == 2; }));
+    auto media = cache.Open(kUrl, true, fake);
+    cache.Close(media);
+    CHECK(WaitFor([&] { return fake->cancelled == 2; }));
+    CHECK(WaitFor([&] { return cache.Stats().inFlight == 0; }));
+  });
+
+  Run("legacy startup: no warm, a reader's download shares the workers", [] {
+    const size_t size = 10 * MB + 100 * 1024;
+    auto fake = std::make_shared<Test::FakeFetcher>(size);
+    fake->latencyFor = [](int64_t start) { return start >= MB && start <= 4 * MB ? 600 : 50; };
+    CacheConfig config = Config();
+    config.maxFetches = 2;
+    config.legacyStartup = true;
+    ChunkCache cache(config);
+    CHECK(cache.Warm(kUrl, true, fake, int64_t(size)).empty());
+    std::this_thread::sleep_for(30ms);
+    CHECK(fake->calls == 0);
+    auto media = cache.Open(kUrl, true, fake);
+    CHECK((cache.Warm(media, MB) == std::vector<int64_t>{0}));
+    CHECK(WaitFor([&] { return fake->CallsFor(9 * MB) == 1; })); // the tail, after chunk 0
+    CHECK(fake->CallsFor(10 * MB) == 0);
+    CHECK(WaitFor([&] { return fake->active == 0; }));
+    for (int i = 1; i <= 3; ++i)
+      cache.Prefetch(media, MB, i, Priority::ReadAhead);
+    CHECK(WaitFor([&] { return fake->active == 1; })); // one background slot of two workers
+    CancelToken reader;
+    CHECK(cache.Get(media, MB, 6, reader).chunk != nullptr);
+    CHECK(fake->maxActive <= 2);
+    cache.Close(media);
+    CHECK(WaitFor([&] { return cache.Stats().inFlight == 0; }));
+  });
+
   Run("RAM limit holds; an evicted chunk still in use stays valid", [] {
     const size_t size = 10 * MB;
     auto fake = std::make_shared<Test::FakeFetcher>(size);
@@ -249,7 +469,7 @@ int main() {
       ChunkCache cache(Config(MB, 64ull * MB, dir));
       auto media = cache.Open(kUrl, true, fake);
       CHECK(ReadAll(cache, media, *fake, size, MB));
-      CHECK(WaitFor([&] { return cache.Stats().disk.writes >= 7; }));
+      CHECK(WaitFor([&] { return cache.Stats().disk.writes >= 6; }));
       cache.Close(media);
       cache.Shutdown();
     }
@@ -362,7 +582,8 @@ int main() {
   });
 
   Run("a failed download is retried once for a waiting reader, and never cached", [] {
-    auto fake = std::make_shared<Test::FakeFetcher>(2 * MB);
+    auto fake = std::make_shared<Test::FakeFetcher>(4 * MB); // the tail (chunk 3) is not the chunk that fails
+    fake->latencyFor = [](int64_t start) { return start == 3 * MB ? 2000 : 0; }; // nor takes the failures meanwhile
     ChunkCache cache(Config());
     auto media = cache.Open(kUrl, true, fake);
     CancelToken reader;
