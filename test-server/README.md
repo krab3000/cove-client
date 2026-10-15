@@ -18,7 +18,7 @@ Sign in as **admin** / **adminadmin**. Type `http://` in front of the address; w
 
 | Client | Address |
 |---|---|
-| macOS app, browser | `http://127.0.0.1:5073` |
+| macOS or Windows app, browser | `http://127.0.0.1:5073` |
 | Android emulator | `http://10.0.2.2:5073` |
 | Android phone over USB | run `adb reverse tcp:5073 tcp:5073`, then use `http://localhost:5073` |
 

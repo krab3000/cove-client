@@ -1,6 +1,6 @@
 # Cove client — project context
 
-The Cove client: a Flutter app for macOS and Android (phone and tablet), at the root of this repository. Full design
+The Cove client: a Flutter app for macOS, Windows and Android (phone and tablet), at the root of this repository. Full design
 spec: `design/README.md`. How to run and test it: `README.md`.
 
 ## What we're building
@@ -50,14 +50,16 @@ Single-condition editor (not designed) · light theme for the app's screens · c
   `lib/src/video_controller/android_video_controller/real.dart`): Android's video surface capped to the size the app
   asks for, so 4K plays at the screen's size (see `third_party/README.md`). Android decodes with `hwdec=mediacodec`
   (zero-copy); `auto-safe` picked `mediacodec-copy`, which dropped a third of a 4K60 stream's frames on a tablet.
+  Windows: `auto-safe` picks `d3d11va-copy` (4K60 with no dropped frames); the runner (`windows/runner/`) opens the
+  window like macOS's (1180×820 content, centred, at least 820×600).
 - **Screen classes:** large = shortest side ≥ 600 (`lib/theme/layout.dart`): the tablet layouts (1n, 8f, 1m, 7d) on a
-  tablet and in the macOS window; a phone upright or sideways otherwise.
+  tablet and in the macOS and Windows windows; a phone upright or sideways otherwise.
 - **Layout of `lib/`:** `api/` (Cove's REST API, models), `state/` (accounts, session, prefs, player, settings
   navigation), `data/` (the Library's list and per-video data, reachability), `features/` (`signin`, `library`,
   `filter`, `player`, `settings`, each a screen and its `components/`), `ui/` (Nocturne components, Phosphor glyphs),
   `theme/`, `app/back.dart` (Android back and Escape, by layer), `utils/`.
-- **Commands:** `flutter run -d macos` / `-d <android device>`; `flutter analyze`; `flutter test`; integration tests
-  against the test server: `flutter test integration_test/<file> -d macos`; device performance:
+- **Commands:** `flutter run -d macos` / `-d windows` / `-d <android device>`; `flutter analyze`; `flutter test`; integration tests
+  against the test server: `flutter test integration_test/<file> -d macos` (or `-d windows`); device performance:
   `flutter drive --profile --no-dds --keep-app-running --driver=test_driver/perf_driver.dart
   --target=integration_test/perf_test.dart -d <device>` (without `--keep-app-running`, `flutter drive` uninstalls the
   app at the end, and the servers kept on the device go with it).

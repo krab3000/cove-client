@@ -151,6 +151,9 @@ void main() {
     WidgetsBinding.instance.addTimingsCallback(collect);
     await binding.watchPerformance(() async {
       await Future<void>.delayed(const Duration(seconds: 15));
+      // On Windows the engine composites the video's frames without a frame of the app's: one frame, so that
+      // watchPerformance gets the frame timings it waits for
+      WidgetsBinding.instance.scheduleFrame();
     }, reportKey: 'player_4k_ui');
     WidgetsBinding.instance.removeTimingsCallback(collect);
     stats['flutter_fps'] = (shown.length / 15).toStringAsFixed(1);

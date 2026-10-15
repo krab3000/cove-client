@@ -630,6 +630,7 @@ class _SettingRow extends StatelessWidget {
   static String _device() {
     try {
       if (Platform.isMacOS) return 'macOS';
+      if (Platform.isWindows) return 'Windows';
       if (Platform.isAndroid) return 'Android';
       if (Platform.isIOS) return 'iOS';
       return Platform.operatingSystem;

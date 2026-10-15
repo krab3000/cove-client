@@ -2,8 +2,6 @@
 
 Work left for later, with enough context to pick it up. Remove an entry when it is done.
 
-- **Windows.** Flutter and media_kit support it; the project has no `windows/` yet (`flutter create --platforms=windows
-  .`). Check playback (media_kit on Windows decodes with D3D11), the window size, and the preview clips on hover.
 - **Release signing.** The Android release build is signed with the debug key (`android/app/build.gradle.kts`): add a
   keystore and a release `signingConfig` before distributing it.
 - **CI.** None: `flutter analyze`, `flutter test` and an APK build on every push would catch most breakage.

@@ -1,7 +1,7 @@
 # Cove client
 
 A client for [Cove](https://yourcove.net), the self-hosted media organizer: connect to your Cove server, pick an
-account, browse and filter the library, and play. Flutter, for **macOS** and **Android** (phones and tablets), built
+account, browse and filter the library, and play. Flutter, for **macOS**, **Windows** and **Android** (phones and tablets), built
 from the design in [design/](design/README.md) (Nocturne, dark).
 
 - **Sign-in** (design 1a, 1b, 1n, 1o): the servers you added and the accounts kept on this device; a kept account goes
@@ -20,6 +20,8 @@ from the design in [design/](design/README.md) (Nocturne, dark).
 ```sh
 brew install --cask flutter          # once; Xcode for macOS (xcodebuild -runFirstLaunch after installing or updating)
 flutter run -d macos                 # the macOS app (the tablet layout)
+flutter run -d windows               # the Windows app (the tablet layout); Visual Studio with "Desktop development with C++"
+flutter build windows --release      # build/windows/x64/runner/Release/ (Cove.exe and its DLLs)
 flutter run -d <android device>      # a phone or tablet (flutter devices lists them)
 flutter build apk --release          # build/app/outputs/flutter-apk/app-release.apk (signed with the debug key)
 ```
@@ -33,7 +35,7 @@ long movies, many short clips): `./test-server/setup.sh`. Sign in as `admin` / `
 
 | Client | Address |
 |---|---|
-| macOS app | `http://127.0.0.1:5073` |
+| macOS, Windows app | `http://127.0.0.1:5073` |
 | Android emulator | `http://10.0.2.2:5073` |
 | A device over USB | `adb reverse tcp:5073 tcp:5073`, then `http://localhost:5073` |
 
@@ -46,6 +48,7 @@ flutter analyze
 flutter test                                                   # the API client (a fake Cove), the filter model, sign-in
 flutter test integration_test/preview_clip_test.dart -d macos  # with the test server: a preview clip plays
 flutter test integration_test/player_test.dart -d macos        # with the test server: playback, seeking, resume reports
+# The same on Windows: -d windows
 # Frame times on a device (view switches, 4K playback), with the test server reachable from it:
 flutter drive --profile --no-dds --keep-app-running --driver=test_driver/perf_driver.dart \
   --target=integration_test/perf_test.dart -d <device>
