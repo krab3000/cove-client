@@ -1,4 +1,0 @@
-# android.Dockerfile's context (scripts/): the Android build scripts only.
-*
-!ffmpeg-android
-!mpv-android

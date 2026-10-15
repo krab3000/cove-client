@@ -1,3 +1,0 @@
-# android.Dockerfile's context (scripts/): the fetch script only.
-*
-!fetch-perfetto.mjs

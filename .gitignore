@@ -46,8 +46,3 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
-
-# The repository's root .gitignore leaves out lib/ (bob's output) and third_party/ (native downloads) for the React
-# Native packages; here they are the app's source and its vendored media_kit_video (third_party/README.md).
-!lib/
-!third_party/

@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Imported into @react-native-async-storage/async-storage's project just before Microsoft.Cpp.props
-     (ExperimentalFeatures.props: ForceImportBeforeCppProps): it names Visual Studio 2022's toolset (v143); build it with
-     the one installed, as this app's projects. -->
-<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
-    <PlatformToolset>$(DefaultPlatformToolset)</PlatformToolset>
-  </PropertyGroup>
-</Project>
