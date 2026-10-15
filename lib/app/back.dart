@@ -2,7 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 /// Who handles back (Android's back, Escape on a desktop): the topmost layer first; in a layer, the latest handler.
-/// A handler returns false to pass it on (as the React Native client's app/back.ts).
+/// A handler returns false to pass it on.
 enum Layer {
   screen(0),
   drawer(10),

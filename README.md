@@ -1,39 +1,72 @@
-# Cove client (Flutter)
+# Cove client
 
-A Flutter take on the [Cove client](../cove-client/README.md), from the same design
-([design_handoff_cove_mobile](../cove-client/design_handoff_cove_mobile/README.md)). For now: macOS only, the tablet
-layout only: signing in (design 1n, 1o) and the Library (8f, 1h, without the filter editor and the player).
+A client for [Cove](https://yourcove.net), the self-hosted media organizer: connect to your Cove server, pick an
+account, browse and filter the library, and play. Flutter, for **macOS** and **Android** (phones and tablets), built
+from the design in [design/](design/README.md) (Nocturne, dark).
+
+- **Sign-in** (design 1a, 1b, 1n, 1o): the servers you added and the accounts kept on this device; a kept account goes
+  straight in (Cove's refresh token).
+- **Library** (8a–8g, 6c–6h, 1g, 1h): the filter pill, Cove's search, Shuffle, Play all; three views (2 columns, 3
+  columns, list) that animate into each other; preview clips on hover, mid-screen (list view) or a long press; a tablet's
+  sidebar and preview drawer.
+- **Filter editor** (2b, 2d, 3a–3d, 4a–4c, 5a–5f, 9a–9d): Cove's filter trees as an outline with cut / copy / paste,
+  wrap, ungroup and simplify; conditions on every field, library folders, relative dates; Save and Save as.
+- **Player** (1k, 1l, 1m, 7c): libmpv through media_kit; resume, moments, Up next with Autoplay, the Playback options;
+  full screen turns the screen and has a lock on touch devices.
+- **Settings** (7a, 7b, 7d): this device's settings for playback, previews, streaming and diagnostics.
 
 ## Running
 
 ```sh
-brew install --cask flutter    # once; Xcode too (xcodebuild -runFirstLaunch after installing or updating it)
-flutter run -d macos           # from this folder
-flutter test                   # the API client against a fake Cove, and the sign-in screen
-flutter test integration_test -d macos   # in the app, against the test server: a preview clip plays
+brew install --cask flutter          # once; Xcode for macOS (xcodebuild -runFirstLaunch after installing or updating)
+flutter run -d macos                 # the macOS app (the tablet layout)
+flutter run -d <android device>      # a phone or tablet (flutter devices lists them)
+flutter build apk --release          # build/app/outputs/flutter-apk/app-release.apk (signed with the debug key)
 ```
 
-The window opens at the design's tablet size (1180×820) and narrows to its portrait (820 wide), where the servers list
-is narrower. Sign in to the [test server](../cove-client/test-server/README.md) at `http://127.0.0.1:5073` as `admin` /
-`adminadmin`. The app is sandboxed, with `com.apple.security.network.client` for talking to servers.
+Updating an installed app keeps its data: `adb install -r build/app/outputs/flutter-apk/app-release.apk`.
 
-The Library: the sidebar (all videos, Continue watching, Unwatched, the saved filters, with their counts; the account's
-menu: Refresh library, Log out), the header (the filter pill, the search, Shuffle, the three views) and the count line;
-a card hovered plays Cove's preview clip with media_kit (libmpv), muted and looping; a card tapped opens the preview
-drawer (tapped again: Play). Play and Play all say the player isn't built yet; the pill's menu has only Show all videos
-(Edit conditions and Save as new filter come with the filter editor). The view is kept on the device.
+## Test server
 
-The servers and the sessions kept for them are stored as the React Native client stores them (`cove/accounts/v1`, the
-same JSON), in `shared_preferences`. Fonts (Inter) and icons (Phosphor's icon fonts) are the React Native client's files,
-in `assets/fonts`; `ui/icons.dart` names the glyphs used.
+[test-server/](test-server/README.md) runs Cove in Docker with a large library (4K and 1080p at 60 fps, HEVC, AV1,
+long movies, many short clips): `./test-server/setup.sh`. Sign in as `admin` / `adminadmin` at:
 
-## Layout of `lib/`
-
-| Folder | What lives there |
+| Client | Address |
 |---|---|
-| `api/` | The Cove HTTP client: sessions (login, resume, renewal, revoke), videos, counts, engagement, bookmarks, saved filters, media URLs (`cove_client.dart`), and its models (`models.dart`). |
-| `state/` | The servers and kept sessions (`accounts.dart`, model and helpers in `sign_in.dart`), the session (`session.dart`: resume at launch, enter, log out), the device's prefs (`prefs.dart`: the Library's view). |
-| `data/` | Which servers answer (`reachability.dart`); the Library's list, page by page, and the user's data per video (`library.dart`); saved filters as queries (`saved_filter.dart`). |
-| `ui/` | Shared Nocturne components: buttons, icon buttons, fields, the drawer, the popover, cover overlays (`thumb.dart`), Phosphor glyphs (`icons.dart`), small pieces (`misc.dart`). |
-| `theme/` | Nocturne's tokens (`tokens.dart`). |
-| `features/` | `signin` and `library`, each the screen and its `components/`. |
+| macOS app | `http://127.0.0.1:5073` |
+| Android emulator | `http://10.0.2.2:5073` |
+| A device over USB | `adb reverse tcp:5073 tcp:5073`, then `http://localhost:5073` |
+
+Android allows plain `http://` only to those hosts (`android/app/src/main/res/xml/network_security_config.xml`).
+
+## Tests
+
+```sh
+flutter analyze
+flutter test                                                   # the API client (a fake Cove), the filter model, sign-in
+flutter test integration_test/preview_clip_test.dart -d macos  # with the test server: a preview clip plays
+flutter test integration_test/player_test.dart -d macos        # with the test server: playback, seeking, resume reports
+# Frame times on a device (view switches, 4K playback), with the test server reachable from it:
+flutter drive --profile --no-dds --keep-app-running --driver=test_driver/perf_driver.dart \
+  --target=integration_test/perf_test.dart -d <device>
+```
+
+`--keep-app-running` matters: otherwise `flutter drive` uninstalls the app when it finishes, and the servers kept on
+the device go with it. The results are in `build/integration_response_data.json`.
+
+## Layout
+
+| Path | What lives there |
+|---|---|
+| `lib/api/` | Cove's REST API: sessions (login, resume, renewal, revoke), videos, counts, engagement, bookmarks, saved filters, folders, media URLs; its models |
+| `lib/state/` | The servers and kept sessions, the session, this device's prefs, what plays, Settings' navigation |
+| `lib/data/` | The Library's list (page by page, the applied filter, saved filters), the user's data per video, which servers answer |
+| `lib/features/` | `signin`, `library`, `filter` (the rule tree model, saved filters, the editor), `player`, `settings`: each a screen and its `components/` |
+| `lib/ui/`, `lib/theme/` | Nocturne's components and tokens, the Phosphor glyphs used |
+| `lib/app/back.dart` | Android back and Escape, by layer (settings over the player over the editor over drawers) |
+| `third_party/media_kit_video` | media_kit_video 2.0.1 with Android's video surface capped to the screen's size ([why](third_party/README.md)) |
+| `design/` | The design: the spec (`README.md`), the HTML mockups, the Nocturne tokens and guide |
+| `test-server/` | Cove in Docker with a test library |
+
+Servers and kept sessions are stored under `cove/accounts/v1`, this device's settings under `cove/prefs/v1`
+(`shared_preferences`). Fonts (Inter) and icons (Phosphor's icon fonts) are in `assets/fonts`.

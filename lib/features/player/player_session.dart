@@ -21,7 +21,7 @@ const _reportEvery = Duration(seconds: 10);
 const _spanGapSec = 3.0;
 const _spanMinSec = 0.5;
 
-/// One video playing (the React Native client's PlayerScreen logic): libmpv through media_kit, the stream with the
+/// One video playing: libmpv through media_kit, the stream with the
 /// session's JWT (its header follows every renewal), a clip played as its part of the parent's file (times are the
 /// clip's), resuming where Cove saved it, and what was watched reported to Cove like its web player does.
 class PlayerSession extends ChangeNotifier {
@@ -68,7 +68,7 @@ class PlayerSession extends ChangeNotifier {
     ),
   );
 
-  /// The decoder: on Android MediaCodec into mpv's GPU output with no copy (as the React Native client's player;
+  /// The decoder: on Android MediaCodec into mpv's GPU output with no copy (
   /// "auto-safe" picked mediacodec-copy there, which copies every frame back to the CPU: a 4K stream dropped a third
   /// of its frames on a Galaxy Tab S6 Lite); elsewhere whatever is safe.
   static String get _hwdec {

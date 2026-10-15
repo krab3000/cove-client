@@ -50,7 +50,7 @@ a{color:var(--color-accent-300)}a:hover{color:var(--color-accent-200)}
 </helmet>
 <header class="dv-head">
 <div class="dv-brand"><span class="cove-mark" role="img" aria-label="Cove" style="width:26px;height:26px"></span><span>Cove Mobile</span><span class="dv-sub">design hand-off · phone and tablet</span></div>
-<p class="dv-lede">Every frame here is built in the app (apps/cove-client). Tabs are the app’s areas; in each, a row per screen or state with the phone, the phone held sideways and the tablet side by side. Frames are interactive; their ids (1a, 8b…) are stable — use them in commits and links (#8b opens its tab).</p>
+<p class="dv-lede">Every frame here is built in the app (this repository). Tabs are the app’s areas; in each, a row per screen or state with the phone, the phone held sideways and the tablet side by side. Frames are interactive; their ids (1a, 8b…) are stable — use them in commits and links (#8b opens its tab).</p>
 <nav class="dv-tabs"><sc-for list="{{ tabs }}" as="t" hint-placeholder-count="5"><button onClick="{{ t.pick }}" style="color:{{ t.ink }};box-shadow:{{ t.line }}">{{ t.label }}<span>{{ t.count }}</span></button></sc-for></nav>
 </header>
 <sc-if value="{{ tab.signin }}"><section class="dv-tab" id="tab-signin">

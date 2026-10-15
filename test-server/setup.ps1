@@ -307,7 +307,7 @@ Complete-CoveSetup $cove
 Write-Host ""
 Write-Host "Ready. The scan runs in the background (Jobs drawer in the web UI)." -ForegroundColor Green
 Write-Host "  Sign in as $ownerUser / $ownerPassword. Type http:// explicitly; the client assumes https:// otherwise."
-Write-Host "  Web UI, Windows client:  http://127.0.0.1:$port"
+Write-Host "  Web UI, macOS app:       http://127.0.0.1:$port"
 Write-Host "  Android emulator:        http://10.0.2.2:$port"
 Write-Host "  Android device (USB):    adb reverse tcp:$port tcp:$port, then http://localhost:$port"
 Write-Host "  Library:                 $(Get-MediaDir)"

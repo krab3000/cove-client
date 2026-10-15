@@ -1,13 +1,12 @@
 # Cove test server
 
-This runs a Cove server in Docker with a large video library, for developing the Cove client against. The library has
+This runs a Cove server in Docker with a large video library, for developing the Cove client (this repository) against. The library has
 enough videos to test scrolling in the Library grid, and heavy files to stress the player: 4K and 1080p at 60 fps, HEVC,
 AV1, VP9, movies over 10 minutes, and embedded and sidecar subtitles.
 
-```powershell
-yarn cove:server            # from the repository root (Windows), same as ./setup.ps1
-./setup.ps1                 # Windows PowerShell 5.1 or PowerShell 7
-./setup.sh                  # Linux / macOS / Git Bash
+```sh
+./test-server/setup.sh      # from the repository root (Linux, macOS, Git Bash)
+./test-server/setup.ps1     # Windows PowerShell 5.1 or PowerShell 7
 ```
 
 The first run downloads about 5 GB into `media/`. When the script finishes, Cove is still scanning the library in the
@@ -19,7 +18,7 @@ Sign in as **admin** / **adminadmin**. Type `http://` in front of the address; w
 
 | Client | Address |
 |---|---|
-| Windows app, browser | `http://127.0.0.1:5073` |
+| macOS app, browser | `http://127.0.0.1:5073` |
 | Android emulator | `http://10.0.2.2:5073` |
 | Android phone over USB | run `adb reverse tcp:5073 tcp:5073`, then use `http://localhost:5073` |
 
@@ -39,10 +38,8 @@ Auth is on, as on a real server. The JWT secret is fixed in `.env`, so you stay 
 | `./setup.ps1 logs` / `down` | Follow Cove's logs / stop Cove, keeping all data |
 | `./setup.ps1 reset` | Delete the container, the database, generated files and `.env`; `media/` is kept |
 | `./setup.ps1 reset -Purge` / `--purge` | Also delete `media/` |
-| `-CoveFromSource` / `--cove-from-source` | Build Cove from `../../../../cove` (`COVE_SOURCE` overrides the path) instead of pulling `ghcr.io/yourcove/cove` |
+| `-CoveFromSource` / `--cove-from-source` | Build Cove from `../../cove` (`COVE_SOURCE` overrides the path) instead of pulling `ghcr.io/yourcove/cove` |
 | `-CovePort 5080` / `--port 5080` | Use a different port; it is saved in `.env` |
-
-From the root, extra arguments are passed to the script: `yarn cove:server -Full -EdgeCases`, `yarn cove:server down`.
 
 `./make-exotic.sh` (Git Bash, Linux, macOS) adds `media/Exotic`: 15-second cuts of Big Buck Bunny in codecs and
 containers off the hardware path (MPEG-2, interlaced MPEG-2 TS, Xvid, DivX 3, WMV2, FLV/Sorenson, H.263, MJPEG, 10-bit

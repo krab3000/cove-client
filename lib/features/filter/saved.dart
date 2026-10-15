@@ -1,7 +1,7 @@
 // Saved filters as Cove's web UI stores them: objectFilter is the page's filter state as JSON, flat criteria plus the
 // rule tree under "_filterExpression", with modifiers and operators in the UI's SCREAMING_CASE ("INCLUDES_ALL",
 // "JUST_ONE"); uiOptions has the display mode. This reads them into the rule tree of model.dart and writes the tree
-// back the same way, so the web UI keeps reading what the app saves. A port of features/filter/saved.ts.
+// back the same way, so the web UI keeps reading what the app saves.
 
 import 'dart:convert';
 

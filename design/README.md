@@ -11,7 +11,7 @@ Scope decided with the product owner:
 - Themes: **dark (default) + light**
 
 ## About the design files
-The files in `design/` are **design references built in HTML** — prototypes showing intended look and behavior, **not production code to copy**. Recreate them in the target codebase's environment (React Native, Flutter, SwiftUI/Compose, etc.) using its own patterns. If no app exists yet, choose an appropriate cross-platform framework (React Native or Flutter both fit: one codebase, phone + tablet, native video players).
+The files in `design/` are **design references built in HTML** — prototypes showing intended look and behavior, **not production code to copy**. The app in this repository recreates them in Flutter, with its own patterns.
 
 - `design/Cove Mobile - standalone.html` — **open this in a browser.** Single file, works offline except the placeholder photos (loaded from picsum.photos, need internet). **Tabs** for the app's areas (Sign-in, Library, Filter editor, Player, Settings); in each, a **table** with a row per screen or state and the phone, the phone held sideways and the tablet side by side. Every frame is built in the app; ids (`1a`, `8b`…) are stable, and `#8b` in the address opens its tab. Frames are interactive.
 - `design/source/Cove Mobile.dc.html` — editable source (needs the authoring runtime; read it for exact inline styles and the logic class at the bottom — data, state, derived values).
@@ -73,7 +73,7 @@ Phosphor (regular for inactive, **fill** for active nav items and play/pause). S
 
 ## Screens
 
-The standalone document is organized as the app is: **tabs** for its areas (Sign-in, Library, Filter editor, Player, Settings), and in each a **table** — a row per screen or state, columns **Phone** (390×844) · **Phone sideways** (844×390) · **Tablet** (1180×820, landscape). A cell is a frame (or two), or a line on how that device does it when it isn't drawn. Every frame is built in the app (`apps/cove-client`). Frame ids are stable; `#id` in the document's address opens the frame's tab.
+The standalone document is organized as the app is: **tabs** for its areas (Sign-in, Library, Filter editor, Player, Settings), and in each a **table** — a row per screen or state, columns **Phone** (390×844) · **Phone sideways** (844×390) · **Tablet** (1180×820, landscape). A cell is a frame (or two), or a line on how that device does it when it isn't drawn. Every frame is built in the app (this repository). Frame ids are stable; `#id` in the document's address opens the frame's tab.
 
 ### Sign-in
 
@@ -197,7 +197,7 @@ Cove's filter model: a **filter tree** of groups with operators **All of / Any o
 | Settings | 7a | 7d |
 | A value's choices | 7b | a small dialog |
 
-The app's own settings, kept **on the device** (`state/prefs.ts`) for every account on it; nothing goes to the Cove server, whose settings stay in Cove's web UI; signing out keeps them. One store: change a value in 7a and 7c / 7d follow. **Ways in:** the gear on 1a; Settings at the bottom of the tablet's server pane (1n); the Settings row of the account sheet (6e); on a tablet the gear by the sidebar's account; the player's Playback sheet (7c) → All settings.
+The app's own settings, kept **on the device** (`lib/state/prefs.dart`) for every account on it; nothing goes to the Cove server, whose settings stay in Cove's web UI; signing out keeps them. One store: change a value in 7a and 7c / 7d follow. **Ways in:** the gear on 1a; Settings at the bottom of the tablet's server pane (1n); the Settings row of the account sheet (6e); on a tablet the gear by the sidebar's account; the player's Playback sheet (7c) → All settings.
 
 **Rows** (60px min; label 15px, an explanation 12px text 55%):
 - **Switch** — the 44×26 toggle (on: accent 30% track, inset accent ring, `accent-200` knob; off: `neutral-800` track, divider ring, `neutral-400` knob); the whole row toggles. An optional platform tag ("Android": 10.5px, inset divider ring).
@@ -267,4 +267,4 @@ Real data comes from Cove's API (see https://yourcove.net/docs/developer/api/ove
 - `design/Cove Mobile - standalone.html` — open in a browser: tabs by area, a Phone · Sideways · Tablet table in each
 - `design/source/Cove Mobile.dc.html` — source with exact styles + logic
 - `design/tokens/nocturne.css`, `design/tokens/nocturne-guide.md` — design system
-- `CLAUDE.md` — project context for Claude Code (copy to your repo root)
+- `CLAUDE.md` (the repository's root) — project context for Claude Code

@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:media_kit/media_kit.dart';
 
-/// Needs the test server (apps/cove-client/test-server): plays a video's preview clip through media_kit in the real
+/// Needs the test server (test-server/): plays a video's preview clip through media_kit in the real
 /// app and waits for its first frame.
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

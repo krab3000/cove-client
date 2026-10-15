@@ -62,7 +62,7 @@ class KeptServer {
     },
   );
 
-  // The React Native client's shape: lastReached in ms since the epoch
+  // lastReached in ms since the epoch
   Map<String, dynamic> toJson() => {
     'id': id,
     'name': name,

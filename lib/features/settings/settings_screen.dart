@@ -60,8 +60,8 @@ typedef _Section = ({
   List<_Row> rows,
 });
 
-/// The app's own settings (design 7a–7d), kept on the device for every account on it; the React Native client's
-/// rows that apply to this app's player (libmpv through media_kit).
+/// The app's own settings (design 7a–7d), kept on the device for every account on it: the rows that apply to
+/// this app's player (libmpv through media_kit).
 const List<_Section> _sections = [
   (
     title: 'Playback',

@@ -29,7 +29,7 @@ const _specs = {
 const _listMaxWidth = 960.0;
 const _padTop = 10.0;
 
-// Switching views (as the React Native client's grid): the cards on screen move to their places in the new view this
+// Switching views: the cards on screen move to their places in the new view this
 // long; a card new to the screen comes in where it lands, from transparent, this much smaller and this much lower,
 // the further down the screen the later (up to this share of the move).
 const _moveDuration = Duration(milliseconds: 450);

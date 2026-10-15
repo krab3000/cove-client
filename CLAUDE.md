@@ -1,12 +1,13 @@
-# Cove Mobile — project context
+# Cove client — project context
 
-Copy this file to the repo root. Full spec: `design/README.md` (or `design_handoff_cove_mobile/README.md`).
+The Cove client: a Flutter app for macOS and Android (phone and tablet), at the root of this repository. Full design
+spec: `design/README.md`. How to run and test it: `README.md`.
 
 ## What we're building
 A phone + tablet client for **Cove** (https://yourcove.net), a self-hosted, open-source media organizer. **Playback-first**: connect, pick an account, browse and filter the library, play. **Not** an editor — no tagging, scraping, downloaders, admin, extensions. **Videos only** for v1.
 
 ## The design document
-`design/Cove Mobile - standalone.html`: tabs for the app's areas (Sign-in, Library, Filter editor, Player, Settings); in each, a table — a row per screen or state, the phone, the phone held sideways and the tablet side by side. It shows only what the app builds (`apps/cove-client`); what was drawn and dropped is listed in the README ("Not in the design").
+`design/Cove Mobile - standalone.html`: tabs for the app's areas (Sign-in, Library, Filter editor, Player, Settings); in each, a table — a row per screen or state, the phone, the phone held sideways and the tablet side by side. It shows only what the app builds; what was drawn and dropped is listed in the README ("Not in the design").
 
 ## Decisions so far
 - Platform-neutral visual language (not iOS/Material-specific).
@@ -32,7 +33,7 @@ A phone + tablet client for **Cove** (https://yourcove.net), a self-hosted, open
 - Tablet Library (1h): full width; tap = the preview drawer on that video; tap again / Play = the player; ✕ / tap outside / swipe right closes.
 - Filter editor: phone full screen (2b) with bottom sheets; tablet a drawer (2d, 420px) over the Library, which keeps its width and follows the edits; the pill is pressed while it is open. On a tablet its menus (+ Add, ⋮) rise from the drawer's bottom and its condition editor / folder browser / typed path are pages inside the drawer (9a–9d); nothing opens across the screen.
 - Player (1k / 1l / 1m): moments as ticks on every timeline and a tappable list that seeks; the gear opens a short Playback sheet (7c: speed, subtitles, hardware decoding, statistics, All settings). Tablet: a side panel Moments / Up next (Autoplay) / Details.
-- Settings (7a–7d): the app's own settings, kept on the device for every account on it (never sent to the server). They expose what the app used to hard-code, in plain words: Playback, Library & previews, Streaming & cache (usage + Clear cache, memory / disk cache, chunk size, read-ahead, Wi-Fi lock, certificate checks), Diagnostics, About (Reset to defaults). Phone: one page, values in a bottom sheet; tablet: sections beside one section, values in a dialog. Ways in: the gear on 1a, Settings in the tablet's server pane (1n), the account sheet, the gear by the sidebar's account, the player's Playback sheet.
+- Settings (7a–7d): the app's own settings, kept on the device for every account on it (never sent to the server). They expose what the app used to hard-code, in plain words: Playback, Library & previews, Streaming & cache (in this app: memory cache, read-ahead, certificate checks; the design's disk cache, chunk size, usage card and Wi-Fi lock belong to a player with its own HTTP cache, which libmpv doesn't have), Diagnostics, About (Reset to defaults). Phone: one page, values in a bottom sheet; tablet: sections beside one section, values in a dialog. Ways in: the gear on 1a, Settings in the tablet's server pane (1n), the account sheet, the gear by the sidebar's account, the player's Playback sheet.
 
 ## Cove filtering model → mobile
 Cove filters are trees: groups (All / Any / Just one / None), conditions with operators, relative dates (`-7d`, `0d`), saved filters (tree + search + sort + view). The app edits one filter object as an outline (2b, tablet 2d); related-performer blocks aren't supported.
@@ -42,6 +43,26 @@ Saved filters are first-class and runnable ("run first, build second"). Every fi
 
 ## Open decisions
 Single-condition editor (not designed) · light theme for the app's screens · certificate checks off by default (and per device vs per server) · Cove's blue icon next to the violet accent · the sort sheet.
+
+## The app
+- **Stack:** Flutter (Dart 3), `media_kit` (libmpv) for the player and the preview clips, `http`, `shared_preferences`.
+  `third_party/media_kit_video` is media_kit_video 2.0.1 with one change (`Cove:` in
+  `lib/src/video_controller/android_video_controller/real.dart`): Android's video surface capped to the size the app
+  asks for, so 4K plays at the screen's size (see `third_party/README.md`). Android decodes with `hwdec=mediacodec`
+  (zero-copy); `auto-safe` picked `mediacodec-copy`, which dropped a third of a 4K60 stream's frames on a tablet.
+- **Screen classes:** large = shortest side ≥ 600 (`lib/theme/layout.dart`): the tablet layouts (1n, 8f, 1m, 7d) on a
+  tablet and in the macOS window; a phone upright or sideways otherwise.
+- **Layout of `lib/`:** `api/` (Cove's REST API, models), `state/` (accounts, session, prefs, player, settings
+  navigation), `data/` (the Library's list and per-video data, reachability), `features/` (`signin`, `library`,
+  `filter`, `player`, `settings`, each a screen and its `components/`), `ui/` (Nocturne components, Phosphor glyphs),
+  `theme/`, `app/back.dart` (Android back and Escape, by layer), `utils/`.
+- **Commands:** `flutter run -d macos` / `-d <android device>`; `flutter analyze`; `flutter test`; integration tests
+  against the test server: `flutter test integration_test/<file> -d macos`; device performance:
+  `flutter drive --profile --no-dds --keep-app-running --driver=test_driver/perf_driver.dart
+  --target=integration_test/perf_test.dart -d <device>` (without `--keep-app-running`, `flutter drive` uninstalls the
+  app at the end, and the servers kept on the device go with it).
+- **Test server:** `test-server/` (Cove in Docker with a large library; admin / adminadmin; port 5073). A device over
+  USB reaches it after `adb reverse tcp:5073 tcp:5073` at `http://localhost:5073`.
 
 ## Working agreement
 - The HTML in `design/` is a **reference**, not code to ship. Recreate in this codebase's stack.

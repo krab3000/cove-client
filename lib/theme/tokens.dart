@@ -1,6 +1,5 @@
-// Nocturne, the design system of the Cove Mobile design
-// (../cove-client/design_handoff_cove_mobile/design/tokens/nocturne.css): the app's tokens, as in the React Native
-// client's theme/tokens.ts.
+// Nocturne, the design system of the Cove Mobile design (design/tokens/nocturne.css, design/tokens/nocturne-guide.md):
+// the app's tokens.
 
 import 'package:flutter/painting.dart';
 

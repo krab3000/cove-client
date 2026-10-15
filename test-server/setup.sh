@@ -12,7 +12,7 @@
 #   ./setup.sh logs | down
 #   ./setup.sh reset [--purge]   delete the container, database and generated files (--purge: the media too)
 #
-# Other options: --cove-from-source (build ../../../../cove), --port N. Needs: docker, curl, and unzip or python3.
+# Other options: --cove-from-source (build ../../cove), --port N. Needs: docker, curl, and unzip or python3.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -289,7 +289,7 @@ complete_cove_setup "$cove"
 echo
 printf '\033[32mReady. The scan runs in the background (Jobs drawer in the web UI).\033[0m\n'
 echo "  Sign in as $owner_user / $owner_password. Type http:// explicitly; the client assumes https:// otherwise."
-echo "  Web UI, Windows client:  http://127.0.0.1:$port"
+echo "  Web UI, macOS app:       http://127.0.0.1:$port"
 echo "  Android emulator:        http://10.0.2.2:$port"
 echo "  Android device (USB):    adb reverse tcp:$port tcp:$port, then http://localhost:$port"
 echo "  Library:                 $(media_dir)"

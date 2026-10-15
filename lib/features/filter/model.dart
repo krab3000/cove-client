@@ -1,6 +1,6 @@
 // The rule tree of a Cove video filter (design 2b), and its translation to Cove's API: a filterExpression of groups
-// (AND / OR / JUST_ONE / NOT) whose leaves are one-criterion VideoFilter objects. A port of the React Native client's
-// features/filter/model.ts: fields, modifiers and value encodings follow Cove's web UI and server.
+// (AND / OR / JUST_ONE / NOT) whose leaves are one-criterion VideoFilter objects. Fields, modifiers and value encodings
+// follow Cove's web UI and server.
 
 import 'dart:math';
 

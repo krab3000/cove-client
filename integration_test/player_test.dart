@@ -7,7 +7,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart' as mk;
 
-/// Needs the test server (apps/cove-client/test-server): plays a video in the real app, seeks, closes, and checks
+/// Needs the test server (test-server/): plays a video in the real app, seeks, closes, and checks
 /// that Cove kept where it was left (the player's reports).
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();

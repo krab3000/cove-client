@@ -10,7 +10,7 @@ enum LibraryView { grid2, grid3, list }
 const _key = 'cove/prefs/v1';
 
 /// The device's settings (design turn 7): kept on this device, for every account on it, and never sent to the server.
-/// The React Native client's prefs that apply to a media_kit (libmpv) player; the defaults are its defaults.
+/// What the design's Settings (7a–7d) expose that applies to a media_kit (libmpv) player.
 const prefDefaults = <String, Object>{
   // Playback
   'autoplay': true,

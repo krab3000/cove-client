@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
-/// Phosphor icons (https://phosphoricons.com), from its icon fonts in assets/fonts (the React Native client's): the
-/// glyphs the app uses, with their codepoints from @phosphor-icons/web's style.css (as RN's ui/Icon.tsx). The fill
+/// Phosphor icons (https://phosphoricons.com), from its icon fonts in assets/fonts: the
+/// glyphs the app uses, with their codepoints from @phosphor-icons/web's style.css. The fill
 /// font has the same codepoints: [Phosphor.fill] gives an icon's filled glyph (active states, play).
 abstract final class Phosphor {
   static const arrowClockwise = IconData(0xe036, fontFamily: _regular);

@@ -36,7 +36,7 @@ const _renewEarly = Duration(minutes: 1);
 // A renewal that failed (offline, the server restarting) is tried again after this long.
 const _renewRetry = Duration(seconds: 30);
 
-/// A session with a Cove server (as the React Native client's api/cove.ts): a 15-minute access JWT sent as a Bearer
+/// A session with a Cove server, as Cove's own CLI client keeps one: a 15-minute access JWT sent as a Bearer
 /// header, renewed with the rotating refresh token a minute before it expires (and once on a 401).
 class CoveClient {
   CoveClient._(

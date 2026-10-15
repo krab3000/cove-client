@@ -1,5 +1,4 @@
-// The parts of Cove's REST API this client uses (see Cove's ui/src/api/types.ts and src/Cove.Core/DTOs/DTOs.cs), as
-// in the React Native client's api/types.ts.
+// The parts of Cove's REST API this client uses (see Cove's ui/src/api/types.ts and src/Cove.Core/DTOs/DTOs.cs).
 
 import 'package:collection/collection.dart';
 
