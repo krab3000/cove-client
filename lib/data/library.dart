@@ -543,6 +543,9 @@ class PersonalStore extends ChangeNotifier {
   final _asked = <int>{};
   final _queue = <int>{};
   final _segments = <int, Future<List<Segment>>>{};
+  // Toggled while their batch was on its way: the toggle is newer than the batch's answer
+  final _toggledFavorite = <int>{};
+  final _toggledLater = <int>{};
   Timer? _timer;
   bool _disposed = false;
 
@@ -580,6 +583,7 @@ class PersonalStore extends ChangeNotifier {
   Future<void> toggleFavorite(Video video) async {
     final before = _engagement[video.id] ?? Engagement.none;
     _engagement[video.id] = before.copyWith(isFavorite: !before.isFavorite);
+    _toggledFavorite.add(video.id);
     notifyListeners();
     try {
       await client.setFavorite(video.id, !before.isFavorite);
@@ -594,6 +598,7 @@ class PersonalStore extends ChangeNotifier {
   Future<void> toggleSavedForLater(Video video) async {
     final before = _later[video.id] ?? false;
     _later[video.id] = !before;
+    _toggledLater.add(video.id);
     notifyListeners();
     try {
       await client.setSavedForLater(video.id, !before);
@@ -619,6 +624,8 @@ class PersonalStore extends ChangeNotifier {
     _queue.clear();
     for (var i = 0; i < ids.length; i += 100) {
       final chunk = ids.sublist(i, min(i + 100, ids.length));
+      _toggledFavorite.removeAll(chunk);
+      _toggledLater.removeAll(chunk);
       try {
         final (engagement, later) = await (
           client.engagement(chunk),
@@ -626,8 +633,11 @@ class PersonalStore extends ChangeNotifier {
         ).wait;
         if (_disposed) return;
         for (final id in chunk) {
-          _engagement[id] = engagement[id] ?? Engagement.none;
-          _later[id] = later.contains(id);
+          final answer = engagement[id] ?? Engagement.none;
+          _engagement[id] = _toggledFavorite.contains(id)
+              ? answer.copyWith(isFavorite: _engagement[id]!.isFavorite)
+              : answer;
+          if (!_toggledLater.contains(id)) _later[id] = later.contains(id);
         }
       } catch (_) {
         // Asked again when a card next shows it

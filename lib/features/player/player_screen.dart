@@ -95,6 +95,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
   @override
   void initState() {
     super.initState();
+    // The Library's search may have the keyboard up: it would stay over the player
+    FocusManager.instance.primaryFocus?.unfocus();
     _session.addListener(_onSession);
     prefs.addListener(_onPrefs);
     _onPrefs();

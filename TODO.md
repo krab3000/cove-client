@@ -2,6 +2,11 @@
 
 Work left for later, with enough context to pick it up. Remove an entry when it is done.
 
+- **No picture on the Android emulator.** mpv's video output gets no GLES context on the x86_64 emulator ("Could not
+  create EGL context for GLES 2.x", with `-gpu host`, `swiftshader_indirect` and `angle_indirect`, hardware decoding on
+  or off): videos play with sound only. Devices are fine. The e2e player tests warn and skip the picture check there.
+- **e2e on the tablet and the desktops.** `integration_test/e2e_test.dart` covers the phone layout; the tablet
+  (`cove_tablet_api35`), macOS and Windows layouts (sidebar, drawers, popovers) want their own tests.
 - **Release signing.** The Android release build is signed with the debug key (`android/app/build.gradle.kts`): add a
   keystore and a release `signingConfig` before distributing it.
 - **CI.** None: `flutter analyze`, `flutter test` and an APK build on every push would catch most breakage.

@@ -46,6 +46,9 @@ Android allows plain `http://` only to those hosts (`android/app/src/main/res/xm
 ```sh
 flutter analyze
 flutter test                                                   # the API client (a fake Cove), the filter model, sign-in
+# End to end, with the test server: every screen and feature in the real app, on a phone (about 2 minutes)
+flutter test integration_test/e2e_test.dart -d emulator-5554   # one area: --plain-name "player " (sign-in, library,
+                                                               # filter, player, settings); elsewhere --dart-define=SERVER=…
 flutter test integration_test/preview_clip_test.dart -d macos  # with the test server: a preview clip plays
 flutter test integration_test/player_test.dart -d macos        # with the test server: playback, seeking, resume reports
 # The same on Windows: -d windows
@@ -53,6 +56,11 @@ flutter test integration_test/player_test.dart -d macos        # with the test s
 flutter drive --profile --no-dds --keep-app-running --driver=test_driver/perf_driver.dart \
   --target=integration_test/perf_test.dart -d <device>
 ```
+
+The end-to-end tests start from a first launch: they clear the servers, sessions and settings kept on the device.
+They change a video's Favorite and Save for later and put them back, and delete the saved filter they create. On the
+Android emulator mpv gets no GLES context, so videos play without a picture there; the tests say so and check the
+picture on a device.
 
 `--keep-app-running` matters: otherwise `flutter drive` uninstalls the app when it finishes, and the servers kept on
 the device go with it. The results are in `build/integration_response_data.json`.
