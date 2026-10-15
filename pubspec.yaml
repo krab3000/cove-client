@@ -19,6 +19,9 @@ dependencies:
   shared_preferences: ^2.5.6
 
 dependency_overrides:
+  # media_kit, its players' mpv handles destroyed off the main isolate (third_party/README.md)
+  media_kit:
+    path: third_party/media_kit
   # media_kit_video with the Android video surface capped to the size the app asks for (third_party/README.md)
   media_kit_video:
     path: third_party/media_kit_video
