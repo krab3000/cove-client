@@ -77,6 +77,10 @@ class _PlayerScreenState extends State<PlayerScreen> {
   bool _overControls = false;
   bool _scrubbing = false;
   bool _fullscreen = false;
+  // Touch, full screen (1l): the controls locked away; a tap only shows the unlock button for a moment
+  bool _locked = false;
+  bool _lockHint = false;
+  Timer? _lockTimer;
   Timer? _hide;
   int _tab = 0;
   // Double taps: the side, when, how far it went
@@ -105,9 +109,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     _tapTimer?.cancel();
     _flashTimer?.cancel();
     _statsTimer?.cancel();
+    _lockTimer?.cancel();
     _focus.dispose();
     _session.dispose();
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    // The screen turns with the device again
+    SystemChrome.setPreferredOrientations(const []);
     super.dispose();
   }
 
@@ -170,6 +177,14 @@ class _PlayerScreenState extends State<PlayerScreen> {
 
   /// A tap on the video: the middle toggles the controls; either side waits for a second tap (a double tap seeks).
   void _tap(Offset at, double width) {
+    if (_locked) {
+      setState(() => _lockHint = true);
+      _lockTimer?.cancel();
+      _lockTimer = Timer(const Duration(milliseconds: 2500), () {
+        if (mounted) setState(() => _lockHint = false);
+      });
+      return;
+    }
     final third = at.dx < width / 3 ? -1 : (at.dx > width * 2 / 3 ? 1 : 0);
     if (third == 0) return _toggleControls();
     final streak = _streak;
@@ -206,12 +221,47 @@ class _PlayerScreenState extends State<PlayerScreen> {
     });
   }
 
+  /// Full screen: the system bars hidden and, on a phone or tablet, the screen turned to the video's shape (a
+  /// landscape video sideways, either way round; a portrait one upright). Leaving it, the screen turns with the
+  /// device again.
   void _setFullscreen(bool on) {
-    setState(() => _fullscreen = on);
+    setState(() {
+      _fullscreen = on;
+      if (!on) _unlock();
+    });
     SystemChrome.setEnabledSystemUIMode(
       on ? SystemUiMode.immersiveSticky : SystemUiMode.edgeToEdge,
     );
+    if (!desktop) {
+      final file = widget.video.primaryFile;
+      final portrait = (file?.height ?? 0) > (file?.width ?? 0);
+      SystemChrome.setPreferredOrientations(
+        !on
+            ? const []
+            : portrait
+            ? const [DeviceOrientation.portraitUp]
+            : const [
+                DeviceOrientation.landscapeLeft,
+                DeviceOrientation.landscapeRight,
+              ],
+      );
+    }
     _showControls();
+  }
+
+  void _lock() {
+    _hide?.cancel();
+    setState(() {
+      _locked = true;
+      _lockHint = false;
+      _controls = false;
+    });
+  }
+
+  void _unlock() {
+    _lockTimer?.cancel();
+    _locked = false;
+    _lockHint = false;
   }
 
   void _back() {
@@ -277,6 +327,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         : screen == ScreenClass.large
         ? _Layout.tablet
         : _Layout.portrait;
+    // The lock is full screen's: out of it, unlocked
+    if (layout != _Layout.immersive && _locked) _unlock();
     if (layout == _Layout.immersive &&
         !_fullscreen &&
         screen == ScreenClass.sideways) {
@@ -318,7 +370,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
       _Layout.portrait => 64.0,
     };
     final moment = momentAt(s.segments, s.clipStart, s.position);
-    final controls = _controls || _pinned;
+    // Locked: no controls, whatever plays
+    final controls = !_locked && (_controls || _pinned);
     return LayoutBuilder(
       builder: (context, box) => MouseRegion(
         onHover: (_) => _showControls(),
@@ -363,6 +416,36 @@ class _PlayerScreenState extends State<PlayerScreen> {
                             ? '» ${streak.seconds} s'
                             : '« ${streak.seconds} s',
                         style: inter(18, weight: FontWeight.w600, color: _ink),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            if (_locked && _lockHint)
+              Positioned(
+                left: 16 + MediaQuery.paddingOf(context).left,
+                top: 0,
+                bottom: 0,
+                child: Center(
+                  child: Pressable(
+                    onPressed: () {
+                      setState(_unlock);
+                      _showControls();
+                    },
+                    semanticLabel: 'Unlock',
+                    builder: (context, states) => Container(
+                      width: 48,
+                      height: 48,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: const Color(0x990E0F18),
+                        border: Border.all(color: _ink.withValues(alpha: 0.3)),
+                      ),
+                      child: const Icon(
+                        Phosphor.lockSimple,
+                        size: 22,
+                        color: _ink,
                       ),
                     ),
                   ),
@@ -689,6 +772,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
             label: 'Subtitles',
             onPressed: () => _options(false),
           ),
+          if (!desktop)
+            _Over(
+              icon: Phosphor.lockSimpleOpen,
+              label: 'Lock the controls',
+              onPressed: _lock,
+            ),
           _Over(
             icon: Phosphor.gearSix,
             label: 'Playback',
