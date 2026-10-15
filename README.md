@@ -46,9 +46,11 @@ Android allows plain `http://` only to those hosts (`android/app/src/main/res/xm
 ```sh
 flutter analyze
 flutter test                                                   # the API client (a fake Cove), the filter model, sign-in
-# End to end, with the test server: every screen and feature in the real app, on a phone (about 2 minutes)
+# End to end, with the test server: every screen and feature in the real app (about 2 minutes), on a phone or a
+# tablet: the device's layout picks the tests (a tablet's drawers, sidebar and popovers; a phone's sheets)
 flutter test integration_test/e2e_test.dart -d emulator-5554   # one area: --plain-name "player " (sign-in, library,
                                                                # filter, player, settings); elsewhere --dart-define=SERVER=…
+flutter test integration_test/e2e_test.dart -d emulator-5556 --tags tablet   # only a layout's own tests
 flutter test integration_test/preview_clip_test.dart -d macos  # with the test server: a preview clip plays
 flutter test integration_test/player_test.dart -d macos        # with the test server: playback, seeking, resume reports
 # The same on Windows: -d windows
@@ -57,7 +59,9 @@ flutter drive --profile --no-dds --keep-app-running --driver=test_driver/perf_dr
   --target=integration_test/perf_test.dart -d <device>
 ```
 
-The end-to-end tests start from a first launch: they clear the servers, sessions and settings kept on the device.
+The same tests run on both layouts, through helpers in `integration_test/e2e/harness.dart` for what differs (a menu is a
+sheet or a popover, a card plays or opens its preview drawer). Tests for one layout only are skipped on the other
+(`skip: !tablet`) and tagged `phone` / `tablet` (`dart_test.yaml`). The end-to-end tests start from a first launch: they clear the servers, sessions and settings kept on the device.
 They change a video's Favorite and Save for later and put them back, and delete the saved filter they create. On the
 Android emulator mpv gets no GLES context, so videos play without a picture there; the tests say so and check the
 picture on a device.

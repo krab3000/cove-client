@@ -1,0 +1,4 @@
+# The layouts the end-to-end tests run on (integration_test/e2e/harness.dart): pick them with --tags / --exclude-tags
+tags:
+  phone:
+  tablet:

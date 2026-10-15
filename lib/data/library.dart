@@ -201,7 +201,9 @@ class Library extends ChangeNotifier {
   }
 
   /// Applies a tree (the editor's, a chip added): a saved filter stays loaded (Edited) unless the tree is empty.
-  void apply(Group tree) {
+  /// Shows [tree]. Emptied, it is all videos and no longer the saved filter; [live] (a tablet's drawer applying
+  /// each edit) keeps the saved filter while it is edited (Clear all, then a condition: Save, not Save as).
+  void apply(Group tree, {bool live = false}) {
     if (_key(toWire(tree)) == _key(toWire(_tree)) &&
         tree.children.length == _tree.children.length) {
       _tree = tree;
@@ -209,7 +211,7 @@ class Library extends ChangeNotifier {
       return;
     }
     _tree = tree;
-    if (tree.children.isEmpty) _savedFilter = null;
+    if (tree.children.isEmpty && !live) _savedFilter = null;
     _seed = null;
     _reload();
   }

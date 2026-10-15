@@ -1,4 +1,5 @@
 import 'package:cove_client/api/cove_client.dart' hide Video;
+import 'package:cove_client/features/player/components/playback_options.dart';
 import 'package:cove_client/features/player/components/seek_track.dart';
 import 'package:cove_client/features/player/player_screen.dart';
 import 'package:cove_client/state/player.dart';
@@ -41,6 +42,9 @@ void playerTests() {
       }
     }
 
+    Finder inOptions(Finder f) =>
+        find.descendant(of: find.byType(PlaybackOptions), matching: f);
+
     double position(WidgetTester tester) =>
         state(tester).position.inMilliseconds / 1000;
 
@@ -59,8 +63,8 @@ void playerTests() {
         of: find.byType(GridView),
         matching: card != null ? find.text(card) : find.textContaining(q),
       );
-      await tap(tester, inGrid);
-      await waitFor(tester, find.byType(PlayerScreen));
+      await waitFor(tester, inGrid);
+      await playCard(tester, tester.widget<Text>(inGrid.first).data!);
       // The search's keyboard went down: nothing covers the player
       await waitUntil(
         tester,
@@ -110,56 +114,57 @@ void playerTests() {
 
       // The Playback sheet: speed
       await tap(tester, label('Playback'));
-      await waitFor(tester, inSheet(find.text('SPEED')));
-      await tap(tester, inSheet(find.text('1.5×')));
+      await waitFor(tester, inOptions(find.text('SPEED')));
+      await tap(tester, inOptions(find.text('1.5×')));
       await waitUntil(tester, () => state(tester).rate == 1.5, 'speed 1.5×');
-      if (find.byType(BottomSheet).evaluate().isEmpty) {
+      if (find.byType(PlaybackOptions).evaluate().isEmpty) {
         await tap(tester, label('Playback'));
       }
-      await tap(tester, inSheet(find.text('1×')));
+      await tap(tester, inOptions(find.text('1×')));
       await waitUntil(tester, () => state(tester).rate == 1, 'speed 1×');
 
       // Statistics: the overlay says how it decodes
-      if (find.byType(BottomSheet).evaluate().isEmpty) {
+      if (find.byType(PlaybackOptions).evaluate().isEmpty) {
         await tap(tester, label('Playback'));
       }
-      await tap(tester, inSheet(find.text('Playback statistics')));
+      await tap(tester, inOptions(find.text('Playback statistics')));
       expect(prefs.stats, isTrue);
-      await waitFor(tester, find.textContaining('decoding'), timeout: const Duration(seconds: 5));
-      await tap(tester, inSheet(find.text('Playback statistics')));
+      // The overlay: "h264 · 480×270 · software decoding" (or "Opening…" without a video output), then always
+      // "audio 1 · subtitles 0"
+      final overlay = find.textContaining(RegExp(r'audio \d+ · subtitles \d+'));
+      await waitFor(tester, overlay, timeout: const Duration(seconds: 5));
+      await tap(tester, inOptions(find.text('Playback statistics')));
       expect(prefs.stats, isFalse);
       await tester.tapAt(const Offset(20, 20));
       await settle(tester);
-      await waitGone(tester, find.byType(BottomSheet));
+      await waitGone(tester, find.byType(PlaybackOptions));
+      expect(overlay, findsNothing);
 
       // Close: Cove keeps where it was left
       final left = position(tester);
-      await tap(tester, label('Close the player'));
-      await waitGone(tester, find.byType(PlayerScreen));
+      await closePlayer(tester);
       expect(player.playing, isNull);
       await settle(tester, 1500);
       final resume = (await client.engagement([video.id]))[video.id]!.resumeTime;
       expect(resume, closeTo(left, 15));
 
       // Opened again, it resumes there
-      await tap(tester, find.descendant(of: find.byType(GridView), matching: find.text(title)));
-      await waitFor(tester, find.byType(PlayerScreen));
+      await playCard(tester, title);
       await playing(tester, after: resume - 5);
       expect(position(tester), greaterThan(resume - 5));
-      await tap(tester, label('Close the player'));
-      await waitGone(tester, find.byType(PlayerScreen));
+      await closePlayer(tester);
     });
 
     testWidgets('the controls hide while it plays, and a tap brings them back', (
       tester,
     ) async {
       await open(tester, search, card: title, hideAfterMs: 2000);
-      // The controls' fade (the close button's, always there in them)
+      // The controls' fade (the full screen button's, always there in them)
       double shown() => tester
           .widget<AnimatedOpacity>(
             find
                 .ancestor(
-                  of: find.byIcon(Phosphor.caretDown),
+                  of: find.byIcon(Phosphor.cornersOut),
                   matching: find.byType(AnimatedOpacity),
                 )
                 .first,
@@ -177,8 +182,7 @@ void playerTests() {
       // Paused, they stay
       await settle(tester, 2500);
       expect(shown(), 1);
-      await tap(tester, label('Close the player'));
-      await waitGone(tester, find.byType(PlayerScreen));
+      await closePlayer(tester);
     });
 
     testWidgets('full screen, and Up next', (tester) async {
@@ -196,13 +200,18 @@ void playerTests() {
       // Up next: the Library's videos after this one; a row plays it
       if (first.upNext.isNotEmpty) {
         final row = find.byWidgetPredicate((w) => w.runtimeType.toString() == '_UpNextRow');
-        await tester.scrollUntilVisible(
-          row.first,
-          200,
-          scrollable: find
-              .descendant(of: find.byType(PlayerScreen), matching: find.byType(Scrollable))
-              .first,
-        );
+        if (tablet) {
+          // A tab of the side panel (1m)
+          await tap(tester, label('Up next'));
+        } else {
+          await tester.scrollUntilVisible(
+            row.first,
+            200,
+            scrollable: find
+                .descendant(of: find.byType(PlayerScreen), matching: find.byType(Scrollable))
+                .first,
+          );
+        }
         await tap(tester, row.first);
         await waitUntil(
           tester,
@@ -213,8 +222,7 @@ void playerTests() {
       } else {
         expect(find.text('Nothing after this video.'), findsOneWidget);
       }
-      await tap(tester, label('Close the player'));
-      await waitGone(tester, find.byType(PlayerScreen));
+      await closePlayer(tester);
     });
   });
 }

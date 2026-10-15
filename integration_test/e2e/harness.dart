@@ -1,4 +1,10 @@
+import 'dart:ui' show PlatformDispatcher;
+
 import 'package:cove_client/api/cove_client.dart';
+import 'package:cove_client/features/library/components/library_header.dart';
+import 'package:cove_client/features/library/components/library_sidebar.dart';
+import 'package:cove_client/features/library/components/video_detail.dart';
+import 'package:cove_client/features/player/player_screen.dart';
 import 'package:cove_client/main.dart';
 import 'package:cove_client/state/accounts.dart';
 import 'package:cove_client/state/player.dart';
@@ -6,6 +12,8 @@ import 'package:cove_client/state/prefs.dart';
 import 'package:cove_client/state/session.dart';
 import 'package:cove_client/state/settings_nav.dart';
 import 'package:cove_client/state/sign_in.dart';
+import 'package:cove_client/theme/layout.dart';
+import 'package:cove_client/ui/sheet.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -16,6 +24,15 @@ const server = String.fromEnvironment(
   'SERVER',
   defaultValue: 'http://10.0.2.2:5073',
 );
+/// The device's layout, known as the tests register (main() runs on the device), by the app's own rule: a tablet
+/// (the shorter side at least 600) or a phone. A test for one layout only: `skip: !tablet, tags: [tabletTag]`; the
+/// tags pick them on the command line too (`--tags tablet`, `--exclude-tags phone`).
+final bool tablet = () {
+  final view = PlatformDispatcher.instance.views.first;
+  return isLarge(view.physicalSize / view.devicePixelRatio);
+}();
+const phoneTag = 'phone', tabletTag = 'tablet';
+
 const username = 'admin';
 const password = 'adminadmin';
 
@@ -151,14 +168,88 @@ Future<void> type(WidgetTester tester, Finder finder, String text) async {
   await settle(tester, 300);
 }
 
-/// The Library's count line: "154 videos · 7 h · 6 GB".
-Finder countLine(int count) => find.textContaining(RegExp('^$count videos'));
+/// The Library's count line: "154 videos · 7 h · 6 GB" (in its header: the tablet's filter drawer says "N videos
+/// match").
+Finder countLine(int count) => find.descendant(
+  of: find.byType(LibraryHeader),
+  matching: find.textContaining(RegExp('^$count videos')),
+);
 
 /// The count the Library shows now.
 int? shownCount() {
-  for (final e in find.textContaining(RegExp(r'^\d+ videos')).evaluate()) {
+  for (final e in find
+      .descendant(
+        of: find.byType(LibraryHeader),
+        matching: find.textContaining(RegExp(r'^\d+ videos')),
+      )
+      .evaluate()) {
     final text = (e.widget as Text).data ?? '';
     return int.parse(text.split(' ').first);
   }
   return null;
+}
+
+// --- What differs between the layouts ------------------------------------------------------------------------------
+
+/// A menu's entry: a bottom sheet on a phone, a popover on a tablet.
+Finder inMenu(Finder finder) => tablet
+    ? find.descendant(of: find.byType(MenuRow), matching: finder)
+    : inSheet(finder);
+
+/// The account's menu (Refresh library, Settings, Log out): the avatar's sheet on a phone, the sidebar's popover on a
+/// tablet.
+Future<void> account(WidgetTester tester, String entry) async {
+  await tap(tester, label('Account'));
+  await tap(tester, inMenu(find.text(entry)));
+}
+
+/// What the Library shows, by the phone's names (All videos, Unwatched, In progress, a saved filter): the pill's
+/// Show sheet on a phone, the sidebar on a tablet.
+Future<void> showInLibrary(WidgetTester tester, String row) async {
+  if (tablet) {
+    final name = switch (row) {
+      'All videos' => 'Library',
+      'In progress' => 'Continue watching',
+      _ => row,
+    };
+    await tap(
+      tester,
+      find.descendant(of: find.byType(LibrarySidebar), matching: label(name)),
+    );
+    return;
+  }
+  await tap(tester, find.bySemanticsLabel(RegExp('^Show: ')));
+  expect(find.text('Show'), findsOneWidget);
+  await tap(tester, inSheet(find.text(row)));
+}
+
+/// The Library's view (Grid, Dense grid, Feed): a menu on a phone, inline buttons on a tablet.
+Future<void> setView(WidgetTester tester, String name) async {
+  if (!tablet) await tap(tester, find.bySemanticsLabel(RegExp('^View: ')));
+  await tap(tester, tablet ? label(name) : find.text(name), settleMs: 900);
+}
+
+/// Plays a video from its card: at once on a phone; on a tablet the card opens its preview drawer, and Play.
+Future<void> playCard(WidgetTester tester, String title) async {
+  await tap(
+    tester,
+    find.descendant(of: find.byType(GridView), matching: find.text(title)),
+  );
+  if (tablet) {
+    // Its drawer, or the player: the card was the drawer's already (the Library keeps it under the player)
+    final player = find.byType(PlayerScreen), drawer = find.byType(VideoDetail);
+    await waitUntil(
+      tester,
+      () => player.evaluate().isNotEmpty || drawer.evaluate().isNotEmpty,
+      'the preview drawer',
+    );
+    if (player.evaluate().isEmpty) await tap(tester, label('Play $title'));
+  }
+  await waitFor(tester, find.byType(PlayerScreen));
+}
+
+/// Back to the Library from the player.
+Future<void> closePlayer(WidgetTester tester) async {
+  await tap(tester, label(tablet ? 'Back to the Library' : 'Close the player'));
+  await waitGone(tester, find.byType(PlayerScreen));
 }

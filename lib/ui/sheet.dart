@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart'
-    show showModalBottomSheet, showGeneralDialog;
+    show Material, MaterialType, showModalBottomSheet, showGeneralDialog;
 import 'package:flutter/widgets.dart';
 
 import '../theme/tokens.dart';
@@ -324,52 +324,56 @@ Future<T?> showCoveDialog<T>(
   transitionDuration: const Duration(milliseconds: 150),
   transitionBuilder: (context, animation, _, child) =>
       FadeTransition(opacity: animation, child: child),
-  pageBuilder: (dialog, _, _) => DefaultTextStyle(
-    style: inter(15),
-    child: Center(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.viewInsetsOf(dialog).bottom,
-        ),
-        child: Container(
-          width: width,
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.sizeOf(dialog).height * 0.85,
+  // A Material under it: a text field needs one (Save as's name), and a dialog has none of its own
+  pageBuilder: (dialog, _, _) => Material(
+    type: MaterialType.transparency,
+    child: DefaultTextStyle(
+      style: inter(15),
+      child: Center(
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(dialog).bottom,
           ),
-          decoration: BoxDecoration(
-            color: Nocturne.surface,
-            borderRadius: BorderRadius.circular(Nocturne.radiusSheet),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x99000000),
-                offset: Offset(0, 24),
-                blurRadius: 60,
-              ),
-            ],
-          ),
-          foregroundDecoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(Nocturne.radiusSheet),
-            border: Border.all(color: Nocturne.textAlpha(10)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 14, 12, 4),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(title, style: inter(17, weight: medium)),
-                    ),
-                    CloseIconButton(
-                      onPressed: () => Navigator.of(dialog).pop(),
-                    ),
-                  ],
+          child: Container(
+            width: width,
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.sizeOf(dialog).height * 0.85,
+            ),
+            decoration: BoxDecoration(
+              color: Nocturne.surface,
+              borderRadius: BorderRadius.circular(Nocturne.radiusSheet),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x99000000),
+                  offset: Offset(0, 24),
+                  blurRadius: 60,
                 ),
-              ),
-              Flexible(child: builder(dialog)),
-            ],
+              ],
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(Nocturne.radiusSheet),
+              border: Border.all(color: Nocturne.textAlpha(10)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 14, 12, 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(title, style: inter(17, weight: medium)),
+                      ),
+                      CloseIconButton(
+                        onPressed: () => Navigator.of(dialog).pop(),
+                      ),
+                    ],
+                  ),
+                ),
+                Flexible(child: builder(dialog)),
+              ],
+            ),
           ),
         ),
       ),

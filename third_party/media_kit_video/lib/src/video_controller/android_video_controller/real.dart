@@ -125,6 +125,8 @@ class AndroidVideoController extends PlatformVideoController {
             'height': height.toString(),
           },
         );
+        // Cove: disposed while the surface was sized (a preview clip closed at once): [rect] is gone
+        if (_disposed) return;
 
         rect.value = Rect.fromLTWH(
           0.0,
@@ -240,6 +242,7 @@ class AndroidVideoController extends PlatformVideoController {
 
   /// Disposes the instance. Releases allocated resources back to the system.
   Future<void> _dispose() async {
+    _disposed = true;
     super.dispose();
     wid.dispose();
     wid.removeListener(widListener);
@@ -253,6 +256,9 @@ class AndroidVideoController extends PlatformVideoController {
       },
     );
   }
+
+  // Cove: see the video params listener
+  bool _disposed = false;
 
   /// Currently created [AndroidVideoController]s.
   static final _controllers = HashMap<int, AndroidVideoController>();

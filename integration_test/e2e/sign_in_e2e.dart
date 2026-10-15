@@ -1,4 +1,5 @@
 import 'package:cove_client/features/library/library_screen.dart';
+import 'package:cove_client/features/signin/components/accounts_pane.dart';
 import 'package:cove_client/features/signin/sign_in_screen.dart';
 import 'package:cove_client/state/accounts.dart';
 import 'package:cove_client/state/session.dart';
@@ -16,10 +17,16 @@ void signInTests() {
     ) async {
       await launch(tester);
       expect(find.byType(SignInScreen), findsOneWidget);
-      expect(find.text('Connect to\nyour library'), findsOneWidget);
+      // A phone: one column; a tablet (1n): the servers beside the selected one
+      expect(
+        find.text(tablet ? 'Connect to your library' : 'Connect to\nyour library'),
+        findsOneWidget,
+      );
       expect(
         find.text(
-          'Add your Cove server by the address you open it at in a browser.',
+          tablet
+              ? 'Add your Cove server'
+              : 'Add your Cove server by the address you open it at in a browser.',
         ),
         findsOneWidget,
       );
@@ -34,7 +41,8 @@ void signInTests() {
       expect(accounts.state.servers.single.address, 'http://10.0.2.2:1');
       await waitFor(tester, find.textContaining('Offline'));
 
-      await tap(tester, find.text('Nowhere'));
+      // A tablet goes on to the new server by itself; a phone picks it from the list
+      if (!tablet) await tap(tester, find.text('Nowhere'));
       await waitFor(tester, find.text("Can't reach Nowhere"));
       expect(find.text('Try again'), findsOneWidget);
 
@@ -85,13 +93,16 @@ void signInTests() {
       await launchSignedIn(tester);
       // Signed in through the app's own path, so that the account is kept
       await tap(tester, label('Account'));
-      expect(find.text('Refresh library'), findsOneWidget);
-      await tap(tester, find.text('Log out'));
+      expect(inMenu(find.text('Refresh library')), findsOneWidget);
+      await tap(tester, inMenu(find.text('Log out')));
       await waitFor(tester, find.byType(SignInScreen));
 
       // Back on the server's accounts: admin asks for the password
       await waitFor(tester, find.text("Who's watching?"));
-      expect(find.text('Password needed'), findsOneWidget);
+      expect(
+        find.descendant(of: find.byType(AccountsPane), matching: find.text('Password needed')),
+        findsOneWidget,
+      );
       await tap(tester, find.text(username));
       await waitFor(tester, find.textContaining('Password for', findRichText: true));
       await type(tester, field('Password'), password);
@@ -99,8 +110,7 @@ void signInTests() {
       await waitFor(tester, find.byType(LibraryScreen));
       await waitFor(tester, find.textContaining(' videos'));
 
-      await tap(tester, label('Account'));
-      await tap(tester, find.text('Log out'));
+      await account(tester, 'Log out');
       await waitFor(tester, find.text("Who's watching?"));
 
       // Edit: remove the account; with none left it asks for one
@@ -110,12 +120,11 @@ void signInTests() {
       await waitFor(tester, field('Username'));
       expect(accounts.state.servers.single.accounts, isEmpty);
 
-      // Back to the servers; remove the server from its ⋮ menu
-      await tap(tester, label('Servers'));
+      // Back to the servers (a tablet shows them beside); remove the server from its ⋮ menu
+      if (!tablet) await tap(tester, label('Servers'));
       await waitFor(tester, find.text('Your Cove servers'));
       await tap(tester, label('Test server options'));
-      expect(find.text('Remove server'), findsOneWidget);
-      await tap(tester, find.text('Remove server'));
+      await tap(tester, inMenu(find.text('Remove server')));
       await waitGone(tester, find.text('Test server'));
       expect(accounts.state.servers, isEmpty);
     });

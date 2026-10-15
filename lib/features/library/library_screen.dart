@@ -178,7 +178,10 @@ class _LibraryScreenState extends State<LibraryScreen> {
     setState(() => _filterTree = tree);
     if (!_large) return;
     _applyTimer?.cancel();
-    _applyTimer = Timer(_dockedApply, () => _library.apply(_filterTree));
+    _applyTimer = Timer(
+      _dockedApply,
+      () => _library.apply(_filterTree, live: true),
+    );
   }
 
   Group get _savingTree => _filterOpen ? _filterTree : _library.tree;
