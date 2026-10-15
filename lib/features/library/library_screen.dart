@@ -449,10 +449,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                   video: playing.video,
                   upNext: playing.upNext,
                   startAt: playing.startAt,
+                  fullscreen: playing.fullscreen,
                   crumb: _library.savedFilter == null
                       ? 'Library'
                       : 'Library › ${_library.savedFilter!.filter.name}',
-                  onPlayNext: (video, upNext) => player.play(video, upNext),
+                  onPlayNext: (video, upNext, fullscreen) =>
+                      player.play(video, upNext, fullscreen: fullscreen),
                   onClose: player.close,
                 ),
               ),

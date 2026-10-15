@@ -48,6 +48,7 @@ class PlayerScreen extends StatefulWidget {
     required this.onPlayNext,
     required this.onClose,
     this.startAt,
+    this.fullscreen = false,
     this.crumb = 'Library',
   });
 
@@ -56,7 +57,13 @@ class PlayerScreen extends StatefulWidget {
   final Video video;
   final List<Video> upNext;
   final double? startAt;
-  final void Function(Video video, List<Video> upNext) onPlayNext;
+
+  /// Opens full screen (the video before it played full screen)
+  final bool fullscreen;
+
+  /// Another video plays: [fullscreen], this one is
+  final void Function(Video video, List<Video> upNext, bool fullscreen)
+  onPlayNext;
   final VoidCallback onClose;
 
   /// "Library", or "Library › Northern evenings"
@@ -102,6 +109,12 @@ class _PlayerScreenState extends State<PlayerScreen> {
     prefs.addListener(_onPrefs);
     _onPrefs();
     _scheduleHide();
+    // After the frame: the video before it, going then, leaves full screen as it goes
+    if (widget.fullscreen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _setFullscreen(true);
+      });
+    }
   }
 
   @override
@@ -124,7 +137,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
   void _ended() {
     final next = widget.upNext;
     if (prefs.autoplay && next.isNotEmpty)
-      widget.onPlayNext(next.first, next.sublist(1));
+      widget.onPlayNext(next.first, next.sublist(1), _fullscreen);
   }
 
   bool _wasPinned = true;
@@ -668,6 +681,7 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 onPressed: () => widget.onPlayNext(
                   widget.upNext.first,
                   widget.upNext.sublist(1),
+                  _fullscreen,
                 ),
               ),
           ],
@@ -1107,7 +1121,8 @@ class _PlayerScreenState extends State<PlayerScreen> {
         _UpNextRow(
           client: widget.client,
           video: v,
-          onPressed: () => widget.onPlayNext(v, widget.upNext.sublist(i + 1)),
+          onPressed: () =>
+              widget.onPlayNext(v, widget.upNext.sublist(i + 1), _fullscreen),
         ),
     ],
   );
@@ -1263,8 +1278,11 @@ class _PlayerScreenState extends State<PlayerScreen> {
                 _UpNextRow(
                   client: widget.client,
                   video: v,
-                  onPressed: () =>
-                      widget.onPlayNext(v, widget.upNext.sublist(i + 1)),
+                  onPressed: () => widget.onPlayNext(
+                    v,
+                    widget.upNext.sublist(i + 1),
+                    _fullscreen,
+                  ),
                 ),
             ],
           ),
