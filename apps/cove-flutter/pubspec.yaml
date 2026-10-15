@@ -1,0 +1,49 @@
+name: cove_client
+description: "Cove client: a playback-first client for a Cove media server (macOS, tablet layout)."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.5
+
+dependencies:
+  collection: ^1.19.1
+  flutter:
+    sdk: flutter
+  http: ^1.6.0
+  media_kit: ^1.2.6
+  media_kit_libs_video: ^1.0.7
+  media_kit_video: ^2.0.1
+  shared_preferences: ^2.5.6
+
+dependency_overrides:
+  # media_kit_video with the Android video surface capped to the size the app asks for (third_party/README.md)
+  media_kit_video:
+    path: third_party/media_kit_video
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/cove-icon.png
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+    - family: Phosphor
+      fonts:
+        - asset: assets/fonts/Phosphor.ttf
+    - family: Phosphor-Fill
+      fonts:
+        - asset: assets/fonts/Phosphor-Fill.ttf
