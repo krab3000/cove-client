@@ -2,7 +2,8 @@
 
 A client for [Cove](https://yourcove.net), the self-hosted media organizer: connect to your Cove server, pick an
 account, browse and filter the library, and play. Flutter, for **macOS**, **Windows** and **Android** (phones and tablets), built
-from the design in [design/](design/README.md) (Nocturne, dark).
+from the design in [design/](design/README.md) (Nocturne, dark); the design is online at
+<https://krab3000.github.io/cove-client/> (`.github/workflows/design.yml` deploys it when `design/` changes on `main`).
 
 - **Sign-in** (design 1a, 1b, 1n, 1o): the servers you added and the accounts kept on this device; a kept account goes
   straight in (Cove's refresh token).

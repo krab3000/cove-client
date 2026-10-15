@@ -1,0 +1,45 @@
+# The design (design/Cove Mobile - standalone.html) on GitHub Pages: https://krab3000.github.io/cove-client/
+# Deployed when design/ changes on main, or by hand (Actions → Design → Run workflow).
+name: Design
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'design/**'
+      - '.github/workflows/design.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a newer push waits for the one running
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # The standalone is one self-contained file: the site's page, under its own name too
+      - name: Build the site
+        run: |
+          mkdir _site
+          cp "design/Cove Mobile - standalone.html" _site/index.html
+          cp "design/Cove Mobile - standalone.html" "_site/Cove Mobile - standalone.html"
+          touch _site/.nojekyll
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deployment
+        uses: actions/deploy-pages@v4
