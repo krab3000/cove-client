@@ -8,9 +8,11 @@ environment:
 
 dependencies:
   collection: ^1.19.1
+  cronet_http: ^1.10.0
   flutter:
     sdk: flutter
   http: ^1.6.0
+  http_image_provider: ^1.1.0
   media_kit: ^1.2.6
   media_kit_libs_video: ^1.0.7
   media_kit_video: ^2.0.1

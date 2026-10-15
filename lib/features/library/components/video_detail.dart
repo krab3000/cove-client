@@ -12,6 +12,7 @@ import '../../../ui/thumb.dart';
 import '../../../utils/format.dart';
 import '../../../ui/chips.dart';
 import 'preview_clip.dart';
+import '../../../api/http.dart';
 
 /// The tablet Library's preview (design 1h, in a drawer): the video picked in the grid — its cover playing Cove's
 /// preview clip, with the rating, the resume bar and a tick per moment; title and meta; Resume / Play, Save for later,
@@ -99,9 +100,11 @@ class _VideoDetailState extends State<VideoDetail> {
                         fit: StackFit.expand,
                         children: [
                           const ColoredBox(color: Nocturne.bg),
-                          Image.network(
-                            widget.client.imageUrl(video),
-                            headers: widget.client.authHeaders,
+                          Image(
+                            image: coveImage(
+                              widget.client.imageUrl(video),
+                              widget.client.authHeaders,
+                            ),
                             fit: BoxFit.cover,
                             gaplessPlayback: true,
                             errorBuilder: (_, _, _) => const SizedBox.shrink(),
@@ -322,9 +325,11 @@ class _Moment extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
-            child: Image.network(
-              client.frameUrl(videoId, segment.startSec),
-              headers: client.authHeaders,
+            child: Image(
+              image: coveImage(
+                client.frameUrl(videoId, segment.startSec),
+                client.authHeaders,
+              ),
               width: 64,
               height: 36,
               fit: BoxFit.cover,

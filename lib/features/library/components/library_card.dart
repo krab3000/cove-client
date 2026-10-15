@@ -12,6 +12,7 @@ import '../../../ui/thumb.dart';
 import '../../../utils/format.dart';
 import '../../../ui/chips.dart';
 import 'preview_clip.dart';
+import '../../../api/http.dart';
 
 // A hover this long starts the card's preview (a pointer passing over the grid starts none)
 const _hoverDelay = Duration(milliseconds: 250);
@@ -425,13 +426,11 @@ class _Cover extends StatelessWidget {
         : others
               .where((o) => o != w && _decoded.contains('$url@$o'))
               .firstOrNull;
-    Image image(int? decodeWidth, {required bool own}) => Image.network(
-      url,
-      headers: headers,
+    Image image(int? decodeWidth, {required bool own}) => Image(
+      image: coveImage(url, headers, cacheWidth: decodeWidth),
       fit: BoxFit.cover,
       width: double.infinity,
       height: height,
-      cacheWidth: decodeWidth,
       gaplessPlayback: true,
       frameBuilder: (context, child, frame, sync) {
         if (frame != null && decodeWidth != null)

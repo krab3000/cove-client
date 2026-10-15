@@ -25,6 +25,7 @@ import '../../utils/format.dart';
 import 'components/playback_options.dart';
 import 'components/seek_track.dart';
 import 'player_session.dart';
+import '../../api/http.dart';
 
 const _ink = Color(0xFFE9E9ED);
 const _panel = 360.0;
@@ -1584,9 +1585,11 @@ class _MomentRow extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(6),
-            child: Image.network(
-              client.frameUrl(video.id, segment.startSec),
-              headers: client.authHeaders,
+            child: Image(
+              image: coveImage(
+                client.frameUrl(video.id, segment.startSec),
+                client.authHeaders,
+              ),
               width: 120,
               height: 67,
               fit: BoxFit.cover,
@@ -1663,9 +1666,11 @@ class _MomentTile extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  client.frameUrl(video.id, segment.startSec),
-                  headers: client.authHeaders,
+                Image(
+                  image: coveImage(
+                    client.frameUrl(video.id, segment.startSec),
+                    client.authHeaders,
+                  ),
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) =>
                       const ColoredBox(color: Nocturne.surface),
@@ -1727,9 +1732,11 @@ class _UpNextRow extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.network(
-                  client.imageUrl(video, max: 320),
-                  headers: client.authHeaders,
+                Image(
+                  image: coveImage(
+                    client.imageUrl(video, max: 320),
+                    client.authHeaders,
+                  ),
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => const SizedBox.shrink(),
                 ),

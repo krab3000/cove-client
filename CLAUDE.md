@@ -46,6 +46,10 @@ Single-condition editor (not designed) · light theme for the app's screens · c
 
 ## The app
 - **Stack:** Flutter (Dart 3), `media_kit` (libmpv) for the player and the preview clips, `http`, `shared_preferences`.
+  Every request to Cove (API, covers, frames) goes through `coveHttp` (`lib/api/http.dart`): Cronet (`cronet_http`)
+  on Android, so the network security config applies (a LAN's private CA installed on the device, `*.haloworld.lan`;
+  Dart's own client trusts only the CAs Android ships); Dart's client elsewhere. Images: `coveImage`, not
+  `Image.network`. AGP 9 needs `android.uniquePackageNames=false` for Cronet's two libraries.
   `third_party/media_kit_video` is media_kit_video 2.0.1 with one change (`Cove:` in
   `lib/src/video_controller/android_video_controller/real.dart`): Android's video surface capped to the size the app
   asks for, so 4K plays at the screen's size (see `third_party/README.md`). Android decodes with `hwdec=mediacodec`

@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../../api/models.dart';
 import '../../../theme/tokens.dart';
 import '../../../utils/format.dart';
+import '../../../api/http.dart';
 
 const _ink = Color(0xFFE9E9ED);
 const _marker = Color(0xFFD2CEFD);
@@ -222,9 +223,11 @@ class _SeekTrackState extends State<SeekTrack> {
         headers: widget.frameHeaders,
       );
     } else if (_rested != null && widget.frameUrl != null) {
-      frame = Image.network(
-        widget.frameUrl!(widget.clipStart + _rested!),
-        headers: widget.frameHeaders,
+      frame = Image(
+        image: coveImage(
+          widget.frameUrl!(widget.clipStart + _rested!),
+          widget.frameHeaders,
+        ),
         fit: BoxFit.cover,
         gaplessPlayback: true,
         errorBuilder: (_, _, _) => const SizedBox.shrink(),
@@ -311,9 +314,8 @@ class SpriteCell extends StatelessWidget {
               top: -cue.y * scale - (cue.h * scale - height) / 2,
               width: sheet.width * scale,
               height: sheet.height * scale,
-              child: Image.network(
-                sheet.url,
-                headers: headers,
+              child: Image(
+                image: coveImage(sheet.url, headers),
                 fit: BoxFit.fill,
                 gaplessPlayback: true,
                 errorBuilder: (_, _, _) => const SizedBox.shrink(),

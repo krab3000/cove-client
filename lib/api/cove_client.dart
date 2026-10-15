@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import 'models.dart';
+import 'http.dart';
 
 export 'models.dart';
 
@@ -56,7 +57,7 @@ class CoveClient {
   /// Told the new refresh token whenever it rotates, so a session kept on the device follows it.
   void Function(String refreshToken)? onRefreshToken;
 
-  static final _http = http.Client();
+  static final _http = coveHttp;
 
   static Future<CoveClient> login(
     String server,
@@ -101,8 +102,9 @@ class CoveClient {
           .get(Uri.parse('$server/api/system/status'))
           .timeout(const Duration(seconds: 4));
       return true; // any answer: it is there
-    } catch (_) {
-      return false;
+    } catch (e) {
+      // A certificate this device doesn't trust: it answered (signing in says why it can't go on)
+      return untrustedCertificate(e);
     }
   }
 
@@ -538,14 +540,17 @@ List<SpriteCue> parseSpriteVtt(String vtt) {
 }
 
 /// What went wrong on the way to the server, in a few words.
-String _networkDetail(Object error) => switch (error) {
-  SocketException(:final osError?) => osError.message,
-  SocketException(:final message) => message,
-  HandshakeException(:final message) => 'TLS: $message',
-  TimeoutException() => 'no answer',
-  FormatException() => 'not an address',
-  _ => error.toString(),
-};
+String _networkDetail(Object error) => untrustedCertificate(error)
+    ? "its certificate isn't trusted on this device (a private CA: install its root CA certificate in Android's "
+          'settings, Security > Encryption & credentials > Install a certificate > CA certificate)'
+    : switch (error) {
+        SocketException(:final osError?) => osError.message,
+        SocketException(:final message) => message,
+        HandshakeException(:final message) => 'TLS: $message',
+        TimeoutException() => 'no answer',
+        FormatException() => 'not an address',
+        _ => error.toString(),
+      };
 
 String _describe(int status, String? code, String detail) {
   if (code == 'INVALID_CREDENTIALS') return 'Wrong username or password.';
