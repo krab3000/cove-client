@@ -33,6 +33,9 @@ class LibraryCard extends StatefulWidget {
     this.focused = false,
     this.onAddTag,
     this.onAddPerformer,
+    this.coverWidths = const [],
+    this.decodeCover = true,
+    this.still = false,
   });
 
   final CoveClient client;
@@ -53,6 +56,17 @@ class LibraryCard extends StatefulWidget {
   /// A tag or a person tapped on a list card goes into the filter
   final ValueChanged<Named>? onAddTag;
   final ValueChanged<Named>? onAddPerformer;
+
+  /// The sizes (pixels wide) its cover is decoded at in the other views: one of them already decoded shows while
+  /// this view's loads, so switching views shows no blank covers
+  final List<int> coverWidths;
+
+  /// False while cards move between views: a cover keeps a size already decoded (any of [coverWidths]) and its own
+  /// size is decoded once the move is over (a cover never seen loads at once)
+  final bool decodeCover;
+
+  /// A card moving between views: drawn only (no gestures, hover or listeners)
+  final bool still;
 
   @override
   State<LibraryCard> createState() => _LibraryCardState();
@@ -160,6 +174,47 @@ class _LibraryCardState extends State<LibraryCard> {
       );
     }
 
+    Widget face(Personal? personal) => Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        thumb(_overlays(video, personal)),
+        if (_list)
+          _ListDetails(
+            video: video,
+            personal: personal,
+            store: widget.personal,
+            onAddTag: widget.onAddTag,
+            onAddPerformer: widget.onAddPerformer,
+          )
+        else ...[
+          const SizedBox(height: 5),
+          Text(
+            videoTitle(video),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: inter(
+              12,
+              weight: medium,
+              height: 16,
+              color: widget.selected ? Nocturne.accent300 : Nocturne.text,
+            ),
+          ),
+          if (widget.view == LibraryView.grid2)
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Text(
+                videoSubtitle(video),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: inter(11.5, height: 15, color: Nocturne.textAlpha(55)),
+              ),
+            ),
+        ],
+      ],
+    );
+
+    // Moving between views: the card as a picture (no taps, hover or live data for the move's 450 ms)
+    if (widget.still) return face(widget.personal.of(video));
     return GestureDetector(
       onLongPressStart: (_) => setState(() {
         _held = true;
@@ -174,53 +229,7 @@ class _LibraryCardState extends State<LibraryCard> {
           semanticLabel: videoTitle(video),
           builder: (context, states) => ListenableBuilder(
             listenable: widget.personal,
-            builder: (context, _) {
-              final personal = widget.personal.of(video);
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  thumb(_overlays(video, personal)),
-                  if (_list)
-                    _ListDetails(
-                      video: video,
-                      personal: personal,
-                      store: widget.personal,
-                      onAddTag: widget.onAddTag,
-                      onAddPerformer: widget.onAddPerformer,
-                    )
-                  else ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      videoTitle(video),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: inter(
-                        12,
-                        weight: medium,
-                        height: 16,
-                        color: widget.selected
-                            ? Nocturne.accent300
-                            : Nocturne.text,
-                      ),
-                    ),
-                    if (widget.view == LibraryView.grid2)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 1),
-                        child: Text(
-                          videoSubtitle(video),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: inter(
-                            11.5,
-                            height: 15,
-                            color: Nocturne.textAlpha(55),
-                          ),
-                        ),
-                      ),
-                  ],
-                ],
-              );
-            },
+            builder: (context, _) => face(widget.personal.of(video)),
           ),
         ),
       ),
@@ -229,32 +238,15 @@ class _LibraryCardState extends State<LibraryCard> {
 
   Widget _cover(Video video, double height) {
     final dpr = MediaQuery.devicePixelRatioOf(context);
-    return Image.network(
-      widget.client.imageUrl(video),
+    return _Cover(
+      url: widget.client.imageUrl(video),
       headers: widget.client.authHeaders,
-      fit: BoxFit.cover,
-      width: double.infinity,
       height: height,
       // Decoded at the card's size: Cove serves generated covers at the video's resolution
-      cacheWidth: widget.width > 0 ? (widget.width * dpr).round() : null,
-      gaplessPlayback: true,
-      frameBuilder: (context, child, frame, sync) => sync
-          ? child
-          : AnimatedOpacity(
-              opacity: frame == null ? 0 : 1,
-              duration: const Duration(milliseconds: 180),
-              child: child,
-            ),
-      errorBuilder: (context, error, stack) => Center(
-        child: Text(
-          (video.primaryFile?.videoCodec ?? '').toUpperCase(),
-          style: inter(
-            14,
-            weight: FontWeight.w600,
-            color: Nocturne.textAlpha(55),
-          ),
-        ),
-      ),
+      width: widget.width > 0 ? (widget.width * dpr).round() : null,
+      others: widget.coverWidths,
+      decode: widget.decodeCover,
+      placeholder: (video.primaryFile?.videoCodec ?? '').toUpperCase(),
     );
   }
 
@@ -396,6 +388,84 @@ class _ListDetails extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// The covers decoded so far, as "url@width" (a view switch shows one of these while its own size loads).
+final _decoded = <String>{};
+
+/// A card's cover, decoded at the card's size. Until that size has loaded, a size of it already decoded for another
+/// view shows (scaled), so a view switch never shows the cover blank; a cover loading for the first time fades in.
+class _Cover extends StatelessWidget {
+  const _Cover({
+    required this.url,
+    required this.headers,
+    required this.height,
+    required this.width,
+    required this.others,
+    required this.placeholder,
+    this.decode = true,
+  });
+
+  final String url;
+  final Map<String, String> headers;
+  final double height;
+  final int? width;
+  final List<int> others;
+  final String placeholder;
+  final bool decode;
+
+  @override
+  Widget build(BuildContext context) {
+    final w = width;
+    final ready = w != null && _decoded.contains('$url@$w');
+    final fallback = ready
+        ? null
+        : others
+              .where((o) => o != w && _decoded.contains('$url@$o'))
+              .firstOrNull;
+    Image image(int? decodeWidth, {required bool own}) => Image.network(
+      url,
+      headers: headers,
+      fit: BoxFit.cover,
+      width: double.infinity,
+      height: height,
+      cacheWidth: decodeWidth,
+      gaplessPlayback: true,
+      frameBuilder: (context, child, frame, sync) {
+        if (frame != null && decodeWidth != null)
+          _decoded.add('$url@$decodeWidth');
+        // Its own size over a fallback: shown once loaded, at once (the fallback is the same picture)
+        if (sync || ready) return child;
+        if (fallback != null && own)
+          return Opacity(opacity: frame == null ? 0 : 1, child: child);
+        return AnimatedOpacity(
+          opacity: frame == null ? 0 : 1,
+          duration: const Duration(milliseconds: 180),
+          child: child,
+        );
+      },
+      errorBuilder: (context, error, stack) => own
+          ? Center(
+              child: Text(
+                placeholder,
+                style: inter(
+                  14,
+                  weight: FontWeight.w600,
+                  color: Nocturne.textAlpha(55),
+                ),
+              ),
+            )
+          : const SizedBox.shrink(),
+    );
+    // Not now (a move): the size already decoded alone
+    if (!decode && fallback != null) return image(fallback, own: false);
+    final own = image(w, own: true);
+    if (fallback == null) return own;
+    return Stack(
+      fit: StackFit.expand,
+      children: [image(fallback, own: false), own],
     );
   }
 }

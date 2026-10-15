@@ -1,9 +1,12 @@
+import 'dart:math';
 import 'dart:ui' show FrameTiming;
 
 import 'package:cove_client/api/cove_client.dart';
 import 'package:cove_client/data/library.dart';
 import 'package:cove_client/features/library/library_screen.dart';
 import 'package:cove_client/features/player/player_session.dart';
+import 'package:cove_client/state/prefs.dart';
+import 'package:cove_client/ui/icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -45,6 +48,57 @@ void main() {
         await tester.pumpAndSettle();
       }
     }, reportKey: 'library_scroll');
+    client.dispose();
+  });
+
+  testWidgets('switching views', (tester) async {
+    final client = await CoveClient.login(server, 'admin', 'adminadmin');
+    prefs.libraryView = LibraryView.grid3;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: LibraryScreen(client: client)),
+      ),
+    );
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    await tester.fling(find.byType(GridView), const Offset(0, -700), 2000);
+    await tester.pumpAndSettle();
+    // Frames as the app gets them, through each move
+    binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fullyLive;
+    final shown = <FrameTiming>[];
+    void collect(List<FrameTiming> t) => shown.addAll(t);
+    WidgetsBinding.instance.addTimingsCallback(collect);
+    await binding.watchPerformance(() async {
+      for (final icon in [
+        Phosphor.squaresFour,
+        Phosphor.rows,
+        Phosphor.dotsNine,
+        Phosphor.rows,
+        Phosphor.squaresFour,
+        Phosphor.dotsNine,
+      ]) {
+        await tester.tap(find.byIcon(icon));
+        await Future<void>.delayed(const Duration(milliseconds: 900));
+      }
+    }, reportKey: 'view_switch');
+    WidgetsBinding.instance.removeTimingsCallback(collect);
+    binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fadePointers;
+    final over = shown.where((t) => t.totalSpan.inMicroseconds > 16700).length;
+    final worst = shown
+        .map((t) => t.totalSpan.inMicroseconds / 1000)
+        .fold(0.0, max);
+    binding.reportData = {
+      ...?binding.reportData,
+      'view_switch_frames': {
+        'count': shown.length,
+        'over_16ms': over,
+        'worst_ms': worst,
+      },
+    };
+    debugPrint(
+      'views: ${shown.length} frames, $over over 16.7 ms, worst ${worst.toStringAsFixed(1)} ms',
+    );
     client.dispose();
   });
 
@@ -100,7 +154,8 @@ void main() {
     }, reportKey: 'player_4k_ui');
     WidgetsBinding.instance.removeTimingsCallback(collect);
     stats['flutter_fps'] = (shown.length / 15).toStringAsFixed(1);
-    stats['flutter_frames_over_16ms'] = '${shown.where((t) => t.totalSpan.inMicroseconds > 16700).length}';
+    stats['flutter_frames_over_16ms'] =
+        '${shown.where((t) => t.totalSpan.inMicroseconds > 16700).length}';
     stats['played_seconds'] = (session.position - start).toStringAsFixed(1);
     binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.fadePointers;
     stats['frame_drop'] =

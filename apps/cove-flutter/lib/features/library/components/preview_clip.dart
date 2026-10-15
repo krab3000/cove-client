@@ -66,16 +66,25 @@ class _PreviewClipState extends State<PreviewClip> {
     player.stream.error.listen((_) {
       if (mounted && !_playing) widget.onState?.call(PreviewState.none);
     });
-    await player.setVolume(0);
-    await player.setPlaylistMode(PlaylistMode.single);
-    await player.open(
-      Media(
-        widget.client.previewUrl(widget.videoId),
-        // The session's JWT now (a renewal later doesn't matter: the clip is fetched at once)
-        httpHeaders: widget.client.authHeaders,
-      ),
-    );
-    await controller.waitUntilFirstFrameRendered;
+    // The card may go while this starts (scrolled away, the view switched): its player is disposed then, and
+    // anything more asked of it throws
+    try {
+      await player.setVolume(0);
+      if (!mounted) return;
+      await player.setPlaylistMode(PlaylistMode.single);
+      if (!mounted) return;
+      await player.open(
+        Media(
+          widget.client.previewUrl(widget.videoId),
+          // The session's JWT now (a renewal later doesn't matter: the clip is fetched at once)
+          httpHeaders: widget.client.authHeaders,
+        ),
+      );
+      if (!mounted) return;
+      await controller.waitUntilFirstFrameRendered;
+    } catch (_) {
+      return;
+    }
     if (!mounted) return;
     setState(() => _playing = true);
     widget.onState?.call(PreviewState.playing);
