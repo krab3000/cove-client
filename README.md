@@ -8,7 +8,7 @@ from the design in [design/](design/README.md) (Nocturne, dark); the design is o
 - **Sign-in** (design 1a, 1b, 1n, 1o): the servers you added and the accounts kept on this device; a kept account goes
   straight in (Cove's refresh token).
 - **Library** (8a–8g, 6c–6h, 1g, 1h): the filter pill, Cove's search, Shuffle, Play all; three views (2 columns, 3
-  columns, list) that animate into each other; preview clips on hover, mid-screen (list view) or a long press; a tablet's
+  columns, list) that animate into each other; preview clips on hover, on screen (list view) or a long press; a tablet's
   sidebar and preview drawer.
 - **Filter editor** (2b, 2d, 3a–3d, 4a–4c, 5a–5f, 9a–9d): Cove's filter trees as an outline with cut / copy / paste,
   wrap, ungroup and simplify; conditions on every field, library folders, relative dates; Save and Save as.

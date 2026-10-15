@@ -1,5 +1,7 @@
 import 'dart:math';
 
+import 'package:collection/collection.dart';
+
 import 'package:flutter/material.dart' show RefreshIndicator;
 import 'package:flutter/widgets.dart';
 
@@ -111,8 +113,8 @@ typedef _Mover = ({int index, Rect? from, Rect to});
 
 /// The Library's videos in one of its views: rows of a fixed height, so the grid is virtual (only the rows in view are
 /// built) and each card asks for its page as it comes into view. Switching views moves the cards on screen to their new
-/// places (the top one stays where it is). On a touch screen the list's card in the middle of the screen plays its
-/// preview, and a pull from the top refreshes.
+/// places (the top one stays where it is). On a touch screen every card of the list on screen plays its preview (the
+/// grids' on a long press), and a pull from the top refreshes.
 class LibraryGrid extends StatefulWidget {
   const LibraryGrid({
     super.key,
@@ -147,7 +149,8 @@ class LibraryGrid extends StatefulWidget {
 class _LibraryGridState extends State<LibraryGrid>
     with SingleTickerProviderStateMixin {
   final _scroll = ScrollController();
-  int? _focused;
+  // Touch, list view: the cards on screen
+  Set<int> _focused = const {};
   _Geometry? _geometry;
   double _width = 0;
   double _viewport = 0;
@@ -260,20 +263,22 @@ class _LibraryGridState extends State<LibraryGrid>
     _move.forward(from: 0);
   }
 
-  /// Touch, list view: the card whose middle is nearest the screen's middle.
+  /// Touch, list view: the cards on screen.
   void _updateFocus() {
     final g = _geometry;
     if (desktop ||
         widget.view != LibraryView.list ||
         !_scroll.hasClients ||
         g == null) {
-      if (_focused != null) setState(() => _focused = null);
+      if (_focused.isNotEmpty) setState(() => _focused = const {});
       return;
     }
-    final row = ((_scroll.offset + _viewport / 2 - _padTop) / g.rowHeight)
-        .floor();
-    final index = row * g.columns;
-    if (index != _focused) setState(() => _focused = index);
+    final on = g
+        .visible(_scroll.offset, _viewport, widget.library.total ?? 0)
+        .toSet();
+    if (!const SetEquality<int>().equals(on, _focused)) {
+      setState(() => _focused = on);
+    }
   }
 
   @override
@@ -310,7 +315,9 @@ class _LibraryGridState extends State<LibraryGrid>
         _width = width;
         _viewport = constraints.maxHeight;
         _bottom = 28 + MediaQuery.paddingOf(context).bottom;
-        if (_focused == null && !desktop && widget.view == LibraryView.list) {
+        // In the list, and once more after leaving it (its cards stop)
+        if (!desktop &&
+            (widget.view == LibraryView.list || _focused.isNotEmpty)) {
           WidgetsBinding.instance.addPostFrameCallback((_) => _updateFocus());
         }
         // A cover is decoded at its card's size in each view: these, so a card can show a size already decoded
@@ -337,7 +344,7 @@ class _LibraryGridState extends State<LibraryGrid>
             selected: video != null && video.id == widget.selectedId,
             onPressed: widget.onPressed,
             previews: previews && widget.previews,
-            focused: _focused == index,
+            focused: _focused.contains(index),
             onAddTag: widget.onAddTag,
             onAddPerformer: widget.onAddPerformer,
             coverWidths: coverWidths,

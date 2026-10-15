@@ -9,9 +9,9 @@ closed at once) no longer sets its disposed `rect` ("A ValueNotifier was used af
 
 `media_kit` 1.2.6 (pub.dev, MIT; `LICENSE` inside; without its example, screenshots and tests), vendored with one
 change, marked `Cove:` in `lib/src/player/native/player/real.dart`. A disposed player's `mpv_terminate_destroy` runs
-in a short-lived isolate instead of the main one. It waits for mpv's core thread to exit, and on Android the main
-isolate runs on the platform thread: a core thread slow to stop, or waiting on that thread (MediaCodec's release), made
-the app stop responding (Android's "not responding" after 10 s; seen on a Galaxy S22 after closing players and
-preview clips).
+in a short-lived isolate instead of the main one (from a top-level function: an isolate can't take a closure that
+holds the player). It waits for mpv's core thread to exit, and on Android the main isolate runs on the platform thread:
+a core thread slow or stuck stopping made the app stop responding (Android's "not responding" after 10 s; seen on a
+Galaxy S22 after closing players and preview clips).
 
 `pubspec.yaml` points both packages here with `dependency_overrides`.

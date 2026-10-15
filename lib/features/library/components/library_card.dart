@@ -51,7 +51,7 @@ class LibraryCard extends StatefulWidget {
   /// Previews may play (not under the player, not turned off in Settings)
   final bool previews;
 
-  /// Touch: the card in the middle of the screen previews
+  /// Touch, list view: on screen, so it previews
   final bool focused;
 
   /// A tag or a person tapped on a list card goes into the filter

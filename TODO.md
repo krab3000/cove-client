@@ -13,8 +13,10 @@ Work left for later, with enough context to pick it up. Remove an entry when it 
 - **CI.** None: `flutter analyze`, `flutter test` and an APK build on every push would catch most breakage.
 - **"Decode previews in hardware"** (Settings → Library & previews) is stored but not used: the preview clips' player
   (`lib/features/library/components/preview_clip.dart`) ignores it. Wire it to that player's `hwdec`, or remove the row.
-- **Touch previews in grids.** On a touch screen the card in the middle of the screen plays its preview in the list
-  view only; the grid views play one on a long press. The design plays the middle row's cards in every view.
+- **Touch previews in grids.** On a touch screen every card of the list view on screen plays its preview; the grid
+  views play one on a long press. The design plays the middle row's cards in every view. On Android each preview
+  renders straight from the hardware decoder (`vo=mediacodec_embed`): through mpv's GPU output, a screen of previews at
+  once stalled the GPU driver (EGL) on a Galaxy S22, and every player with it until the app restarted.
 - **No streaming cache.** libmpv streams over HTTP: seeking back or replaying fetches again, and preview clips aren't
   fetched ahead of the rows the list moves to. Fine on a fast LAN; a local caching proxy in front of mpv would cover
   both.

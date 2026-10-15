@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
@@ -53,7 +55,17 @@ class _PreviewClipState extends State<PreviewClip> {
           logLevel: MPVLogLevel.error,
         ),
       );
-      controller = VideoController(player);
+      // Android: the decoder renders straight into the clip's surface (no EGL context per clip; with many clips
+      // their EGL calls blocked each other in the GPU driver and froze the app)
+      controller = VideoController(
+        player,
+        configuration: Platform.isAndroid
+            ? const VideoControllerConfiguration(
+                vo: 'mediacodec_embed',
+                hwdec: 'mediacodec',
+              )
+            : const VideoControllerConfiguration(),
+      );
     } catch (_) {
       // No player here (libmpv didn't load): the cover stays
       widget.onState?.call(PreviewState.none);

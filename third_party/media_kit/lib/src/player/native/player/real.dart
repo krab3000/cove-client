@@ -65,6 +65,13 @@ void nativeEnsureInitialized({String? libmpv}) {
   });
 }
 
+// Cove: a top-level function, so the isolate's closure holds only the handle's address and libmpv's path (a closure
+// made in a method holds its player too, which can't be sent to an isolate).
+Future<void> _terminateDestroy(int address, String path) => Isolate.run(() {
+      generated.MPV(DynamicLibrary.open(path))
+          .mpv_terminate_destroy(Pointer.fromAddress(address));
+    });
+
 /// {@template native_player}
 ///
 /// NativePlayer
@@ -105,15 +112,12 @@ class NativePlayer extends PlatformPlayer {
       Initializer(mpv).dispose(ctx);
 
       // Cove: off the main isolate. mpv_terminate_destroy waits for mpv's core thread to exit, and on Android the main
-      // isolate runs on the platform thread: a core thread that took long to stop (or waited on that thread, as
-      // MediaCodec's release can) froze the app until Android reported it not responding.
+      // isolate runs on the platform thread: a core thread slow or stuck stopping (its video output in the GPU
+      // driver) froze the app until Android reported it not responding.
       final address = ctx.address;
       final path = NativeLibrary.path;
       Future.delayed(const Duration(seconds: 5), () {
-        Isolate.run(() {
-          generated.MPV(DynamicLibrary.open(path))
-              .mpv_terminate_destroy(Pointer.fromAddress(address));
-        });
+        _terminateDestroy(address, path);
       });
     }
 
