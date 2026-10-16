@@ -48,6 +48,8 @@ class AndroidVideoController extends PlatformVideoController {
   /// Listener for updating the --wid property.
   Future<void> widListener() {
     return lock.synchronized(() async {
+      // Cove: disposed while this waited for the lock
+      if (_gone) return;
       final width = rect.value?.width.toInt() ?? 1;
       final height = rect.value?.height.toInt() ?? 1;
       final androidSurfaceSizeValue = [width, height].join('x');
@@ -68,10 +70,17 @@ class AndroidVideoController extends PlatformVideoController {
           if (configuration.vo == 'mediacodec_embed') 'vid': vidValue,
         },
       );
+      // Cove: disposed while the output was set up again (a preview clip closed at once): the player is gone
+      if (_gone) return;
       // Instead of seeking to the start (Duration.zero), seek to the current playback position
       // without jumping the user to the start of the media.
       final currentPosition = player.state.position;
-      await player.seek(currentPosition);
+      try {
+        await player.seek(currentPosition);
+      } on AssertionError {
+        // Cove: the seek waits for the player's lock, and the player can be disposed meanwhile; nothing to redraw then
+        if (!_gone) rethrow;
+      }
     });
   }
 
@@ -126,7 +135,7 @@ class AndroidVideoController extends PlatformVideoController {
           },
         );
         // Cove: disposed while the surface was sized (a preview clip closed at once): [rect] is gone
-        if (_disposed) return;
+        if (_gone) return;
 
         rect.value = Rect.fromLTWH(
           0.0,
@@ -257,8 +266,11 @@ class AndroidVideoController extends PlatformVideoController {
     );
   }
 
-  // Cove: see the video params listener
+  // Cove: see the video params and wid listeners
   bool _disposed = false;
+
+  // Cove: this controller or its player disposed (the player says so first; this, when its release callbacks run)
+  bool get _gone => _disposed || platform.disposed;
 
   /// Currently created [AndroidVideoController]s.
   static final _controllers = HashMap<int, AndroidVideoController>();
