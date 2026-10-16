@@ -15,7 +15,7 @@ hung after overlapping seeks: mpv waited for a frame that never came ("Waiting f
 | | |
 |---|---|
 | mpv | master `a2cd83c56de859ced3fc8e6055e5878e50f45286` (0.41.0+, client API 2.6), with media-kit's `mpv_lavc_set_java_vm` patch |
-| FFmpeg | n9.0.2 (`946fcce0`), media-kit's "default" configuration (LGPL v3, static, the same codecs, formats and protocols) |
+| FFmpeg | n9.0.2 (`946fcce0`), media-kit's "default" configuration (LGPL v3, static, the same codecs, formats and protocols), with one patch: MediaCodec decoding gives control back (EAGAIN) after one blocked wait instead of looping (zero-copy: frames free up only when mpv's core thread renders, and it was the one waiting: `open`/`dispose` never returned) |
 | libplacebo | v7.360.1 (now required by mpv), OpenGL ES only, libc++ linked in statically |
 | others | dav1d 1.5.4, libass 0.17.5, freetype 2.14.3, fribidi 1.0.17, harfbuzz 14.5.0, mbedtls 3.6.7, libxml2 2.15.4 |
 | toolchain | Android NDK r30, API level 24 (Flutter's minimum), 16 KB pages |

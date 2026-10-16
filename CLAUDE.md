@@ -70,7 +70,9 @@ Single-condition editor (not designed) · light theme for the app's screens · c
   against the test server: `flutter test integration_test/<file> -d macos` (or `-d windows`); end to end on a phone
   or a tablet (every screen and feature, the real app; `integration_test/e2e/`, one file per area; `harness.dart` for
   launching clean or signed in, waiting without pumpAndSettle, and the layout: `tablet`, helpers for what differs,
-  `skip: !tablet` + `tags: [tabletTag]` for one layout's tests): `flutter test integration_test/e2e_test.dart -d
+  `skip: !tablet` + `tags: [tabletTag]` for one layout's tests); the player's stress tests
+  (`integration_test/stress_test.dart`, `stress/`: media_kit directly, the app's data left alone; every call bounded, so
+  a hang fails named; each scenario ends with the clock and the frames moving): `flutter test integration_test/e2e_test.dart -d
   emulator-5554` (the phone) / `-d emulator-5556` (`cove_tablet_api35`); device performance:
   `flutter drive --profile --no-dds --keep-app-running --driver=test_driver/perf_driver.dart
   --target=integration_test/perf_test.dart -d <device>` (without `--keep-app-running`, `flutter drive` uninstalls the

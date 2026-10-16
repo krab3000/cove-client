@@ -1,7 +1,7 @@
 From 7fd31526881ff9e6823496eea231d318ec025808 Mon Sep 17 00:00:00 2001
 From: krab3000 <336138103+krab3000@users.noreply.github.com>
 Date: Fri, 16 Oct 2026 09:24:32 +0300
-Subject: [PATCH 1/5] Cove: mpv master + FFmpeg n9.0.2, built in Docker,
+Subject: [PATCH 1/6] Cove: mpv master + FFmpeg n9.0.2, built in Docker,
  verified
 
 - depinfo: mpv a2cd83c (with mpv PR #18453), FFmpeg n9.0.2, libplacebo

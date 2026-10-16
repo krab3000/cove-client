@@ -36,7 +36,14 @@ class AndroidVideoController extends PlatformVideoController {
   NativePlayer get platform => player.platform as NativePlayer;
 
   Future<void> setProperty(String key, String value) async {
-    await platform.setProperty(key, value, waitForInitialization: false);
+    // Cove: the output's properties go one after another, each waiting for mpv's reply (media_kit's async
+    // setProperty): the player can be disposed between two of them. Nothing left to set up then.
+    if (_gone) return;
+    try {
+      await platform.setProperty(key, value, waitForInitialization: false);
+    } on AssertionError {
+      if (!_gone) rethrow;
+    }
   }
 
   Future<void> setProperties(Map<String, String> properties) async {
@@ -72,6 +79,10 @@ class AndroidVideoController extends PlatformVideoController {
       );
       // Cove: disposed while the output was set up again (a preview clip closed at once): the player is gone
       if (_gone) return;
+      // Cove: playing, the next frame draws on the new output anyway; the seek is only for a paused picture. A seek
+      // here cancelled the stream's reads mid-way and FFmpeg's MP4 demuxer took them for a broken file ("partial
+      // file", "corrupted CTTS atom"): playback never restarted (integration_test/stress: the view resized).
+      if (player.state.playing) return;
       // Instead of seeking to the start (Duration.zero), seek to the current playback position
       // without jumping the user to the start of the media.
       final currentPosition = player.state.position;

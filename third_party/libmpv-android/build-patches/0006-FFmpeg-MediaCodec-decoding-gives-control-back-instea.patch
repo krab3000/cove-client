@@ -1,0 +1,71 @@
+From cbbcd186d6f7472df918a55d1f1cf74f4efa59cc Mon Sep 17 00:00:00 2001
+From: krab3000 <336138103+krab3000@users.noreply.github.com>
+Date: Fri, 16 Oct 2026 10:34:31 +0300
+Subject: [PATCH 6/6] FFmpeg: MediaCodec decoding gives control back instead of
+ waiting forever
+
+mediacodec_receive_frame looped while both the input and the output ports
+said "try again": with a surface (zero-copy), output frees up only when the
+caller releases or renders a frame it holds, and mpv does that on the same
+core thread, so it deadlocked (mpv's core stuck in dequeueOutputBuffer;
+loadfile and destroy waiting on it: the stress tests' "open/dispose did not
+return"). After one blocked wait (1 s) it returns EAGAIN; mpv keeps the
+packet ("could not consume packet") and retries after rendering.
+build.sh: a dependency's stamp covers its patches.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ buildscripts/build.sh                         |  4 ++-
+ .../ffmpeg/mediacodec_no_endless_wait.patch   | 25 +++++++++++++++++++
+ 2 files changed, 28 insertions(+), 1 deletion(-)
+ create mode 100644 buildscripts/patches/ffmpeg/mediacodec_no_endless_wait.patch
+
+diff --git a/buildscripts/build.sh b/buildscripts/build.sh
+index 9d61fb1..7486bdc 100755
+--- a/buildscripts/build.sh
++++ b/buildscripts/build.sh
+@@ -99,7 +99,9 @@ CROSSFILE
+ # Docker's volume between runs); the target (mpv) always builds
+ stamp_of () {
+ 	local v="v_${1//-/_}" s="v_${1//-/_}_sha" s256="v_${1//-/_}_sha256"
+-	echo "${!v}:${!s}${!s256}:$(sha1sum scripts/$1.sh | cut -d' ' -f1)"
++	# its patches too (patches/<name>/): a new or changed patch builds it again
++	local patches=$(cat patches/$1/* 2>/dev/null | sha1sum | cut -d' ' -f1)
++	echo "${!v}:${!s}${!s256}:$(sha1sum scripts/$1.sh | cut -d' ' -f1):$patches"
+ }
+ 
+ build () {
+diff --git a/buildscripts/patches/ffmpeg/mediacodec_no_endless_wait.patch b/buildscripts/patches/ffmpeg/mediacodec_no_endless_wait.patch
+new file mode 100644
+index 0000000..373bb7d
+--- /dev/null
++++ b/buildscripts/patches/ffmpeg/mediacodec_no_endless_wait.patch
+@@ -0,0 +1,25 @@
++--- a/libavcodec/mediacodecdec.c	2026-10-16 10:34:18.008149200 +0300
+++++ b/libavcodec/mediacodecdec.c	2026-10-16 10:34:18.097715400 +0300
++@@ -491,6 +491,7 @@
++     MediaCodecH264DecContext *s = avctx->priv_data;
++     int ret;
++     ssize_t index;
+++    int blocked = 0;
++ 
++     /* In delay_flush mode, wait until the user has released or rendered
++        all retained frames. */
++@@ -518,8 +519,13 @@
++                  * both avcodec_send_packet() and avcodec_receive_frame()
++                  * return EAGAIN, which violate the design.
++                  */
+++                /* With a surface, a frame comes out only when the caller releases
+++                 * or renders one it holds: a caller that does so on this thread
+++                 * (mpv's core) never gets the chance if this loops. After one
+++                 * blocked wait, give it back EAGAIN (it retries the packet).
+++                 */
++                 if (ff_AMediaCodec_infoTryAgainLater(s->ctx->codec, index) &&
++-                    ret == AVERROR(EAGAIN))
+++                    ret == AVERROR(EAGAIN) && !blocked++)
++                     continue;
++                 return ret;
++             }
+-- 
+2.42.0.windows.1
+

@@ -55,6 +55,10 @@ flutter test                                                   # the API client 
 flutter test integration_test/e2e_test.dart -d emulator-5554   # one area: --plain-name "player " (sign-in, library,
                                                                # filter, player, settings); elsewhere --dart-define=SERVER=…
 flutter test integration_test/e2e_test.dart -d emulator-5556 --tags tablet   # only a layout's own tests
+# Stress: trying to break the player (seek storms, rotation, video after video, players disposed mid-operation,
+# hardware and software decoding); it leaves the app's data alone. A phone: adb reverse tcp:5073 tcp:5073 first
+flutter test integration_test/stress_test.dart -d emulator-5554   # --dart-define=SERVER=http://localhost:5073 on a
+                                                                  # phone; STRESS=2 harder, SEED=<n> a run again
 flutter test integration_test/preview_clip_test.dart -d macos  # with the test server: a preview clip plays
 flutter test integration_test/player_test.dart -d macos        # with the test server: playback, seeking, resume reports
 # The same on Windows: -d windows

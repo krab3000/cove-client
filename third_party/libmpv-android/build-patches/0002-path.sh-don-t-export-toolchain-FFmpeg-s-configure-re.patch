@@ -1,7 +1,7 @@
 From 825a45f79e9fd4f4f548a2d6f703a9d4d7ec7ec8 Mon Sep 17 00:00:00 2001
 From: krab3000 <336138103+krab3000@users.noreply.github.com>
 Date: Fri, 16 Oct 2026 09:27:25 +0300
-Subject: [PATCH 2/5] path.sh: don't export $toolchain (FFmpeg's configure
+Subject: [PATCH 2/6] path.sh: don't export $toolchain (FFmpeg's configure
  reads it as --toolchain)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

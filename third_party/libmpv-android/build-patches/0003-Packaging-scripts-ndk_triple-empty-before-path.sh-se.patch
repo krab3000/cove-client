@@ -1,7 +1,7 @@
 From 72376782d230d4abe4a3117f11cfe5b26c283481 Mon Sep 17 00:00:00 2001
 From: krab3000 <336138103+krab3000@users.noreply.github.com>
 Date: Fri, 16 Oct 2026 09:30:36 +0300
-Subject: [PATCH 3/5] Packaging scripts: ndk_triple empty before path.sh (set
+Subject: [PATCH 3/6] Packaging scripts: ndk_triple empty before path.sh (set
  -u)
 
 Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>

@@ -105,6 +105,16 @@ class NativePlayer extends PlatformPlayer {
       await NativeReferenceHolder.instance.remove(ctx);
       await stop(notify: false, synchronized: false);
 
+      // Cove: the video output off its surface first, while the surface is there: the release callbacks below free the
+      // Android surface (media_kit_video), and mpv's destroy came after, its eglDestroySurface on a surface already
+      // gone. Samsung's driver then waited on a fence that never signalled, holding its global EGL lock: the destroy
+      // never ended, and the next player's output (eglGetDisplay) waited behind it (an S22: the app stopped
+      // responding, then dispose never returned). With vo=null mpv tears its output down now.
+      if (Platform.isAndroid) {
+        await setProperty('vo', 'null', waitForInitialization: false)
+            .timeout(const Duration(seconds: 5), onTimeout: () {});
+      }
+
       disposed = true;
 
       await super.dispose();
@@ -1247,6 +1257,22 @@ class NativePlayer extends PlatformPlayer {
       await waitForVideoControllerInitializationIfAttached;
     }
 
+    // Cove: through mpv's async API (the core thread applies it; this waits for the reply event, not on the core). A
+    // property that switches the video output (vo, wid, force-window: media_kit_video's surface listener) creates or
+    // destroys it, and mpv_set_property_string waited for that synchronously on the main isolate (Android's main
+    // thread): with another player's output being torn down at the same time, Samsung's EGL driver held its lock
+    // waiting on a fence the main thread had to release, and the app stopped responding (an S22, ANR).
+    if (configuration.async) {
+      final data = calloc<Pointer<Utf8>>(1)..value = value.toNativeUtf8();
+      await _setProperty(
+        property,
+        generated.mpv_format.MPV_FORMAT_STRING,
+        data.cast(),
+      );
+      calloc.free(data.value);
+      calloc.free(data);
+      return;
+    }
     final name = property.toNativeUtf8();
     final data = value.toNativeUtf8();
     mpv.mpv_set_property_string(

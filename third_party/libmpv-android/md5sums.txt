@@ -1,4 +1,4 @@
-1dc06732cb3e1971ec1d746846247fc7  default-arm64-v8a.jar
-ea021a3309b4320b8f1371e18adec103  default-armeabi-v7a.jar
-3d73da0e1ad3a598cf422cc87b55efc4  default-x86.jar
-cd15ee9424da975f41a61354538ccbad  default-x86_64.jar
+5806ae2a2e701a366274246d39e38380  default-arm64-v8a.jar
+8044981e764c427678a99946dbcf71ce  default-armeabi-v7a.jar
+8e31fdd3c9d4fdead9569492e7ea429b  default-x86.jar
+5e7f13f274c64f576e9b517768ac90ad  default-x86_64.jar
