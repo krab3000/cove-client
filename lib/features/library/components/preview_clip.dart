@@ -5,6 +5,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 import '../../../api/cove_client.dart' hide Video;
+import '../../../state/prefs.dart';
 
 enum PreviewState { loading, playing, none }
 
@@ -84,6 +85,13 @@ class _PreviewClipState extends State<PreviewClip> {
       await player.setVolume(0);
       if (!mounted) return;
       await player.setPlaylistMode(PlaylistMode.single);
+      if (!mounted) return;
+      // As the player does (Settings, "Check server certificates"): FFmpeg checks them by default now, and a server
+      // with its own CA (trusted by Android, not by mpv) gave no clip
+      await (player.platform as NativePlayer).setProperty(
+        'tls-verify',
+        prefs.tlsVerify ? 'yes' : 'no',
+      );
       if (!mounted) return;
       await player.open(
         Media(
