@@ -68,12 +68,13 @@ class PlayerSession extends ChangeNotifier {
     ),
   );
 
-  /// The decoder: on Android MediaCodec into mpv's GPU output with no copy (
-  /// "auto-safe" picked mediacodec-copy there, which copies every frame back to the CPU: a 4K stream dropped a third
-  /// of its frames on a Galaxy Tab S6 Lite); elsewhere whatever is safe.
+  /// The decoder: on Android MediaCodec, its frames copied out to mpv. Not zero-copy ("mediacodec", through
+  /// mpv's AImageReader): after overlapping seeks it waited for a frame that never came ("acquireLatestImage failed:
+  /// -30001") with the decoder's output buffers all taken, and playback hung until the app restarted (an S22). The
+  /// copy costs more: a 4K60 stream dropped a third of its frames on a Galaxy Tab S6 Lite. Elsewhere whatever is safe.
   static String get _hwdec {
     if (!prefs.hardwareDecoding) return 'no';
-    return Platform.isAndroid ? 'mediacodec' : 'auto-safe';
+    return Platform.isAndroid ? 'mediacodec-copy' : 'auto-safe';
   }
 
   /// The size mpv renders the video at: the video's, unless it is larger than the screen (a 4K video on a 2000×1200
@@ -146,6 +147,10 @@ class PlayerSession extends ChangeNotifier {
 
   Future<void> _start() async {
     _subs.addAll([
+      // Settings → Player log: mpv's messages, at that level, in the system's log (logcat: "mpv [cplayer] …")
+      player.stream.log.listen(
+        (l) => debugPrint('mpv [${l.prefix}] ${l.level}: ${l.text.trim()}'),
+      ),
       player.stream.position.listen(_onPosition),
       player.stream.duration.listen((d) {
         _fileDuration = d.inMilliseconds / 1000;
