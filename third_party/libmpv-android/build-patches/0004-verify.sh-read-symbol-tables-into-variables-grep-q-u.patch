@@ -1,0 +1,39 @@
+From 43c4df872b722ff65db97eba47b5f0b37c9c195d Mon Sep 17 00:00:00 2001
+From: krab3000 <336138103+krab3000@users.noreply.github.com>
+Date: Fri, 16 Oct 2026 09:32:28 +0300
+Subject: [PATCH 4/5] verify.sh: read symbol tables into variables (grep -q
+ under pipefail failed a found symbol)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ buildscripts/verify.sh | 9 ++++++---
+ 1 file changed, 6 insertions(+), 3 deletions(-)
+
+diff --git a/buildscripts/verify.sh b/buildscripts/verify.sh
+index 943d317..3773403 100644
+--- a/buildscripts/verify.sh
++++ b/buildscripts/verify.sh
+@@ -35,14 +35,17 @@ for pair in arm64-v8a:AArch64 armeabi-v7a:ARM x86_64:X86-64 x86:"Intel 80386"; d
+ 		ok "$so: needs $(llvm-readelf -d "$f" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p' | tr '\n' ' ')"
+ 		small=$(llvm-readelf -lW "$f" | gawk '$1=="LOAD" && strtonum($NF) < 16384' | wc -l)
+ 		[ "$small" == "0" ] && ok "$so: 16 KB pages" || bad "$so: LOAD segments under 16 KB alignment"
+-		if llvm-nm -D --defined-only "$f" | awk '{print $3}' | grep -qE '^(_ZNSt|_ZNKSt|__cxa_)'; then
++		# (each tool's output into a variable first: with pipefail, grep -q ending a pipe early fails it)
++		exports=$(llvm-nm -D --defined-only "$f" | awk '{print $3}')
++		if grep -qE '^(_ZNSt|_ZNKSt|__cxa_)' <<<"$exports"; then
+ 			bad "$so: exports the C++ runtime"
+ 		fi
+ 	done
+ 	f="$tmp/lib/$abi/libmpv.so"
+-	missing=$(comm -23 verify/mpv_exports_v1.1.7.txt <(llvm-nm -D --defined-only "$f" | awk '{print $3}' | grep '^mpv_' | sort))
++	exports=$(llvm-nm -D --defined-only "$f" | awk '{print $3}')
++	missing=$(comm -23 verify/mpv_exports_v1.1.7.txt <(grep '^mpv_' <<<"$exports" | sort))
+ 	[ -z "$missing" ] && ok "libmpv.so: exports v1.1.7's mpv_* API" || bad "libmpv.so: missing $(echo $missing)"
+-	llvm-nm -D --defined-only "$f" | grep -q ' mpv_lavc_set_java_vm$' && ok "libmpv.so: mpv_lavc_set_java_vm" || bad "libmpv.so: no mpv_lavc_set_java_vm"
++	grep -qx 'mpv_lavc_set_java_vm' <<<"$exports" && ok "libmpv.so: mpv_lavc_set_java_vm" || bad "libmpv.so: no mpv_lavc_set_java_vm"
+ 	h="$tmp/lib/$abi/libmediakitandroidhelper.so"
+ 	missing=$(comm -23 verify/helper_exports_v1.1.7.txt <(llvm-nm -D --defined-only "$h" | awk '{print $3}' | sort))
+ 	[ -z "$missing" ] && ok "helper: exports" || bad "helper: missing $(echo $missing)"
+-- 
+2.42.0.windows.1
+

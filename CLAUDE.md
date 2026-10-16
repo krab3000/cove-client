@@ -52,10 +52,12 @@ Single-condition editor (not designed) · light theme for the app's screens · c
   `Image.network`. AGP 9 needs `android.uniquePackageNames=false` for Cronet's two libraries.
   `third_party/media_kit_video` is media_kit_video 2.0.1 with one change (`Cove:` in
   `lib/src/video_controller/android_video_controller/real.dart`): Android's video surface capped to the size the app
-  asks for, so 4K plays at the screen's size (see `third_party/README.md`). Android decodes with
-  `hwdec=mediacodec-copy`: zero-copy `mediacodec` (mpv's AImageReader) hung after overlapping seeks on an S22
-  ("acquireLatestImage failed: -30001", the decoder's buffers all taken); the copy dropped a third of a 4K60 stream's
-  frames on a Galaxy Tab S6 Lite.
+  asks for, so 4K plays at the screen's size (see `third_party/README.md`). Android's libmpv is built here:
+  `third_party/libmpv-android` (mpv master + FFmpeg n9.0.2, Docker, **Git LFS**; its README says how to rebuild it),
+  linked by the vendored `third_party/media_kit_libs_android_video` instead of media_kit's 2023 build. Android decodes
+  with `hwdec=mediacodec` (zero-copy, mpv's AImageReader): with the old libmpv it hung after overlapping seeks on an
+  S22 ("acquireLatestImage failed: -30001"), fixed in mpv PR #18453; `mediacodec-copy` dropped a third of a 4K60
+  stream's frames on a Galaxy Tab S6 Lite.
   Windows: `auto-safe` picks `d3d11va-copy` (4K60 with no dropped frames); the runner (`windows/runner/`) opens the
   window like macOS's (1180×820 content, centred, at least 820×600).
 - **Screen classes:** large = shortest side ≥ 600 (`lib/theme/layout.dart`): the tablet layouts (1n, 8f, 1m, 7d) on a

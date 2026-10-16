@@ -1,0 +1,38 @@
+# libmpv for media_kit (Android): mpv master + FFmpeg 9, LGPL, built by Cove
+built            2026-10-16T06:33:28Z
+build repo       media-kit/libmpv-android-video-build, branch cove/mpv-master-ffmpeg9 @ 4157bc3487093b64a306ae11389adc51cbac951e
+docker image     sha256:8f3c5c5ba5d605d9564271b52624d5c1497bc19929163c5bc38efd795da55dd7
+ndk              r30 (30.0.16248370), api level 24
+meson            1.12.1, ninja 1.11.1
+
+mpv                        git-release-467-ga2cd83c56d        a2cd83c56de859ced3fc8e6055e5878e50f45286
+ffmpeg                     n9.0.2                             946fcce07b6dcd0331c8cc609192aeff5e1924f8
+libplacebo                 v7.360.1                           cee9b076f2c63104ccfd497fa79c39a867293ec4
+dav1d                      1.5.4                              54706fc6bc0cdecab7e9593974a4039cc038fca7
+libass                     0.17.5                             4a05d8127f525943ebf45fdc6497c9e665947f0d
+freetype                   VER-2-14-3                         0a0221a1347e2f1e07c395263540026e9a0aa7c7
+libxml2                    v2.15.4                            96498992efa48d52b0e8b83058bd88dbdaf153c1
+media-kit-android-helper   42054e5                            42054e5d479f39ccbb0ae604862e2bcaf59b74c2
+mbedtls                    3.6.7                              sha256 a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6
+fribidi                    1.0.17                             sha256 6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2
+harfbuzz                   14.5.0                             sha256 b7132e148358a45185c9feafd049dbaf243649d3c44414b3534d9c95d18592b9
+
+patches
+  patches/mpv/mpv_lavc_set_java_vm.patch ae64c9f84a7fc3cdaed57ebe89525b5504c115e1
+
+libmpv.so (stripped) bytes
+  arm64-v8a    15055120
+  armeabi-v7a  13841592
+  x86_64       18009376
+  x86          16048328
+
+md5
+  1dc06732cb3e1971ec1d746846247fc7  default-arm64-v8a.jar
+  ea021a3309b4320b8f1371e18adec103  default-armeabi-v7a.jar
+  3d73da0e1ad3a598cf422cc87b55efc4  default-x86.jar
+  cd15ee9424da975f41a61354538ccbad  default-x86_64.jar
+sha256
+  f9e565e1b2b0d0ccc3b67811467bf6b6a9495351ae89c697ede64d40a833b862  default-arm64-v8a.jar
+  15b6c18400c14ff904dcc21d2ec246c2f81e42ab4e9b40d730545b4a554c0c7a  default-armeabi-v7a.jar
+  22e9c3c14a1dc2bdc4a0d13465deab1a959618d7d64d97db20da302c2190d19c  default-x86.jar
+  c69014676ae7697b3bbaa39792259ba6f7bf1ffd653d421cec5581e7f65d0d11  default-x86_64.jar

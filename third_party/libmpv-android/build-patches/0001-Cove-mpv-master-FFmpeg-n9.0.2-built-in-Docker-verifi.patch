@@ -1,0 +1,1218 @@
+From 7fd31526881ff9e6823496eea231d318ec025808 Mon Sep 17 00:00:00 2001
+From: krab3000 <336138103+krab3000@users.noreply.github.com>
+Date: Fri, 16 Oct 2026 09:24:32 +0300
+Subject: [PATCH 1/5] Cove: mpv master + FFmpeg n9.0.2, built in Docker,
+ verified
+
+- depinfo: mpv a2cd83c (with mpv PR #18453), FFmpeg n9.0.2, libplacebo
+  v7.360.1 (now required), dav1d 1.5.4, libass 0.17.5, freetype 2.14.3,
+  fribidi 1.0.17, harfbuzz 14.5.0, mbedtls 3.6.7, libxml2 2.15.4; NDK r30,
+  API level 24. Every source pinned (commit or sha256), GitHub mirrors
+- libplacebo built static with libc++ linked in; mpv: one LGPL libmpv.so,
+  GLES/EGL on Android, the media NDK (aimagereader) and the audio outputs
+  required; mpv_lavc_set_java_vm patch rebased; FFmpeg patches dropped
+  (in n9.0.2), --disable-postproc dropped (gone in FFmpeg 9)
+- No Android SDK, Java or Gradle: the helper is built with the NDK's clang
+- build.sh skips dependencies built with the same version and script
+- bundle_default.sh: jars as media_kit expects, sums, versions.txt;
+  verify.sh checks layout, sonames, NEEDED, exports (v1.1.7's), 16 KB pages,
+  versions
+- docker/: Dockerfile (pinned Ubuntu, meson 1.12.1, NDK r30 checked), run.sh
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .gitattributes                                |   3 +
+ .gitignore                                    |   8 ++
+ buildscripts/build.sh                         |  28 +++-
+ buildscripts/bundle_default.sh                |  84 +++++-------
+ buildscripts/flavors/default.sh               |  14 +-
+ buildscripts/include/depinfo.sh               |  55 +++++---
+ buildscripts/include/download-deps.sh         | 122 ++++++++++--------
+ buildscripts/include/download-sdk.sh          |  79 ++----------
+ buildscripts/include/path.sh                  |   8 +-
+ buildscripts/patch.sh                         |   2 +
+ .../patches/ffmpeg/dash_base_url_escape.patch |  26 ----
+ .../patches/ffmpeg/hls_mp4_seek.patch         |  14 --
+ .../patches/mpv/mpv_lavc_set_java_vm.patch    |  27 ++--
+ buildscripts/scripts/freetype.sh              |   4 +-
+ buildscripts/scripts/harfbuzz.sh              |   4 +-
+ buildscripts/scripts/libass.sh                |   5 +-
+ buildscripts/scripts/libplacebo.sh            |  32 +++++
+ buildscripts/scripts/libxml2.sh               |  25 ++--
+ buildscripts/scripts/mbedtls.sh               |   7 +-
+ buildscripts/scripts/mpv.sh                   |  34 +++--
+ buildscripts/verify.sh                        |  55 ++++++++
+ buildscripts/verify/helper_exports_v1.1.7.txt |  12 ++
+ buildscripts/verify/mpv_exports_v1.1.7.txt    |  55 ++++++++
+ buildscripts/write-manifest.sh                |  38 ++++++
+ docker/Dockerfile                             |  27 ++++
+ docker/entry.sh                               |  17 +++
+ docker/run.sh                                 |  26 ++++
+ 27 files changed, 525 insertions(+), 286 deletions(-)
+ create mode 100644 .gitattributes
+ delete mode 100644 buildscripts/patches/ffmpeg/dash_base_url_escape.patch
+ delete mode 100644 buildscripts/patches/ffmpeg/hls_mp4_seek.patch
+ create mode 100644 buildscripts/scripts/libplacebo.sh
+ create mode 100644 buildscripts/verify.sh
+ create mode 100644 buildscripts/verify/helper_exports_v1.1.7.txt
+ create mode 100644 buildscripts/verify/mpv_exports_v1.1.7.txt
+ create mode 100644 buildscripts/write-manifest.sh
+ create mode 100644 docker/Dockerfile
+ create mode 100644 docker/entry.sh
+ create mode 100644 docker/run.sh
+
+diff --git a/.gitattributes b/.gitattributes
+new file mode 100644
+index 0000000..b757302
+--- /dev/null
++++ b/.gitattributes
+@@ -0,0 +1,3 @@
++# Cove: the scripts run in Linux (Docker); keep LF on Windows too
++* text=auto eol=lf
++*.patch -text
+diff --git a/.gitignore b/.gitignore
+index 2897c68..3ccecb2 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -10,3 +10,11 @@ obj
+ build
+ local.properties
+ *~
++
++# Cove: build output (docker/run.sh)
++buildscripts/deps/
++buildscripts/prefix/
++buildscripts/sdk/
++buildscripts/staging/
++buildscripts/artifacts/
++artifacts/
+diff --git a/buildscripts/build.sh b/buildscripts/build.sh
+index 33282bd..9d61fb1 100755
+--- a/buildscripts/build.sh
++++ b/buildscripts/build.sh
+@@ -17,7 +17,7 @@ loadarch () {
+ 	unset CC CXX CPATH LIBRARY_PATH C_INCLUDE_PATH CPLUS_INCLUDE_PATH
+     unset CFLAGS CXXFLAGS CPPFLAGS LDFLAGS
+ 
+-	local apilvl=21
++	local apilvl=$v_apilvl
+ 	# ndk_triple: what the toolchain actually is
+ 	# cc_triple: what Google pretends the toolchain is
+ 	if [ "$1" == "armv7l" ]; then
+@@ -95,6 +95,13 @@ endian = 'little'
+ CROSSFILE
+ }
+ 
++# Cove: a dependency already built with the same version and build script is skipped (deps/ and prefix/ live in
++# Docker's volume between runs); the target (mpv) always builds
++stamp_of () {
++	local v="v_${1//-/_}" s="v_${1//-/_}_sha" s256="v_${1//-/_}_sha256"
++	echo "${!v}:${!s}${!s256}:$(sha1sum scripts/$1.sh | cut -d' ' -f1)"
++}
++
+ build () {
+ 	if [ ! -d deps/$1 ]; then
+ 		printf >&2 '\e[1;31m%s\e[m\n' "Target $1 not found"
+@@ -109,13 +116,24 @@ build () {
+ 		done
+ 	fi
+ 
++	local stamp="$prefix_dir/.stamp-$1" want=$(stamp_of $1)
++	if [ "$1" != "$target" ] && [ $cleanbuild -eq 0 ] && [ "$(cat "$stamp" 2>/dev/null)" == "$want" ]; then
++		printf >&2 '\e[1;32m%s\e[m\n' "$1 is built ($want)"
++		return 0
++	fi
++
+ 	printf >&2 '\e[1;34m%s\e[m\n' "Building $1..."
+ 	pushd deps/$1
+ 	BUILDSCRIPT=../../scripts/$1.sh
+- 	sudo chmod +x $BUILDSCRIPT
+-	[ $cleanbuild -eq 1 ] && $BUILDSCRIPT clean
+-    $BUILDSCRIPT build
+-    popd
++	chmod +x $BUILDSCRIPT
++	# Built before with another version or script, or the target: start over (meson won't set up a configured
++	# directory again)
++	if [ $cleanbuild -eq 1 ] || [ -f "$stamp" ] || [ "$1" == "$target" ]; then
++		$BUILDSCRIPT clean
++	fi
++	$BUILDSCRIPT build
++	popd
++	echo "$want" >"$stamp"
+ }
+ 
+ usage () {
+diff --git a/buildscripts/bundle_default.sh b/buildscripts/bundle_default.sh
+index 06b255e..6fc7fb4 100755
+--- a/buildscripts/bundle_default.sh
++++ b/buildscripts/bundle_default.sh
+@@ -1,59 +1,45 @@
+-# --------------------------------------------------
+-set -euxo pipefail
+-
+-if [ -d "deps" ]; then
+-  sudo rm -r deps
+-fi
+-if [ -d "prefix" ]; then
+-  sudo rm -r prefix
++#!/bin/bash
++# Cove: the default flavor (LGPL), built with mpv master and FFmpeg 9 (include/depinfo.sh), packaged as media_kit
++# expects: default-<abi>.jar = lib/<abi>/libmpv.so + lib/<abi>/libmediakitandroidhelper.so. Runs in Docker
++# (docker/run.sh); CLEAN=1 starts from fresh sources. Output: artifacts/default/.
++set -euo pipefail
++cd "$( dirname "${BASH_SOURCE[0]}" )"
++
++if [ "${CLEAN:-0}" == "1" ]; then
++	rm -rf deps prefix
+ fi
++rm -rf staging artifacts/default
++mkdir -p staging artifacts/default
+ 
+ ./download.sh
+ ./patch.sh
+ 
+-# --------------------------------------------------
+-
+-if [ -f "scripts/ffmpeg" ]; then
+-  rm scripts/ffmpeg.sh
+-fi
+ cp flavors/default.sh scripts/ffmpeg.sh
+ 
+-# --------------------------------------------------
+-
+ ./build.sh
+ 
+-zip -r debug-symbols-default.zip prefix/*/lib
+-
+ . ./include/depinfo.sh
+-./sdk/android-sdk-linux/ndk/$v_ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/arm64-v8a/usr/local/lib/libmpv.so
+-./sdk/android-sdk-linux/ndk/$v_ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/armeabi-v7a/usr/local/lib/libmpv.so
+-./sdk/android-sdk-linux/ndk/$v_ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/x86/usr/local/lib/libmpv.so
+-./sdk/android-sdk-linux/ndk/$v_ndk/toolchains/llvm/prebuilt/linux-x86_64/bin/llvm-strip --strip-all prefix/x86_64/usr/local/lib/libmpv.so
+-
+-# --------------------------------------------------
+-
+-cd deps/media-kit-android-helper
+-
+-sudo chmod +x gradlew
+-./gradlew assembleRelease
+-
+-unzip -o app/build/outputs/apk/release/app-release.apk -d app/build/outputs/apk/release
+-
+-cp ../../prefix/arm64-v8a/usr/local/lib/libmpv.so      app/build/outputs/apk/release/lib/arm64-v8a
+-cp ../../prefix/armeabi-v7a/usr/local/lib/libmpv.so    app/build/outputs/apk/release/lib/armeabi-v7a
+-cp ../../prefix/x86/usr/local/lib/libmpv.so            app/build/outputs/apk/release/lib/x86
+-cp ../../prefix/x86_64/usr/local/lib/libmpv.so         app/build/outputs/apk/release/lib/x86_64
+-
+-cd app/build/outputs/apk/release
+-
+-zip -r default-arm64-v8a.jar      lib/arm64-v8a/*.so
+-zip -r default-armeabi-v7a.jar    lib/armeabi-v7a/*.so
+-zip -r default-x86.jar            lib/x86/*.so
+-zip -r default-x86_64.jar         lib/x86_64/*.so
+-
+-md5sum *.jar
+-
+-cd ../../../../../../..
+-
+-mkdir -p artifacts/default
+-cp deps/media-kit-android-helper/app/build/outputs/apk/release/default-*.jar artifacts/default/
++. ./include/path.sh
++
++# Debug symbols, before stripping
++(cd prefix && zip -q -r ../artifacts/default/debug-symbols-default.zip */lib/libmpv.so)
++
++# per ABI: build.sh's arch, the NDK's clang triple
++for pair in armeabi-v7a:armv7a-linux-androideabi arm64-v8a:aarch64-linux-android x86:i686-linux-android x86_64:x86_64-linux-android; do
++	abi=${pair%%:*}
++	cxx=${pair#*:}$v_apilvl-clang++
++	mkdir -p staging/lib/$abi
++	llvm-strip --strip-all -o staging/lib/$abi/libmpv.so prefix/$abi/lib/libmpv.so
++	# libmediakitandroidhelper.so: media-kit-android-helper's one file, as its CMake builds it (static libc++)
++	$cxx -shared -fPIC -O2 -std=c++17 \
++		deps/media-kit-android-helper/app/src/main/cpp/native-lib.cpp \
++		-o staging/lib/$abi/libmediakitandroidhelper.so \
++		-static-libstdc++ -llog -landroid \
++		-Wl,-z,max-page-size=16384 -Wl,--build-id=sha1 -Wl,-soname,libmediakitandroidhelper.so
++	llvm-strip --strip-unneeded staging/lib/$abi/libmediakitandroidhelper.so
++	(cd staging && zip -q -X -r ../artifacts/default/default-$abi.jar lib/$abi)
++done
++
++(cd artifacts/default && md5sum default-*.jar >md5sums.txt && sha256sum default-*.jar >sha256sums.txt)
++./write-manifest.sh artifacts/default
++./verify.sh artifacts/default
+diff --git a/buildscripts/flavors/default.sh b/buildscripts/flavors/default.sh
+index 744bb61..a828ef8 100644
+--- a/buildscripts/flavors/default.sh
++++ b/buildscripts/flavors/default.sh
+@@ -23,6 +23,7 @@ cpu=armv7-a
+ cpuflags=
+ [[ "$ndk_triple" == "arm"* ]] && cpuflags="$cpuflags -mfpu=neon -mcpu=cortex-a8"
+ 
++# Cove: FFmpeg 9 (no --disable-postproc: libpostproc is gone); no host X11 or SDL picked up
+ ../configure \
+ 	--target-os=android --enable-cross-compile --cross-prefix=$ndk_triple- --ar=$AR --cc=$CC --nm=llvm-nm --ranlib=$RANLIB \
+ 	--arch=${ndk_triple%%-*} --cpu=$cpu --pkg-config=pkg-config \
+@@ -48,7 +49,6 @@ cpuflags=
+ 	--disable-filters \
+ 	--disable-doc \
+ 	--disable-avdevice \
+-	--disable-postproc \
+ 	--disable-programs \
+ 	--disable-gray \
+ 	--disable-swscale-alpha \
+@@ -63,6 +63,9 @@ cpuflags=
+ 	--disable-bzlib \
+ 	--disable-linux-perf \
+ 	--disable-videotoolbox \
++	--disable-libxcb \
++	--disable-xlib \
++	--disable-sdl2 \
+ 	--disable-audiotoolbox \
+ 	\
+ 	--enable-small \
+@@ -256,12 +259,3 @@ cpuflags=
+ 
+ make -j$cores
+ make DESTDIR="$prefix_dir" install
+-
+-ln -sf "$prefix_dir"/lib/libswresample.so "$native_dir"
+-ln -sf "$prefix_dir"/lib/libpostproc.so "$native_dir"
+-ln -sf "$prefix_dir"/lib/libavutil.so "$native_dir"
+-ln -sf "$prefix_dir"/lib/libavcodec.so "$native_dir"
+-ln -sf "$prefix_dir"/lib/libavformat.so "$native_dir"
+-ln -sf "$prefix_dir"/lib/libswscale.so "$native_dir"
+-ln -sf "$prefix_dir"/lib/libavfilter.so "$native_dir"
+-ln -sf "$prefix_dir"/lib/libavdevice.so "$native_dir"
+diff --git a/buildscripts/include/depinfo.sh b/buildscripts/include/depinfo.sh
+index bd218ce..a4aaf9c 100755
+--- a/buildscripts/include/depinfo.sh
++++ b/buildscripts/include/depinfo.sh
+@@ -1,20 +1,39 @@
+ #!/bin/bash -e
+ 
+ ## Dependency versions
++# Cove: mpv master with mpv PR #18453 (hwdec_aimagereader fixes) and FFmpeg 9; the rest as mpv-android builds against
++# mpv master today. Every source is pinned: a git commit (checked after cloning) or a tarball's sha256.
+ 
+-v_sdk=9123335_latest
+-v_ndk=25.2.9519653
+-v_sdk_build_tools=33.0.2
+-
+-v_libass=0.17.1
+-v_harfbuzz=7.2.0
+-v_fribidi=1.0.12
+-v_freetype=2-13-0
+-v_mbedtls=3.4.0
+-v_dav1d=1.2.0
+-v_libxml2=2.10.3
+-v_ffmpeg=6.0
+-v_mpv=78d43740f52db817d98bcf24fb30a76ab6fa13ff
++# The NDK: in Docker it is in the image (docker/Dockerfile sets $ANDROID_NDK_HOME); elsewhere download-sdk.sh fetches it
++v_ndk=r30
++v_ndk_n=30.0.16248370
++v_ndk_sha1=5107f898313790e449e87eee2183d9a20602dee9
++
++# Flutter's minSdk
++v_apilvl=24
++
++v_mpv=a2cd83c56de859ced3fc8e6055e5878e50f45286
++v_ffmpeg=n9.0.2
++v_ffmpeg_sha=946fcce07b6dcd0331c8cc609192aeff5e1924f8
++v_libplacebo=v7.360.1
++v_libplacebo_sha=cee9b076f2c63104ccfd497fa79c39a867293ec4
++v_dav1d=1.5.4
++v_dav1d_sha=54706fc6bc0cdecab7e9593974a4039cc038fca7
++v_libass=0.17.5
++v_libass_sha=4a05d8127f525943ebf45fdc6497c9e665947f0d
++v_freetype=VER-2-14-3
++v_freetype_sha=0a0221a1347e2f1e07c395263540026e9a0aa7c7
++v_libxml2=v2.15.4
++v_libxml2_sha=96498992efa48d52b0e8b83058bd88dbdaf153c1
++v_mbedtls=3.6.7
++v_mbedtls_sha256=a7e8bcbec0e6f761b4af24f25677626b35f762f68eef79c08677a363212d11f6
++v_fribidi=1.0.17
++v_fribidi_sha256=6949dcde27d41cebad1fd741fcafc36d55a1020d2d872d4a6eb3914caabbada2
++v_harfbuzz=14.5.0
++v_harfbuzz_sha256=b7132e148358a45185c9feafd049dbaf243649d3c44414b3534d9c95d18592b9
++v_helper_sha=42054e5d479f39ccbb0ae604862e2bcaf59b74c2
++
++# The encoders-gpl flavor only (Cove doesn't build it)
+ v_libogg=1.3.5
+ v_libvorbis=1.3.7
+ v_libvpx=1.13
+@@ -25,20 +44,20 @@ v_libvpx=1.13
+ 
+ dep_mbedtls=()
+ dep_dav1d=()
++dep_libxml2=()
+ dep_libvorbis=(libogg)
+ if [ -n "${ENCODERS_GPL+x}" ]; then
+ 	dep_ffmpeg=(mbedtls dav1d libxml2 libvorbis libvpx libx264)
+ else
+ 	dep_ffmpeg=(mbedtls dav1d libxml2)
+ fi
+-dep_freetype2=()
++dep_freetype=()
+ dep_fribidi=()
+ dep_harfbuzz=()
+ dep_libass=(freetype fribidi harfbuzz)
+-dep_lua=()
+-dep_shaderc=()
++dep_libplacebo=()
+ if [ -n "${ENCODERS_GPL+x}" ]; then
+-	dep_mpv=(ffmpeg libass fftools_ffi)
++	dep_mpv=(ffmpeg libass libplacebo fftools_ffi)
+ else
+-	dep_mpv=(ffmpeg libass)
++	dep_mpv=(ffmpeg libass libplacebo)
+ fi
+diff --git a/buildscripts/include/download-deps.sh b/buildscripts/include/download-deps.sh
+index bec6b31..c257302 100755
+--- a/buildscripts/include/download-deps.sh
++++ b/buildscripts/include/download-deps.sh
+@@ -6,59 +6,73 @@
+ 
+ mkdir -p deps && cd deps
+ 
+-# mbedtls
+-[ ! -d mbedtls ] && git clone --depth 1 --branch v$v_mbedtls https://github.com/Mbed-TLS/mbedtls.git mbedtls
+-
+-# dav1d
+-[ ! -d dav1d ] && git clone --depth 1 --branch $v_dav1d https://code.videolan.org/videolan/dav1d.git dav1d
+-
+-# libxml2
+-[ ! -d libxml2 ] && git clone --depth 1 --branch v$v_libxml2 --recursive https://gitlab.gnome.org/GNOME/libxml2.git libxml2
+-
+-# libogg
+-[ ! -d libogg ] && $WGET https://github.com/xiph/ogg/releases/download/v${v_libogg}/libogg-${v_libogg}.tar.gz && tar -xf libogg-${v_libogg}.tar.gz && mv libogg-${v_libogg} libogg && rm libogg-${v_libogg}.tar.gz
+-
+-# libvorbis
+-[ ! -d libvorbis ] && $WGET https://github.com/xiph/vorbis/releases/download/v${v_libvorbis}/libvorbis-${v_libvorbis}.tar.gz && tar -xf libvorbis-${v_libvorbis}.tar.gz && mv libvorbis-${v_libvorbis} libvorbis && rm libvorbis-${v_libvorbis}.tar.gz
+-
+-# libvpx
+-[ ! -d libvpx ] && git clone --depth 1 --branch meson-$v_libvpx https://gitlab.freedesktop.org/gstreamer/meson-ports/libvpx.git
+-
+-# libx264
+-[ ! -d libx264 ] && git clone --depth 1 https://code.videolan.org/videolan/x264.git --branch master libx264
+-
+-# ffmpeg
+-[ ! -d ffmpeg ] && git clone --depth 1 --branch n$v_ffmpeg https://github.com/FFmpeg/FFmpeg.git ffmpeg
+-
+-# freetype2
+-[ ! -d freetype ] && git clone --depth 1 --branch VER-$v_freetype https://gitlab.freedesktop.org/freetype/freetype.git freetype
+-
+-# fribidi
+-[ ! -d fribidi ] && git clone --depth 1 --branch v$v_fribidi https://github.com/fribidi/fribidi.git fribidi
+-
+-# harfbuzz
+-[ ! -d harfbuzz ] && git clone --depth 1 --branch $v_harfbuzz https://github.com/harfbuzz/harfbuzz.git harfbuzz
+-
+-# libass
+-[ ! -d libass ] && git clone --depth 1 --branch $v_libass https://github.com/libass/libass.git libass
+-
+-# shaderc
+-mkdir -p shaderc
+-cat >shaderc/README <<'HEREDOC'
+-Shaderc sources are provided by the NDK.
+-see <ndk>/sources/third_party/shaderc
+-HEREDOC
+-
+-# mpv
+-[ ! -d mpv ] && git clone https://github.com/mpv-player/mpv.git mpv && cd mpv && git reset --hard 78d43740f52db817d98bcf24fb30a76ab6fa13ff && cd ..
+-
+-# fftools_ffi
+-[ ! -d fftools_ffi ] && git clone https://github.com/moffatman/fftools-ffi.git fftools_ffi && cd fftools_ffi && git reset --hard 9b0d4da026d9c830702ec043c1f1f98d407025af && cd ..
+-
+-# media-kit-android-helper
+-[ ! -d media-kit-android-helper ] && git clone --branch main https://github.com/media-kit/media-kit-android-helper.git && cd media-kit-android-helper && git reset --hard 42054e5d479f39ccbb0ae604862e2bcaf59b74c2 && cd ..
+-
+-# media_kit
+-[ ! -d media_kit ] && git clone --depth 1 --single-branch --branch main https://github.com/alexmercerind/media_kit.git
++# Cove: every source pinned. A clone is checked against its commit, a tarball against its sha256. GitHub mirrors
++# where they exist (gitlab.freedesktop.org timed out from here).
++
++# clone_pinned <dir> <url> <tag> <sha> [git clone options]: a shallow clone of the tag, which must be that commit
++clone_pinned () {
++	local dir=$1 url=$2 ref=$3 sha=$4
++	shift 4
++	if [ ! -d "$dir" ]; then
++		git clone --depth 1 --branch "$ref" "$@" "$url" "$dir"
++	fi
++	local head=$(git -C "$dir" rev-parse HEAD)
++	if [ "$head" != "$sha" ]; then
++		echo >&2 "$dir: $ref is $head, expected $sha"
++		exit 1
++	fi
++}
++
++# tarball_pinned <dir> <url> <sha256>: downloaded, checked, unpacked into <dir>
++tarball_pinned () {
++	local dir=$1 url=$2 sha256=$3
++	[ -d "$dir" ] && return 0
++	local file=$(basename "$url")
++	$WGET -q -O "$file" "$url"
++	echo "$sha256  $file" | sha256sum -c -
++	mkdir "$dir"
++	tar -xf "$file" -C "$dir" --strip-components=1
++	rm "$file"
++}
++
++tarball_pinned mbedtls \
++	https://github.com/Mbed-TLS/mbedtls/releases/download/mbedtls-$v_mbedtls/mbedtls-$v_mbedtls.tar.bz2 \
++	$v_mbedtls_sha256
++clone_pinned dav1d https://github.com/videolan/dav1d.git $v_dav1d $v_dav1d_sha
++clone_pinned libxml2 https://github.com/GNOME/libxml2.git $v_libxml2 $v_libxml2_sha
++clone_pinned ffmpeg https://github.com/FFmpeg/FFmpeg.git $v_ffmpeg $v_ffmpeg_sha
++clone_pinned freetype https://github.com/freetype/freetype.git $v_freetype $v_freetype_sha \
++	--recurse-submodules --shallow-submodules
++tarball_pinned fribidi \
++	https://github.com/fribidi/fribidi/releases/download/v$v_fribidi/fribidi-$v_fribidi.tar.xz \
++	$v_fribidi_sha256
++tarball_pinned harfbuzz \
++	https://github.com/harfbuzz/harfbuzz/releases/download/$v_harfbuzz/harfbuzz-$v_harfbuzz.tar.xz \
++	$v_harfbuzz_sha256
++clone_pinned libass https://github.com/libass/libass.git $v_libass $v_libass_sha
++clone_pinned libplacebo https://github.com/haasn/libplacebo.git $v_libplacebo $v_libplacebo_sha \
++	--recurse-submodules --shallow-submodules
++
++# mpv: a full clone of master at the commit, so that its version reads v0.41.0-N-g<commit>
++if [ ! -d mpv ]; then
++	git clone https://github.com/mpv-player/mpv.git mpv
++	git -C mpv checkout --detach $v_mpv
++fi
++[ "$(git -C mpv rev-parse HEAD)" == "$v_mpv" ] || { echo >&2 "mpv is not at $v_mpv"; exit 1; }
++
++# media-kit-android-helper: libmediakitandroidhelper.so (scripts/helper.sh)
++if [ ! -d media-kit-android-helper ]; then
++	git clone --branch main https://github.com/media-kit/media-kit-android-helper.git
++	git -C media-kit-android-helper reset --hard $v_helper_sha
++fi
++
++# The encoders-gpl flavor's extras
++if [ -n "${ENCODERS_GPL+x}" ]; then
++	[ ! -d libogg ] && $WGET https://github.com/xiph/ogg/releases/download/v${v_libogg}/libogg-${v_libogg}.tar.gz && tar -xf libogg-${v_libogg}.tar.gz && mv libogg-${v_libogg} libogg && rm libogg-${v_libogg}.tar.gz
++	[ ! -d libvorbis ] && $WGET https://github.com/xiph/vorbis/releases/download/v${v_libvorbis}/libvorbis-${v_libvorbis}.tar.gz && tar -xf libvorbis-${v_libvorbis}.tar.gz && mv libvorbis-${v_libvorbis} libvorbis && rm libvorbis-${v_libvorbis}.tar.gz
++	[ ! -d libvpx ] && git clone --depth 1 --branch meson-$v_libvpx https://gitlab.freedesktop.org/gstreamer/meson-ports/libvpx.git
++	[ ! -d libx264 ] && git clone --depth 1 https://code.videolan.org/videolan/x264.git --branch master libx264
++	[ ! -d fftools_ffi ] && git clone https://github.com/moffatman/fftools-ffi.git fftools_ffi && git -C fftools_ffi reset --hard 9b0d4da026d9c830702ec043c1f1f98d407025af
++fi
+ 
+ cd ..
+diff --git a/buildscripts/include/download-sdk.sh b/buildscripts/include/download-sdk.sh
+index 45261eb..6c43a5b 100755
+--- a/buildscripts/include/download-sdk.sh
++++ b/buildscripts/include/download-sdk.sh
+@@ -2,74 +2,23 @@
+ 
+ . ./include/depinfo.sh
+ 
+-. ./include/path.sh # load $os var
++# Cove: only the NDK is needed (the helper is built with its clang, not Gradle). In Docker the image has it
++# ($ANDROID_NDK_HOME); elsewhere it is downloaded here, checked, into sdk/. The build tools themselves (meson,
++# ninja, nasm, autotools, pkg-config) come from the system: docker/Dockerfile lists them.
+ 
+-[ -z "$TRAVIS" ] && TRAVIS=0 # skip steps not required for CI?
+-[ -z "$WGET" ] && WGET=wget # possibility of calling wget differently
+-
+-if [ "$os" == "linux" ]; then
+-	if [ $TRAVIS -eq 0 ]; then
+-		hash yum &>/dev/null && {
+-			sudo yum install autoconf pkgconfig libtool ninja-build unzip \
+-			python3-pip python3-setuptools unzip wget;
+-			sudo pip3 install meson; }
+-		apt-get -v &>/dev/null && {
+-		    sudo apt-get update;
+-			sudo apt-get install -y autoconf pkg-config libtool ninja-build nasm unzip \
+-			python3-pip python3-setuptools unzip;
+-			sudo pip3 install meson; }
+-	fi
+-
+-	if ! javac -version &>/dev/null; then
+-		echo "Error: missing Java Development Kit."
+-		hash yum &>/dev/null && \
+-			echo "Install it using e.g. sudo yum install java-latest-openjdk-devel"
+-		apt-get -v &>/dev/null && \
+-			echo "Install it using e.g. sudo apt-get install default-jre-headless"
+-		exit 255
+-	fi
+-
+-	os_ndk="linux"
+-elif [ "$os" == "mac" ]; then
+-	if [ $TRAVIS -eq 0 ]; then
+-		if ! hash brew 2>/dev/null; then
+-			echo "Error: brew not found. You need to install Homebrew: https://brew.sh/"
+-			exit 255
+-		fi
+-		brew install \
+-			automake autoconf libtool pkg-config \
+-			coreutils gnu-sed wget meson ninja
+-	fi
+-	if ! javac -version &>/dev/null; then
+-		echo "Error: missing Java Development Kit. Install it manually."
+-		exit 255
+-	fi
++if [ -n "$ANDROID_NDK_HOME" ] && [ -d "$ANDROID_NDK_HOME" ]; then
++	echo "NDK: $ANDROID_NDK_HOME"
++	exit 0
+ fi
+ 
+-mkdir -p sdk && cd sdk
++[ -z "$WGET" ] && WGET=wget
+ 
+-# Android SDK
+-if [ ! -d "android-sdk-${os}" ]; then
+-	$WGET "https://dl.google.com/android/repository/commandlinetools-${os}-${v_sdk}.zip"
+-	mkdir "android-sdk-${os}"
+-	unzip -q -d "android-sdk-${os}" "commandlinetools-${os}-${v_sdk}.zip"
+-	rm "commandlinetools-${os}-${v_sdk}.zip"
++mkdir -p sdk && cd sdk
++if [ ! -d "android-ndk-$v_ndk" ]; then
++	zip="android-ndk-$v_ndk-linux.zip"
++	$WGET -q "https://dl.google.com/android/repository/$zip"
++	echo "$v_ndk_sha1  $zip" | sha1sum -c -
++	unzip -q "$zip"
++	rm "$zip"
+ fi
+-sdkmanager () {
+-	local exe="./android-sdk-$os/cmdline-tools/latest/bin/sdkmanager"
+-	[ -x "$exe" ] || exe="./android-sdk-$os/cmdline-tools/bin/sdkmanager"
+-	"$exe" --sdk_root="${ANDROID_HOME}" "$@"
+-}
+-echo y | sdkmanager \
+-	"platforms;android-33" \
+-	"build-tools;${v_sdk_build_tools}" \
+-	"ndk;${v_ndk}" \
+-	"cmake;3.22.1"
+-
+-# gas-preprocessor
+-mkdir -p bin
+-$WGET "https://github.com/FFmpeg/gas-preprocessor/raw/master/gas-preprocessor.pl" \
+-	-O bin/gas-preprocessor.pl
+-chmod +x bin/gas-preprocessor.pl
+-
+ cd ..
+diff --git a/buildscripts/include/path.sh b/buildscripts/include/path.sh
+index 5b9839e..fb00bd6 100755
+--- a/buildscripts/include/path.sh
++++ b/buildscripts/include/path.sh
+@@ -23,7 +23,9 @@ if [ -n "$ndk_triple" ]; then
+ 	unset PKG_CONFIG_PATH
+ fi
+ 
+-toolchain=$(echo "$DIR/sdk/android-sdk-linux/ndk/$v_ndk/toolchains/llvm/prebuilt/"*)
+-export PATH="$toolchain/bin:$DIR/sdk/android-sdk-linux/ndk/$v_ndk:$DIR/sdk/bin:$PATH"
+-export ANDROID_HOME="$DIR/sdk/android-sdk-$os"
++# Cove: the NDK from $ANDROID_NDK_HOME (the Docker image's), else the one download-sdk.sh put into sdk/
++ndk_root=${ANDROID_NDK_HOME:-$DIR/sdk/android-ndk-$v_ndk}
++toolchain=$(echo "$ndk_root/toolchains/llvm/prebuilt/"*)
++export ndk_root toolchain
++export PATH="$toolchain/bin:$ndk_root:$PATH"
+ unset ANDROID_SDK_ROOT ANDROID_NDK_ROOT
+diff --git a/buildscripts/patch.sh b/buildscripts/patch.sh
+index 5126001..8772ba0 100755
+--- a/buildscripts/patch.sh
++++ b/buildscripts/patch.sh
+@@ -12,6 +12,8 @@ for dep_path in "${PATCHES[@]}"; do
+         git reset --hard
+         for patch in "${patches[@]}"; do
+             echo Applying $patch
++            # Cove: a patch that no longer applies stops the build here, not halfway through the compile
++            git apply --check "$ROOT/$patch"
+             git apply "$ROOT/$patch"
+         done
+         cd $ROOT
+diff --git a/buildscripts/patches/ffmpeg/dash_base_url_escape.patch b/buildscripts/patches/ffmpeg/dash_base_url_escape.patch
+deleted file mode 100644
+index 36ed6d5..0000000
+--- a/buildscripts/patches/ffmpeg/dash_base_url_escape.patch
++++ /dev/null
+@@ -1,26 +0,0 @@
+-diff --git a/libavformat/dashdec.c b/libavformat/dashdec.c
+-index 29d4680..c50afaf 100644
+---- a/libavformat/dashdec.c
+-+++ b/libavformat/dashdec.c
+-@@ -768,7 +768,9 @@ static int resolve_content_path(AVFormatContext *s, const char *url, int *max_ur
+-     baseurl = xmlNodeGetContent(node);
+-     root_url = (av_strcasecmp(baseurl, "")) ? baseurl : path;
+-     if (node) {
+--        xmlNodeSetContent(node, root_url);
+-+        char* root_url_content = xmlEncodeSpecialChars(NULL, root_url);
+-+        xmlNodeSetContent(node, root_url_content);
+-+        xmlFree(root_url_content);
+-         updated = 1;
+-     }
+- 
+-@@ -802,7 +804,9 @@ static int resolve_content_path(AVFormatContext *s, const char *url, int *max_ur
+-                 memset(p + 1, 0, strlen(p));
+-             }
+-             av_strlcat(tmp_str, text + start, tmp_max_url_size);
+--            xmlNodeSetContent(baseurl_nodes[i], tmp_str);
+-+            char* tmp_str_content = xmlEncodeSpecialChars(NULL, tmp_str);
+-+            xmlNodeSetContent(baseurl_nodes[i], tmp_str_content);
+-+            xmlFree(tmp_str_content);
+-             updated = 1;
+-             xmlFree(text);
+-         }
+diff --git a/buildscripts/patches/ffmpeg/hls_mp4_seek.patch b/buildscripts/patches/ffmpeg/hls_mp4_seek.patch
+deleted file mode 100644
+index 58bffce..0000000
+--- a/buildscripts/patches/ffmpeg/hls_mp4_seek.patch
++++ /dev/null
+@@ -1,14 +0,0 @@
+-diff --git a/libavformat/hls.c b/libavformat/hls.c
+-index 2a2fe28a540f..c625e3029116 100644
+---- a/libavformat/hls.c
+-+++ b/libavformat/hls.c
+-@@ -2506,6 +2506,9 @@ static int hls_read_seek(AVFormatContext *s, int stream_index,
+-         /* Flush the packet queue of the subdemuxer. */
+-         ff_read_frame_flush(pls->ctx);
+- 
+-+        /* Reset the init segment so it's re-fetched and served appropiately */
+-+        pls->cur_init_section = NULL;
+-+
+-         pls->seek_timestamp = seek_timestamp;
+-         pls->seek_flags = flags;
+- 
+diff --git a/buildscripts/patches/mpv/mpv_lavc_set_java_vm.patch b/buildscripts/patches/mpv/mpv_lavc_set_java_vm.patch
+index a5a5e92..3518b08 100644
+--- a/buildscripts/patches/mpv/mpv_lavc_set_java_vm.patch
++++ b/buildscripts/patches/mpv/mpv_lavc_set_java_vm.patch
+@@ -1,15 +1,15 @@
+-diff --git a/libmpv/client.h b/libmpv/client.h
+-index fb10e5e..afbc952 100644
+---- a/libmpv/client.h
+-+++ b/libmpv/client.h
+-@@ -1707,6 +1707,15 @@ MPV_EXPORT mpv_event *mpv_wait_event(mpv_handle *ctx, double timeout);
++diff --git a/include/mpv/client.h b/include/mpv/client.h
++index f970b9a..1b65118 100644
++--- a/include/mpv/client.h
+++++ b/include/mpv/client.h
++@@ -1734,6 +1734,15 @@ MPV_EXPORT mpv_event *mpv_wait_event(mpv_handle *ctx, double timeout);
+   */
+  MPV_EXPORT void mpv_wakeup(mpv_handle *ctx);
+  
+ +/**
+ + * Calls av_jni_set_java_vm() with the given JavaVM*.
+ + * https://github.com/FFmpeg/FFmpeg/blob/0ba719f726632d73592311615087a0d64aa2fb60/libavcodec/jni.h#L26-L36
+-+ * 
+++ *
+ + * The av_jni_set_java_vm() symbol is not visible when statically linking with libavcodec.
+ + * It is important to call this method so that libavcodec can access JNI environment & thus, mediacodec APIs.
+ + */
+@@ -18,24 +18,25 @@ index fb10e5e..afbc952 100644
+  /**
+   * Set a custom function that should be called when there are new events. Use
+   * this if blocking in mpv_wait_event() to wait for new events is not feasible.
+-diff --git a/libmpv/mpv.def b/libmpv/mpv.def
+-index 232490d..d7a2842 100644
++diff --git a/player/client.c b/player/client.c
++index 61c998d..6b947d3 100644
+ --- a/player/client.c
+ +++ b/player/client.c
+ @@ -22,6 +22,8 @@
+- #include <math.h>
+- #include <assert.h>
++ #include <stdint.h>
++ #include <stdlib.h>
+  
+ +#include <libavcodec/jni.h>
+ +
+  #include "common/common.h"
+  #include "common/global.h"
+  #include "common/msg.h"
+-@@ -967,6 +969,10 @@ void mpv_wakeup(mpv_handle *ctx)
+-     pthread_mutex_unlock(&ctx->lock);
++@@ -966,6 +968,11 @@ void mpv_wakeup(mpv_handle *ctx)
++     mp_mutex_unlock(&ctx->lock);
+  }
+  
+-+int mpv_lavc_set_java_vm(void *vm) {
+++int mpv_lavc_set_java_vm(void *vm)
+++{
+ +    return av_jni_set_java_vm(vm, NULL);
+ +}
+ +
+diff --git a/buildscripts/scripts/freetype.sh b/buildscripts/scripts/freetype.sh
+index 752ba95..9b015d4 100755
+--- a/buildscripts/scripts/freetype.sh
++++ b/buildscripts/scripts/freetype.sh
+@@ -16,7 +16,9 @@ fi
+ 
+ unset CC CXX # meson wants these unset
+ 
+-meson setup $build --cross-file "$prefix_dir"/crossfile.txt
++# Cove: no optional libraries (libass gets glyphs from it; harfbuzz shapes)
++meson setup $build --cross-file "$prefix_dir"/crossfile.txt \
++	-D{harfbuzz,png,brotli,tests}=disabled
+ 
+ ninja -C $build -j$cores
+ DESTDIR="$prefix_dir" ninja -C $build install
+diff --git a/buildscripts/scripts/harfbuzz.sh b/buildscripts/scripts/harfbuzz.sh
+index 101c900..4a8e498 100755
+--- a/buildscripts/scripts/harfbuzz.sh
++++ b/buildscripts/scripts/harfbuzz.sh
+@@ -16,8 +16,10 @@ fi
+ 
+ unset CC CXX # meson wants these unset
+ 
++# Cove: as mpv-android; only shaping is needed (libass)
+ meson setup $build --cross-file "$prefix_dir"/crossfile.txt \
+-	-Dtests=disabled -Ddocs=disabled
++	-Dtests=disabled -Ddocs=disabled -Dutilities=disabled \
++	-D{raster,vector,gpu,subset,glib,gobject,cairo,chafa,icu}=disabled
+ 
+ ninja -C $build -j$cores
+ DESTDIR="$prefix_dir" ninja -C $build install
+diff --git a/buildscripts/scripts/libass.sh b/buildscripts/scripts/libass.sh
+index fd95d94..e1e6433 100755
+--- a/buildscripts/scripts/libass.sh
++++ b/buildscripts/scripts/libass.sh
+@@ -17,13 +17,16 @@ fi
+ mkdir -p _build$ndk_suffix
+ cd _build$ndk_suffix
+ 
++# Cove: no fontconfig or libunibreak (media_kit sets sub-font-provider=none: fonts embedded in the file, or none)
+ ../configure \
+ 	CFLAGS=-fPIC CXXFLAGS=-fPIC \
+ 	--host=$ndk_triple \
+ 	--with-pic \
+ 	--disable-asm \
+-	--enable-static\
++	--enable-static \
+ 	--disable-shared \
++	--disable-fontconfig \
++	--disable-libunibreak \
+ 	--disable-require-system-font-provider
+ 
+ make -j$cores
+diff --git a/buildscripts/scripts/libplacebo.sh b/buildscripts/scripts/libplacebo.sh
+new file mode 100644
+index 0000000..8ec9b52
+--- /dev/null
++++ b/buildscripts/scripts/libplacebo.sh
+@@ -0,0 +1,32 @@
++#!/bin/bash -e
++
++. ../../include/depinfo.sh
++. ../../include/path.sh
++
++build=_build$ndk_suffix
++
++if [ "$1" == "build" ]; then
++	true
++elif [ "$1" == "clean" ]; then
++	rm -rf $build
++	exit 0
++else
++	exit 255
++fi
++
++unset CC CXX # meson wants these unset
++
++# Cove: new; mpv requires libplacebo (>= 7.360.1). OpenGL ES only (mpv's vo=gpu on Android), no Vulkan or shader
++# compilers. It has C++ in it: libc++ is linked in statically (the jar ships no libc++_shared.so), so its .pc names
++# the NDK's static libc++ (the NDK's -lc++ is a script that points at libc++_shared).
++meson setup $build --cross-file "$prefix_dir"/crossfile.txt \
++	-Dopengl=enabled \
++	-D{vulkan,glslang,shaderc,lcms,d3d11,dovi,libdovi,unwind,xxhash}=disabled \
++	-D{demos,tests,bench,fuzz}=false
++
++ninja -C $build -j$cores
++DESTDIR="$prefix_dir" ninja -C $build install
++
++extra="-lc++_static -lc++abi"
++[[ "$ndk_triple" == "arm-"* ]] && extra="$extra -l:libunwind.a"
++${SED:-sed} -i "/^Libs:/ s|\$| $extra|" "$prefix_dir/lib/pkgconfig/libplacebo.pc"
+diff --git a/buildscripts/scripts/libxml2.sh b/buildscripts/scripts/libxml2.sh
+index 4418462..daaee7a 100755
+--- a/buildscripts/scripts/libxml2.sh
++++ b/buildscripts/scripts/libxml2.sh
+@@ -3,29 +3,22 @@
+ . ../../include/depinfo.sh
+ . ../../include/path.sh
+ 
++build=_build$ndk_suffix
++
+ if [ "$1" == "build" ]; then
+ 	true
+ elif [ "$1" == "clean" ]; then
+-	rm -rf _build$ndk_suffix
++	rm -rf $build
+ 	exit 0
+ else
+ 	exit 255
+ fi
+ 
+-[ -f configure ] || ./autogen.sh
+-
+-mkdir -p _build$ndk_suffix
+-cd _build$ndk_suffix
++unset CC CXX # meson wants these unset
+ 
+-../configure \
+-    CFLAGS=-fPIC CXXFLAGS=-fPIC \
+-	--host=$ndk_triple \
+-    --disable-shared \
+-    --enable-static \
+-    --with-minimum \
+-    --with-threads \
+-    --with-tree \
+-    --without-lzma \
++# Cove: meson now (autotools before), the minimal parser FFmpeg's DASH demuxer reads its manifests with; as mpv-android
++meson setup $build --cross-file "$prefix_dir"/crossfile.txt \
++	-Dminimum=true -D{push,reader,sax1,iso8859x,pattern,threads}=enabled
+ 
+-make -j$cores
+-make DESTDIR="$prefix_dir" install
++ninja -C $build -j$cores
++DESTDIR="$prefix_dir" ninja -C $build install
+diff --git a/buildscripts/scripts/mbedtls.sh b/buildscripts/scripts/mbedtls.sh
+index 220a812..9a4a447 100755
+--- a/buildscripts/scripts/mbedtls.sh
++++ b/buildscripts/scripts/mbedtls.sh
+@@ -13,6 +13,11 @@ else
+ fi
+ 
+ $0 clean # separate building not supported, always clean
+-
++# Cove: as mpv-android; AES-NI doesn't build for 32-bit x86
++if [[ "$ndk_triple" == "i686"* ]]; then
++	./scripts/config.py unset MBEDTLS_AESNI_C
++else
++	./scripts/config.py set MBEDTLS_AESNI_C
++fi
+ make CFLAGS=-fPIC CXXFLAGS=-fPIC -j$cores no_test
+ make CFLAGS=-fPIC CXXFLAGS=-fPIC DESTDIR="$prefix_dir" install
+diff --git a/buildscripts/scripts/mpv.sh b/buildscripts/scripts/mpv.sh
+index 7e4ea4e..2034bf5 100755
+--- a/buildscripts/scripts/mpv.sh
++++ b/buildscripts/scripts/mpv.sh
+@@ -8,7 +8,7 @@ build=_build$ndk_suffix
+ if [ "$1" == "build" ]; then
+ 	true
+ elif [ "$1" == "clean" ]; then
+-	rm -rf _build$ndk_suffix
++	rm -rf $build
+ 	exit 0
+ else
+ 	exit 255
+@@ -16,19 +16,35 @@ fi
+ 
+ unset CC CXX # meson wants these unset
+ 
++# Cove: mpv master. One libmpv.so with everything static in it, as media_kit expects (its jar ships libmpv.so and the
++# helper only); LGPL. libc++ (libplacebo's) is linked in statically and kept out of the exports. What media_kit's
++# Android output needs is required, not detected: OpenGL ES on Android's EGL (vo=gpu, gpu-context=android), the
++# media NDK (hwdec=mediacodec through AImageReader), and the audio outputs.
++LDFLAGS="$LDFLAGS -Wl,--exclude-libs,libc++_static.a:libc++abi.a" \
+ meson setup $build --cross-file "$prefix_dir"/crossfile.txt \
+ 	--prefer-static \
+ 	--default-library shared \
+ 	-Dgpl=false \
+ 	-Dlibmpv=true \
+- 	-Dlua=disabled \
+- 	-Dcplayer=false \
+-	-Diconv=disabled \
+-	-Dvulkan=disabled \
+-   	-Dlibplacebo=disabled \
+- 	-Dmanpage-build=disabled
++	-Dcplayer=false \
++	-Dbuild-date=false \
++	-Dtests=false \
++	-Dmanpage-build=disabled \
++	-Dgl=enabled \
++	-Degl-android=enabled \
++	-Dandroid-media-ndk=enabled \
++	-D{opensles,audiotrack,aaudio}=enabled \
++	-Dlua=disabled \
++	-D{javascript,iconv,libcurl,vulkan,shaderc,spirv-cross,libarchive,uchardet,zimg,lcms2,rubberband}=disabled \
++	-D{vapoursynth,libbluray,dvdnav,cdda,dvbin,jpeg,subrandr,libavdevice,cplugins}=disabled
+ 
+ ninja -C $build -j$cores
+-DESTDIR="$prefix_dir" ninja -C $build install
+ 
+-ln -sf "$prefix_dir"/lib/libmpv.so "$native_dir"
++# As mpv-android: meson sometimes builds a static library here; start over then
++if [ -f $build/libmpv.a ]; then
++	echo >&2 "meson built libmpv.a, building again"
++	$0 clean
++	exec $0 build
++fi
++
++DESTDIR="$prefix_dir" ninja -C $build install
+diff --git a/buildscripts/verify.sh b/buildscripts/verify.sh
+new file mode 100644
+index 0000000..1e256f9
+--- /dev/null
++++ b/buildscripts/verify.sh
+@@ -0,0 +1,55 @@
++#!/bin/bash
++# Cove: checks that the jars in <out> are drop-in replacements for media_kit's (v1.1.7's): the layout, the libraries'
++# names, what they link against, what they export, 16 KB pages, and that this is the mpv and FFmpeg meant.
++set -euo pipefail
++cd "$( dirname "${BASH_SOURCE[0]}" )"
++out=$1
++. ./include/depinfo.sh
++. ./include/path.sh
++
++fail=0
++bad () { echo "FAIL $*"; fail=1; }
++ok () { echo "ok   $*"; }
++
++allowed_needed="libc.so libm.so libdl.so liblog.so libandroid.so libEGL.so libGLESv2.so libGLESv3.so libmediandk.so libOpenSLES.so libaaudio.so libz.so"
++mpv_short=${v_mpv:0:7}
++
++tmp=$(mktemp -d)
++for pair in arm64-v8a:AArch64 armeabi-v7a:ARM x86_64:X86-64 x86:"Intel 80386"; do
++	abi=${pair%%:*} machine=${pair#*:}
++	jar="$out/default-$abi.jar"
++	echo "== $abi"
++	rm -rf "$tmp"/*
++	unzip -q "$jar" -d "$tmp"
++	files=$(cd "$tmp" && find . -type f | sed 's#^\./##' | sort | tr '\n' ' ')
++	[ "$files" == "lib/$abi/libmediakitandroidhelper.so lib/$abi/libmpv.so " ] && ok "contents: $files" || bad "contents: $files"
++	for so in libmpv.so libmediakitandroidhelper.so; do
++		f="$tmp/lib/$abi/$so"
++		llvm-readelf -h "$f" | grep -q "Machine:.*$machine" && ok "$so: $machine" || bad "$so: not $machine"
++		soname=$(llvm-readelf -d "$f" | sed -n 's/.*(SONAME).*\[\(.*\)\]/\1/p')
++		[ "$soname" == "$so" ] && ok "$so: soname" || bad "$so: soname $soname"
++		for n in $(llvm-readelf -d "$f" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p'); do
++			[[ " $allowed_needed " == *" $n "* ]] || bad "$so: needs $n"
++		done
++		ok "$so: needs $(llvm-readelf -d "$f" | sed -n 's/.*(NEEDED).*\[\(.*\)\]/\1/p' | tr '\n' ' ')"
++		small=$(llvm-readelf -lW "$f" | gawk '$1=="LOAD" && strtonum($NF) < 16384' | wc -l)
++		[ "$small" == "0" ] && ok "$so: 16 KB pages" || bad "$so: LOAD segments under 16 KB alignment"
++		if llvm-nm -D --defined-only "$f" | awk '{print $3}' | grep -qE '^(_ZNSt|_ZNKSt|__cxa_)'; then
++			bad "$so: exports the C++ runtime"
++		fi
++	done
++	f="$tmp/lib/$abi/libmpv.so"
++	missing=$(comm -23 verify/mpv_exports_v1.1.7.txt <(llvm-nm -D --defined-only "$f" | awk '{print $3}' | grep '^mpv_' | sort))
++	[ -z "$missing" ] && ok "libmpv.so: exports v1.1.7's mpv_* API" || bad "libmpv.so: missing $(echo $missing)"
++	llvm-nm -D --defined-only "$f" | grep -q ' mpv_lavc_set_java_vm$' && ok "libmpv.so: mpv_lavc_set_java_vm" || bad "libmpv.so: no mpv_lavc_set_java_vm"
++	h="$tmp/lib/$abi/libmediakitandroidhelper.so"
++	missing=$(comm -23 verify/helper_exports_v1.1.7.txt <(llvm-nm -D --defined-only "$h" | awk '{print $3}' | sort))
++	[ -z "$missing" ] && ok "helper: exports" || bad "helper: missing $(echo $missing)"
++	strings=$(llvm-strings "$f")
++	version=$(grep -oE "mpv v0\.[0-9]+\.[0-9]+[-a-z0-9.]*" <<<"$strings" | head -1)
++	[[ "$version" == *"g$mpv_short"* ]] && ok "mpv: $version" || bad "mpv: $version (wanted $mpv_short)"
++	grep -q "FFmpeg version $v_ffmpeg" <<<"$strings" && ok "FFmpeg $v_ffmpeg" || bad "no FFmpeg $v_ffmpeg"
++	grep -q "AImageReader_newWithUsage" <<<"$strings" && ok "aimagereader" || bad "no aimagereader"
++done
++rm -rf "$tmp"
++[ $fail -eq 0 ] && echo "verify: all good" || { echo "verify: FAILED"; exit 1; }
+diff --git a/buildscripts/verify/helper_exports_v1.1.7.txt b/buildscripts/verify/helper_exports_v1.1.7.txt
+new file mode 100644
+index 0000000..2792bb0
+--- /dev/null
++++ b/buildscripts/verify/helper_exports_v1.1.7.txt
+@@ -0,0 +1,12 @@
++Java_com_alexmercerind_mediakitandroidhelper_MediaKitAndroidHelper_copyAssetToFilesDir
++Java_com_alexmercerind_mediakitandroidhelper_MediaKitAndroidHelper_deleteGlobalObjectRef
++Java_com_alexmercerind_mediakitandroidhelper_MediaKitAndroidHelper_newGlobalObjectRef
++Java_com_alexmercerind_mediakitandroidhelper_MediaKitAndroidHelper_openFileDescriptorNative
++Java_com_alexmercerind_mediakitandroidhelper_MediaKitAndroidHelper_setApplicationContextNative
++MediaKitAndroidHelperCloseFileDescriptor
++MediaKitAndroidHelperCopyAssetToFilesDir
++MediaKitAndroidHelperGetAPILevel
++MediaKitAndroidHelperGetFilesDir
++MediaKitAndroidHelperGetJavaVM
++MediaKitAndroidHelperIsEmulator
++MediaKitAndroidHelperOpenFileDescriptor
+diff --git a/buildscripts/verify/mpv_exports_v1.1.7.txt b/buildscripts/verify/mpv_exports_v1.1.7.txt
+new file mode 100644
+index 0000000..7db35ba
+--- /dev/null
++++ b/buildscripts/verify/mpv_exports_v1.1.7.txt
+@@ -0,0 +1,55 @@
++mpv_abort_async_command
++mpv_client_api_version
++mpv_client_id
++mpv_client_name
++mpv_command
++mpv_command_async
++mpv_command_node
++mpv_command_node_async
++mpv_command_ret
++mpv_command_string
++mpv_create
++mpv_create_client
++mpv_create_weak_client
++mpv_del_property
++mpv_destroy
++mpv_error_string
++mpv_event_name
++mpv_event_to_node
++mpv_free
++mpv_free_node_contents
++mpv_get_property
++mpv_get_property_async
++mpv_get_property_osd_string
++mpv_get_property_string
++mpv_get_time_ns
++mpv_get_time_us
++mpv_get_wakeup_pipe
++mpv_hook_add
++mpv_hook_continue
++mpv_initialize
++mpv_lavc_set_java_vm
++mpv_load_config_file
++mpv_observe_property
++mpv_render_context_create
++mpv_render_context_free
++mpv_render_context_get_info
++mpv_render_context_render
++mpv_render_context_report_swap
++mpv_render_context_set_parameter
++mpv_render_context_set_update_callback
++mpv_render_context_update
++mpv_request_event
++mpv_request_log_messages
++mpv_set_option
++mpv_set_option_string
++mpv_set_property
++mpv_set_property_async
++mpv_set_property_string
++mpv_set_wakeup_callback
++mpv_stream_cb_add_ro
++mpv_terminate_destroy
++mpv_unobserve_property
++mpv_wait_async_requests
++mpv_wait_event
++mpv_wakeup
+diff --git a/buildscripts/write-manifest.sh b/buildscripts/write-manifest.sh
+new file mode 100644
+index 0000000..6ae06fd
+--- /dev/null
++++ b/buildscripts/write-manifest.sh
+@@ -0,0 +1,38 @@
++#!/bin/bash
++# Cove: versions.txt in <out>: what these jars were built from and with
++set -euo pipefail
++cd "$( dirname "${BASH_SOURCE[0]}" )"
++out=$1
++. ./include/depinfo.sh
++. ./include/path.sh
++
++describe () { git -C deps/$1 describe --tags --always 2>/dev/null || echo "-"; }
++sha () { git -C deps/$1 rev-parse HEAD 2>/dev/null || echo "-"; }
++
++{
++	echo "# libmpv for media_kit (Android): mpv master + FFmpeg 9, LGPL, built by Cove"
++	echo "built            $(date -u +%Y-%m-%dT%H:%M:%SZ)"
++	echo "build repo       media-kit/libmpv-android-video-build, branch cove/mpv-master-ffmpeg9 @ ${BUILD_REPO_COMMIT:-unknown}"
++	echo "docker image     ${IMAGE_ID:-unknown}"
++	echo "ndk              $v_ndk ($(grep Pkg.Revision "$ndk_root/source.properties" | cut -d= -f2 | tr -d ' ')), api level $v_apilvl"
++	echo "meson            $(meson --version), ninja $(ninja --version)"
++	echo
++	for d in mpv ffmpeg libplacebo dav1d libass freetype libxml2 media-kit-android-helper; do
++		printf '%-26s %-34s %s\n' "$d" "$(describe $d)" "$(sha $d)"
++	done
++	printf '%-26s %-34s sha256 %s\n' mbedtls "$v_mbedtls" "$v_mbedtls_sha256"
++	printf '%-26s %-34s sha256 %s\n' fribidi "$v_fribidi" "$v_fribidi_sha256"
++	printf '%-26s %-34s sha256 %s\n' harfbuzz "$v_harfbuzz" "$v_harfbuzz_sha256"
++	echo
++	echo "patches"
++	for p in patches/*/*; do echo "  $p $(sha1sum "$p" | cut -d' ' -f1)"; done
++	echo
++	echo "libmpv.so (stripped) bytes"
++	for abi in arm64-v8a armeabi-v7a x86_64 x86; do
++		printf '  %-12s %s\n' $abi "$(stat -c%s staging/lib/$abi/libmpv.so)"
++	done
++	echo
++	echo "md5"; sed 's/^/  /' "$out/md5sums.txt"
++	echo "sha256"; sed 's/^/  /' "$out/sha256sums.txt"
++} >"$out/versions.txt"
++cat "$out/versions.txt"
+diff --git a/docker/Dockerfile b/docker/Dockerfile
+new file mode 100644
+index 0000000..181bec4
+--- /dev/null
++++ b/docker/Dockerfile
+@@ -0,0 +1,27 @@
++# Cove: the build environment for buildscripts/bundle_default.sh (docker/run.sh builds and runs it)
++FROM ubuntu:24.04@sha256:534baea6a22c03a63003dbc8dbe78fe34bc0d7e595d9a9dc9834884ff530eb55
++
++ENV DEBIAN_FRONTEND=noninteractive
++RUN apt-get update && apt-get install -y --no-install-recommends \
++		build-essential autoconf automake libtool pkg-config nasm ninja-build \
++		python3 python3-venv git wget curl ca-certificates unzip zip xz-utils bzip2 \
++		file rsync patch perl gawk gettext autopoint \
++	&& rm -rf /var/lib/apt/lists/*
++
++RUN python3 -m venv /opt/meson && /opt/meson/bin/pip install --no-cache-dir meson==1.12.1 \
++	&& ln -s /opt/meson/bin/meson /usr/local/bin/meson
++
++# The upstream scripts call sudo in places; as root it only runs the command
++RUN printf '#!/bin/sh\nexec "$@"\n' >/usr/local/bin/sudo && chmod +x /usr/local/bin/sudo
++
++# The NDK, checked against Google's repository manifest (buildscripts/include/depinfo.sh: v_ndk, v_ndk_sha1)
++ARG NDK=r30
++ARG NDK_SHA1=5107f898313790e449e87eee2183d9a20602dee9
++RUN wget -q https://dl.google.com/android/repository/android-ndk-$NDK-linux.zip \
++	&& echo "$NDK_SHA1  android-ndk-$NDK-linux.zip" | sha1sum -c - \
++	&& unzip -q android-ndk-$NDK-linux.zip -d /opt \
++	&& rm android-ndk-$NDK-linux.zip
++ENV ANDROID_NDK_HOME=/opt/android-ndk-r30
++
++RUN git config --global advice.detachedHead false && git config --global core.autocrlf false
++WORKDIR /work
+diff --git a/docker/entry.sh b/docker/entry.sh
+new file mode 100644
+index 0000000..552e83e
+--- /dev/null
++++ b/docker/entry.sh
+@@ -0,0 +1,17 @@
++#!/bin/bash
++# Cove: in the container. The scripts come in read-only (/src), are copied next to the sources and builds, which
++# stay in Docker's volume (/work) between runs; the jars go out to /out.
++set -euo pipefail
++mkdir -p /work/buildscripts
++rsync -a --delete \
++	--exclude=deps --exclude=prefix --exclude=sdk --exclude=staging --exclude=artifacts \
++	/src/buildscripts/ /work/buildscripts/
++cd /work/buildscripts
++find . -name '*.sh' -exec chmod +x {} +
++if [ $# -gt 0 ]; then
++	exec "$@"
++fi
++./bundle_default.sh
++rm -rf /out/default && mkdir -p /out/default
++cp -r artifacts/default/. /out/default/
++echo "jars: artifacts/default"
+diff --git a/docker/run.sh b/docker/run.sh
+new file mode 100644
+index 0000000..5175fef
+--- /dev/null
++++ b/docker/run.sh
+@@ -0,0 +1,26 @@
++#!/bin/bash
++# Cove: builds the jars in Docker, from Git Bash on Windows (or any bash with Docker).
++#   docker/run.sh                     build everything (dependencies that are built and unchanged are skipped)
++#   CLEAN=1 docker/run.sh             from fresh sources
++#   docker/run.sh ./build.sh -n mpv   one step, in the container (here: mpv again, without its dependencies)
++# Sources, objects and prefixes live in the Docker volume libmpv-android-work (bind mounts are slow on Windows);
++# `docker volume rm libmpv-android-work` forgets them. The jars, sums and versions.txt: artifacts/default/.
++set -euo pipefail
++cd "$(dirname "$0")/.."
++
++image=cove/libmpv-android:ndk-r30
++docker build -t $image docker
++docker volume create libmpv-android-work >/dev/null
++mkdir -p artifacts
++
++here=$(pwd -W 2>/dev/null || pwd)
++commit="$(git rev-parse HEAD)$(git diff --quiet HEAD -- buildscripts docker || echo -dirty)"
++MSYS_NO_PATHCONV=1 docker run --rm -t \
++	-e CLEAN="${CLEAN:-0}" -e cores="${cores:-$(nproc 2>/dev/null || echo 8)}" \
++	-e BUILD_REPO_COMMIT="$commit" \
++	-e IMAGE_ID="$(docker image inspect -f '{{.Id}}' $image)" \
++	-v libmpv-android-work:/work \
++	-v "$here/buildscripts:/src/buildscripts:ro" \
++	-v "$here/docker:/src/docker:ro" \
++	-v "$here/artifacts:/out" \
++	$image bash /src/docker/entry.sh "$@"
+-- 
+2.42.0.windows.1
+

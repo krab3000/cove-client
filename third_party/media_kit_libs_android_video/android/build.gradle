@@ -1,0 +1,61 @@
+group 'com.alexmercerind.media_kit_libs_android_video'
+version '1.0'
+
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+    }
+
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.13.0'
+    }
+}
+
+rootProject.allprojects {
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+apply plugin: 'com.android.library'
+
+// Cove: libmpv from third_party/libmpv-android (mpv master with mpv PR #18453, FFmpeg n9.0.2; built in Docker, kept in
+// Git LFS), not downloaded from media-kit/libmpv-android-video-build's releases. See third_party/README.md.
+def coveLibmpvDir = new File(projectDir, '../../libmpv-android').canonicalFile
+def coveJars = ['arm64-v8a', 'armeabi-v7a', 'x86_64', 'x86'].collect { new File(coveLibmpvDir, "default-${it}.jar") }
+coveJars.each { jar ->
+    if (!jar.isFile()) {
+        throw new GradleException("Cove: missing ${jar} (third_party/libmpv-android/README.md says how to build it)")
+    }
+    byte[] magic = new byte[4]
+    jar.withInputStream { it.read(magic) }
+    // A zip starts with PK\3\4; a Git LFS pointer is text ("version https://git-lfs...")
+    if (!(magic[0] == 0x50 && magic[1] == 0x4B && magic[2] == 3 && magic[3] == 4)) {
+        throw new GradleException(
+            "Cove: ${jar.name} is a Git LFS pointer, not the jar. Run: git lfs install && git lfs pull")
+    }
+}
+
+android {
+    // Conditional for compatibility with AGP <4.2.
+    if (project.android.hasProperty("namespace")) {
+        namespace 'com.alexmercerind.media_kit_libs_android_video'
+    }
+
+    compileSdkVersion 36
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    defaultConfig {
+        minSdkVersion 16
+    }
+
+    dependencies {
+        implementation files(coveJars)
+    }
+}

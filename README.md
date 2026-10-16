@@ -18,6 +18,9 @@ from the design in [design/](design/README.md) (Nocturne, dark); the design is o
 
 ## Running
 
+Android builds need **Git LFS** (Android's libmpv is in `third_party/libmpv-android`): install it before cloning, or run
+`git lfs install && git lfs pull` after.
+
 ```sh
 brew install --cask flutter          # once; Xcode for macOS (xcodebuild -runFirstLaunch after installing or updating)
 flutter run -d macos                 # the macOS app (the tablet layout)
@@ -81,6 +84,8 @@ the device go with it. The results are in `build/integration_response_data.json`
 | `lib/ui/`, `lib/theme/` | Nocturne's components and tokens, the Phosphor glyphs used |
 | `lib/app/back.dart` | Android back and Escape, by layer (settings over the player over the editor over drawers) |
 | `third_party/media_kit_video` | media_kit_video 2.0.1 with Android's video surface capped to the screen's size ([why](third_party/README.md)) |
+| `third_party/libmpv-android` | Android's libmpv, built here: mpv master + FFmpeg n9.0.2, in Git LFS ([how](third_party/libmpv-android/README.md)) |
+| `third_party/media_kit_libs_android_video` | media_kit_libs_android_video 1.3.8, linking that libmpv instead of downloading media_kit's |
 | `design/` | The design: the spec (`README.md`), the HTML mockups, the Nocturne tokens and guide |
 | `test-server/` | Cove in Docker with a test library |
 

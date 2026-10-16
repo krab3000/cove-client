@@ -1,0 +1,37 @@
+From 825a45f79e9fd4f4f548a2d6f703a9d4d7ec7ec8 Mon Sep 17 00:00:00 2001
+From: krab3000 <336138103+krab3000@users.noreply.github.com>
+Date: Fri, 16 Oct 2026 09:27:25 +0300
+Subject: [PATCH 2/5] path.sh: don't export $toolchain (FFmpeg's configure
+ reads it as --toolchain)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ .gitignore                   | 1 +
+ buildscripts/include/path.sh | 3 ++-
+ 2 files changed, 3 insertions(+), 1 deletion(-)
+
+diff --git a/.gitignore b/.gitignore
+index 3ccecb2..6c25bff 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -18,3 +18,4 @@ buildscripts/sdk/
+ buildscripts/staging/
+ buildscripts/artifacts/
+ artifacts/
++artifacts-build.log
+diff --git a/buildscripts/include/path.sh b/buildscripts/include/path.sh
+index fb00bd6..aaafb3a 100755
+--- a/buildscripts/include/path.sh
++++ b/buildscripts/include/path.sh
+@@ -26,6 +26,7 @@ fi
+ # Cove: the NDK from $ANDROID_NDK_HOME (the Docker image's), else the one download-sdk.sh put into sdk/
+ ndk_root=${ANDROID_NDK_HOME:-$DIR/sdk/android-ndk-$v_ndk}
+ toolchain=$(echo "$ndk_root/toolchains/llvm/prebuilt/"*)
+-export ndk_root toolchain
++# not exported: FFmpeg's configure takes $toolchain from the environment as its --toolchain
++export ndk_root
+ export PATH="$toolchain/bin:$ndk_root:$PATH"
+ unset ANDROID_SDK_ROOT ANDROID_NDK_ROOT
+-- 
+2.42.0.windows.1
+

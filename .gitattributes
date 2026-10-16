@@ -3,3 +3,6 @@
 *.bat text eol=crlf
 # shell scripts run in Linux containers
 *.sh text eol=lf
+third_party/libmpv-android/*.jar filter=lfs diff=lfs merge=lfs -text
+# the libmpv build's patch series, applied with git am: byte for byte
+third_party/libmpv-android/build-patches/*.patch -text

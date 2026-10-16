@@ -15,3 +15,21 @@ a core thread slow or stuck stopping made the app stop responding (Android's "no
 Galaxy S22 after closing players and preview clips).
 
 `pubspec.yaml` points both packages here with `dependency_overrides`.
+
+## libmpv-android: Android's libmpv, built here
+
+`libmpv-android/` holds the libmpv that Android builds use, in place of the one media_kit downloads
+(media-kit/libmpv-android-video-build v1.1.7: mpv from October 2023, FFmpeg 6.0). It is mpv master with mpv PR #18453
+(`hwdec_aimagereader` fixes), FFmpeg n9.0.2 and libplacebo, built in Docker; `libmpv-android/README.md` has the
+versions and how to build it again. Zero-copy hardware decoding (`hwdec=mediacodec`) hung after overlapping seeks with
+the old libmpv (an S22: "acquireLatestImage failed: -30001"); #18453 fixes that.
+
+The four jars (`default-<abi>.jar`: `lib/<abi>/libmpv.so` and `lib/<abi>/libmediakitandroidhelper.so`, as media_kit's)
+are in **Git LFS**: clone with Git LFS installed, or run `git lfs install && git lfs pull`. Without them the Android
+build stops and says so.
+
+## media_kit_libs_android_video
+
+`media_kit_libs_android_video` 1.3.8 (pub.dev, MIT; `LICENSE` inside), vendored with one change, marked `Cove:` in
+`android/build.gradle`: the jars come from `libmpv-android/` instead of being downloaded (and checked by MD5) from
+media-kit's releases. `pubspec.yaml` points `media_kit_libs_android_video` here with `dependency_overrides`.

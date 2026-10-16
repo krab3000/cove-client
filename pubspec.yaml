@@ -25,6 +25,9 @@ dependency_overrides:
   # media_kit_video with the Android video surface capped to the size the app asks for (third_party/README.md)
   media_kit_video:
     path: third_party/media_kit_video
+  # Android's libmpv built here (mpv master, FFmpeg 9; third_party/libmpv-android, Git LFS) instead of media_kit's
+  media_kit_libs_android_video:
+    path: third_party/media_kit_libs_android_video
 
 dev_dependencies:
   flutter_test:

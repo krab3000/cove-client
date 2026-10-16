@@ -1,0 +1,33 @@
+From 4157bc3487093b64a306ae11389adc51cbac951e Mon Sep 17 00:00:00 2001
+From: krab3000 <336138103+krab3000@users.noreply.github.com>
+Date: Fri, 16 Oct 2026 09:32:48 +0300
+Subject: [PATCH 5/5] Helper: libc++ not exported (--exclude-libs,ALL)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ buildscripts/bundle_default.sh | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/buildscripts/bundle_default.sh b/buildscripts/bundle_default.sh
+index 91d1e15..35a4755 100755
+--- a/buildscripts/bundle_default.sh
++++ b/buildscripts/bundle_default.sh
+@@ -31,12 +31,13 @@ for pair in armeabi-v7a:armv7a-linux-androideabi arm64-v8a:aarch64-linux-android
+ 	cxx=${pair#*:}$v_apilvl-clang++
+ 	mkdir -p staging/lib/$abi
+ 	llvm-strip --strip-all -o staging/lib/$abi/libmpv.so prefix/$abi/lib/libmpv.so
+-	# libmediakitandroidhelper.so: media-kit-android-helper's one file, as its CMake builds it (static libc++)
++	# libmediakitandroidhelper.so: media-kit-android-helper's one file, as its CMake builds it (static libc++), but
++	# without exporting libc++ (v1.1.7's exported 393 of its symbols)
+ 	$cxx -shared -fPIC -O2 -std=c++17 \
+ 		deps/media-kit-android-helper/app/src/main/cpp/native-lib.cpp \
+ 		-o staging/lib/$abi/libmediakitandroidhelper.so \
+ 		-static-libstdc++ -llog -landroid \
+-		-Wl,-z,max-page-size=16384 -Wl,--build-id=sha1 -Wl,-soname,libmediakitandroidhelper.so
++		-Wl,--exclude-libs,ALL -Wl,-z,max-page-size=16384 -Wl,--build-id=sha1 -Wl,-soname,libmediakitandroidhelper.so
+ 	llvm-strip --strip-unneeded staging/lib/$abi/libmediakitandroidhelper.so
+ 	(cd staging && zip -q -X -r ../artifacts/default/default-$abi.jar lib/$abi)
+ done
+-- 
+2.42.0.windows.1
+
